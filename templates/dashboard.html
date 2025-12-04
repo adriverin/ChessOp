@@ -1,0 +1,78 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess Opening Master</title>
+    
+    <!-- Dependencies -->
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+
+    <!-- MAIN MENU -->
+    <div id="main-menu" class="screen active-screen">
+        <h1 style="margin-bottom: 5px; font-size: 2rem;">Chess Opening Master</h1>
+        <p style="color: #666; margin-top:0; margin-bottom: 30px;">Select an opening to train</p>
+        <div id="opening-list-container"></div>
+    </div>
+
+    <!-- VARIATION MENU -->
+    <div id="variation-menu" class="screen">
+        <div style="width: 100%; max-width: 900px;">
+            <button class="back-btn" onclick="showMainMenu()"><i class="fas fa-arrow-left"></i> Main Menu</button>
+            <h2 id="selected-opening-title" style="color: var(--accent-color); margin-bottom: 15px;">Opening</h2>
+            <div id="variation-list-container" class="opening-list"></div>
+        </div>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="game-screen" class="screen">
+        <div id="game-container">
+            <div id="board-area">
+                <div class="captured-bar" id="captures-top"></div>
+                <div id="board"></div>
+                <div class="captured-bar" id="captures-bottom"></div>
+            </div>
+
+            <div class="dashboard">
+                <div class="dash-header">
+                    <strong id="active-variation-title" style="color: var(--accent-color);">Variation</strong>
+                    <div style="display:flex; gap:5px;">
+                        <button class="btn-menu" onclick="showVariationMenu()"><i class="fas fa-list"></i> Change</button>
+                        <button class="btn-menu" onclick="showMainMenu()"><i class="fas fa-home"></i></button>
+                    </div>
+                </div>
+
+                <div id="move-log">
+                    <div class="log-entry" style="text-align:center; color:#666;">Game Start.</div>
+                </div>
+
+                <div class="controls-grid">
+                    <button class="btn-nav" id="prev-btn"><i class="fas fa-step-backward"></i></button>
+                    <button class="btn-reset" id="reset-btn"><i class="fas fa-sync"></i></button>
+                    <button class="btn-nav" id="next-btn"><i class="fas fa-step-forward"></i></button>
+                    <button class="btn-hint" id="recall-btn"><i class="fas fa-random"></i> Recall</button>
+                    <button class="btn-hint" id="hint-btn"><i class="fas fa-lightbulb"></i> Hint</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+
+    <!-- Custom Scripts -->
+    <script>
+        const CSRF_TOKEN = '{{ csrf_token }}';
+    </script>
+    <script src="{% static 'js/app.js' %}"></script>
+</body>
+</html>
