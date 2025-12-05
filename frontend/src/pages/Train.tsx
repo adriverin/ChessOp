@@ -4,7 +4,7 @@ import { api } from '../api/client';
 import type { RecallSessionResponse } from '../types';
 import { GameArea } from '../components/GameArea';
 import { useUser } from '../context/UserContext';
-import { Brain, Trophy, ArrowRight } from 'lucide-react';
+import { Trophy, ArrowRight } from 'lucide-react';
 
 export const Train: React.FC = () => {
     const { user, refreshUser } = useUser();
@@ -123,22 +123,12 @@ export const Train: React.FC = () => {
     }
 
     return (
-        <div className="max-w-2xl mx-auto">
-            <div className="mb-6 text-center">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-sm font-medium mb-2">
-                    <Brain size={16} />
-                    {session.type === 'mistake' && "Fix Your Blunder"}
-                    {session.type === 'srs_review' && "Spaced Repetition Review"}
-                    {session.type === 'new_learn' && "Learn New Line"}
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                    {session.type === 'mistake' ? session.variation_name : session.name}
-                </h2>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 space-y-4">
+        <div className="w-full max-w-6xl mx-auto px-4 py-4">
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                 <GameArea
                     mode={session.type === 'mistake' ? 'mistake' : 'sequence'}
+                    sessionTitle={session.type === 'mistake' ? session.variation_name : session.name}
+                    sessionType={session.type}
                     initialFen={session.type === 'mistake' ? session.fen : undefined}
                     targetNextMove={session.type === 'mistake' ? session.correct_move : undefined}
                     targetMoves={session.type !== 'mistake' ? session.moves : undefined}
@@ -149,33 +139,32 @@ export const Train: React.FC = () => {
                 />
 
                 {completed && (
-                    <div className="rounded-lg border border-green-200 bg-green-50 p-4 flex flex-col gap-3">
+                    <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300">
                         <div className="flex items-center gap-3 text-green-700">
-                            <div className="w-10 h-10 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
-                                <Trophy size={22} />
+                            <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center shrink-0">
+                                <Trophy size={16} />
                             </div>
                             <div>
-                                <div className="font-bold text-green-800">Session Complete</div>
-                                <div className="text-sm font-semibold">{message}</div>
+                                <div className="font-bold text-green-800 text-sm">Session Complete</div>
+                                <div className="text-xs font-medium text-green-700/80">{message}</div>
                             </div>
                         </div>
-                        <div className="flex flex-wrap gap-2">
-                            <button 
-                                onClick={fetchSession} 
-                                className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition shadow-lg shadow-blue-200"
-                            >
-                                Next Exercise <ArrowRight size={16} />
-                            </button>
+                        <div className="flex items-center gap-2">
                             <button
                                 onClick={() => {
-                                    // rerun the same session if id present; otherwise fetchSession will give random
                                     setCompleted(false);
                                     setMessage(null);
                                     fetchSession();
                                 }}
-                                className="inline-flex items-center gap-2 bg-white text-blue-700 border border-blue-200 px-4 py-2 rounded-lg hover:bg-blue-50 transition"
+                                className="text-xs font-medium text-blue-600 hover:text-blue-800 px-3 py-1.5 hover:bg-blue-50 rounded-md transition-colors"
                             >
                                 Train Again
+                            </button>
+                            <button 
+                                onClick={fetchSession} 
+                                className="inline-flex items-center gap-1 bg-blue-600 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-blue-700 transition shadow-sm"
+                            >
+                                Next <ArrowRight size={12} />
                             </button>
                         </div>
                     </div>
