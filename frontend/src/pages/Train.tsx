@@ -123,8 +123,8 @@ export const Train: React.FC = () => {
     }
 
     return (
-        <div className="w-full max-w-6xl mx-auto px-4 py-4">
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <div className="w-full max-w-6xl mx-auto">
+            <div className="bg-white p-2 sm:p-3 rounded-xl shadow-sm border border-gray-100">
                 <GameArea
                     mode={session.type === 'mistake' ? 'mistake' : 'sequence'}
                     sessionTitle={session.type === 'mistake' ? session.variation_name : session.name}

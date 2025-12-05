@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
 import type { Move as APIMove } from '../types';
@@ -292,7 +292,23 @@ export const GameArea: React.FC<GameAreaProps> = ({
 
     // Derived helpers
     const totalMoves = mode === 'sequence' && targetMoves ? targetMoves.length : (mode === 'mistake' ? 1 : 0);
-    const remainingMoves = totalMoves > 0 ? Math.max(totalMoves - moveIndex, 0) : 0;
+    
+    const remainingMoves = useMemo(() => {
+        if (mode === 'mistake') return 1;
+        if (mode !== 'sequence' || !targetMoves) return 0;
+
+        let count = 0;
+        let currentTurn = game.turn(); // 'w' or 'b'
+        const userColor = orientation === 'white' ? 'w' : 'b';
+
+        for (let i = moveIndex; i < targetMoves.length; i++) {
+            if (currentTurn === userColor) {
+                count++;
+            }
+            currentTurn = currentTurn === 'w' ? 'b' : 'w';
+        }
+        return count;
+    }, [mode, targetMoves, moveIndex, game, orientation]);
 
     const historyVerbose = (() => {
         try { return game.history({ verbose: true }) as any[]; } catch { return []; }
@@ -424,7 +440,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 justify-center items-start w-full">
+        <div className="flex flex-col lg:flex-row gap-6 justify-center items-stretch w-full">
             
             {/* Left Column: Board + Progress + Status */}
             <div className="flex flex-col w-full max-w-2xl gap-3">
@@ -546,65 +562,68 @@ export const GameArea: React.FC<GameAreaProps> = ({
             </div>
 
             {/* Right Column: Sidebar */}
-            <div className="flex flex-col w-full lg:w-[300px] gap-3 shrink-0">
-                
-                {/* Session Info (Moved from Header) */}
-                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
-                     <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wide mb-1">
-                        <Brain size={12} />
-                        {sessionType === 'mistake' && "Fix Blunder"}
-                        {sessionType === 'srs_review' && "Review"}
-                        {sessionType === 'new_learn' && "Learn"}
+            <div className="relative flex flex-col w-full lg:w-[300px] shrink-0">
+                {/* Wrapper to match height on desktop */}
+                <div className="flex flex-col gap-3 lg:absolute lg:inset-0">
+                    
+                    {/* Session Info (Moved from Header) */}
+                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm shrink-0">
+                            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wide mb-1">
+                            <Brain size={12} />
+                            {sessionType === 'mistake' && "Fix Blunder"}
+                            {sessionType === 'srs_review' && "Review"}
+                            {sessionType === 'new_learn' && "Learn"}
+                        </div>
+                        <h3 className="text-sm font-bold text-gray-900 leading-snug">
+                            {sessionTitle}
+                        </h3>
                     </div>
-                    <h3 className="text-sm font-bold text-gray-900 leading-snug">
-                        {sessionTitle}
-                    </h3>
-                </div>
 
-                {/* Log */}
-                <div className="flex flex-col flex-1 min-h-0 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden max-h-[300px] lg:max-h-[400px]">
-                        <div className="flex items-center justify-between p-3 border-b border-gray-100 text-xs font-semibold text-gray-700 shrink-0 bg-gray-50/50">
-                        <span>Line Moves</span>
-                        {!logRevealed && (
-                            <button
-                                onClick={() => {
-                                    setLogRevealed(true);
-                                    setHintsUsed(true);
+                    {/* Log */}
+                    <div className="flex flex-col flex-1 min-h-0 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                            <div className="flex items-center justify-between p-3 border-b border-gray-100 text-xs font-semibold text-gray-700 shrink-0 bg-gray-50/50">
+                            <span>Line Moves</span>
+                            {!logRevealed && (
+                                <button
+                                    onClick={() => {
+                                        setLogRevealed(true);
+                                        setHintsUsed(true);
+                                    }}
+                                    className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors flex items-center gap-1"
+                                >
+                                    <HelpCircle size={12} /> Reveal all
+                                </button>
+                            )}
+                        </div>
+                        {renderMoveLogContent()}
+                    </div>
+                    
+                    {/* Captured pieces */}
+                    <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm space-y-2 shrink-0">
+                        <div className="text-xs font-semibold text-gray-700 uppercase tracking-wider opacity-75">Captured</div>
+                        {renderCaptured(capturedWhite, "White", 'b')}
+                        {renderCaptured(capturedBlack, "Black", 'w')}
+                    </div>
+
+                    {/* Practice Mode (Moved to Bottom) */}
+                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 shrink-0">
+                        <div className="flex items-center justify-between text-xs text-gray-600">
+                            <span className="font-semibold">Practice Mode</span>
+                            <select
+                                value={wrongMoveMode}
+                                onChange={(e) => {
+                                    const val = e.target.value === 'stay' ? 'stay' : 'snap';
+                                    setWrongMoveMode(val);
+                                    if (typeof window !== 'undefined') {
+                                        localStorage.setItem('wrongMoveMode', val);
+                                    }
                                 }}
-                                className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors flex items-center gap-1"
+                                className="bg-white border border-gray-300 rounded px-2 py-1 text-xs cursor-pointer hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
                             >
-                                <HelpCircle size={12} /> Reveal all
-                            </button>
-                        )}
-                    </div>
-                    {renderMoveLogContent()}
-                </div>
-                
-                {/* Captured pieces */}
-                <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm space-y-2 shrink-0">
-                    <div className="text-xs font-semibold text-gray-700 uppercase tracking-wider opacity-75">Captured</div>
-                    {renderCaptured(capturedWhite, "White", 'b')}
-                    {renderCaptured(capturedBlack, "Black", 'w')}
-                </div>
-
-                {/* Practice Mode (Moved to Bottom) */}
-                <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                    <div className="flex items-center justify-between text-xs text-gray-600">
-                        <span className="font-semibold">Practice Mode</span>
-                        <select
-                            value={wrongMoveMode}
-                            onChange={(e) => {
-                                const val = e.target.value === 'stay' ? 'stay' : 'snap';
-                                setWrongMoveMode(val);
-                                if (typeof window !== 'undefined') {
-                                    localStorage.setItem('wrongMoveMode', val);
-                                }
-                            }}
-                            className="bg-white border border-gray-300 rounded px-2 py-1 text-xs cursor-pointer hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-                        >
-                            <option value="snap">Snap back</option>
-                            <option value="stay">Wait to Revert</option>
-                        </select>
+                                <option value="snap">Snap back</option>
+                                <option value="stay">Wait to Revert</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
             </div>
