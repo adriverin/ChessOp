@@ -42,3 +42,34 @@ If the instructions above look like gibberish, follow these simple steps:
 
 3.  **Play!**
     *   The browser will open automatically. Enjoy!
+
+## Local Network Access (Technical Guide 📱)
+
+To play from your iPhone or another device on the same Wi-Fi network:
+
+1.  **Find your Computer's Local IP**:
+    *   **Windows**: Open Command Prompt, type `ipconfig`. Look for "IPv4 Address" (e.g., `192.168.1.5`).
+    *   **Mac/Linux**: Open Terminal, type `ifconfig` or `ip addr`. Look for `inet` under `en0` or `wlan0`.
+
+2.  **Allow the Connection**:
+    *   Open `chess_project/settings.py`.
+    *   Find `CSRF_TRUSTED_ORIGINS` (around line 30).
+    *   Add your IP URL to the list:
+        ```python
+        CSRF_TRUSTED_ORIGINS = [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://192.168.1.5:5173",  # <--- Add your IP like this
+        ]
+        ```
+
+3.  **Run the Server**:
+    *   **Backend**: Run as normal (the scripts already use `0.0.0.0`).
+    *   **Frontend**: You need to tell Vite to listen on the network.
+        *   Open a terminal in the `frontend` folder.
+        *   Run: `npm run dev -- --host`
+    *   (Or modify the `run_windows.bat` / `run_linux.sh` to add `-- --host` to the frontend command).
+
+4.  **Connect**:
+    *   On your iPhone, make sure you are on the **same Wi-Fi**.
+    *   Open Safari/Chrome and go to `http://192.168.1.5:5173` (replace with your actual IP).

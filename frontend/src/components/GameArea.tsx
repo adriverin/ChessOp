@@ -78,6 +78,16 @@ export const GameArea: React.FC<GameAreaProps> = ({
         }
     }, [moveIndex, logRevealed]);
 
+    const getSquareCoords = (square: string, orientation: 'white' | 'black') => {
+        const file = square.charCodeAt(0) - 97; // a=0
+        const rank = parseInt(square[1]) - 1;   // 1=0
+        
+        const x = orientation === 'white' ? file : 7 - file;
+        const y = orientation === 'white' ? 7 - rank : rank;
+        
+        return { x, y };
+    };
+
     // Calculate legal moves for Chessground
     const toDests = (chess: Chess) => {
         const dests = new Map();
@@ -93,16 +103,18 @@ export const GameArea: React.FC<GameAreaProps> = ({
         if (!containerRef.current) return;
 
         const isLocked = locked;
+        const isWrongMoveStay = wrongMoveView && wrongMoveMode === 'stay';
+
         const config = {
             fen: wrongMoveView ? wrongMoveView.fen : game.fen(),
             orientation: orientation,
-            viewOnly: isLocked,
+            viewOnly: isLocked, // Allow interaction if wrong move (to click/revert)
             turnColor: game.turn() === 'w' ? 'white' : 'black',
             animation: {
                 enabled: true,
                 duration: 200
             },
-            movable: isLocked ? {
+            movable: (isLocked || isWrongMoveStay) ? {
                 free: false,
                 color: orientation,
                 dests: new Map(), // no moves allowed
@@ -117,6 +129,16 @@ export const GameArea: React.FC<GameAreaProps> = ({
                 events: {
                     after: (orig: string, dest: string) => {
                         handleMove(orig, dest);
+                    }
+                }
+            },
+            events: {
+                select: (key: string) => {
+                    if (isWrongMoveStay && wrongMoveView?.lastMove) {
+                         const [_, target] = wrongMoveView.lastMove;
+                         if (key === target) {
+                             handleRevertWrong();
+                         }
                     }
                 }
             },
@@ -464,6 +486,25 @@ export const GameArea: React.FC<GameAreaProps> = ({
                         ref={containerRef} 
                         className="w-full h-full block" 
                     />
+                    
+                    {/* Wrong Move Indicator Overlay */}
+                    {wrongMoveView && wrongMoveMode === 'stay' && wrongMoveView.lastMove && (() => {
+                        const targetSquare = wrongMoveView.lastMove[1];
+                        const { x, y } = getSquareCoords(targetSquare, orientation);
+                        return (
+                            <div 
+                                className="absolute pointer-events-none z-10"
+                                style={{
+                                    left: `${x * 12.5}%`,
+                                    top: `${y * 12.5}%`,
+                                    width: '12.5%',
+                                    height: '12.5%',
+                                }}
+                            >
+                                <div className="absolute top-0 right-0 w-3 h-3 bg-red-600 rounded-full shadow-sm ring-1 ring-white m-1" />
+                            </div>
+                        );
+                    })()}
                 </div>
 
                 {/* Status Bar */}
