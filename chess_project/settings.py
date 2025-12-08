@@ -25,13 +25,15 @@ SECRET_KEY = "django-insecure-(s$i=70@pph(xl4#va-%-q5cu5%s0^p+^#hl_i&oal6psvmmyl
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:8000",
     # Add your local network IP here to play from other devices (e.g. "http://192.168.1.5:5173")
+    "http://192.168.1.3:5173",
+    "http://192.168.1.3:8000"
 ]
 
 

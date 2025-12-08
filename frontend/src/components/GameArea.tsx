@@ -4,6 +4,7 @@ import { Chessground } from 'chessground';
 import type { Move as APIMove } from '../types';
 import { RotateCcw, CheckCircle, XCircle, HelpCircle, Brain } from 'lucide-react';
 import clsx from 'clsx';
+import { PIECE_IMAGES } from './ChessPieceImages';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.brown.css';
 import 'chessground/assets/chessground.cburnett.css';
@@ -332,55 +333,61 @@ export const GameArea: React.FC<GameAreaProps> = ({
         return count;
     }, [mode, targetMoves, moveIndex, game, orientation]);
 
-    const historyVerbose = (() => {
-        try { return game.history({ verbose: true }) as any[]; } catch { return []; }
-    })();
-    const capturedWhite: string[] = [];
-    const capturedBlack: string[] = [];
-    historyVerbose.forEach((mv) => {
-        if (mv.captured) {
-            if (mv.color === 'w') {
-                // white captured black piece
-                capturedWhite.push(mv.captured);
-            } else {
-                capturedBlack.push(mv.captured);
+    const { capturedWhite, capturedBlack } = useMemo(() => {
+        const capturedW: string[] = [];
+        const capturedB: string[] = [];
+        
+        let tempGame: Chess;
+        try {
+            if (!initialFen || initialFen === 'start') tempGame = new Chess();
+            else if (initialFen.split(' ').length !== 6) tempGame = new Chess();
+            else tempGame = new Chess(initialFen);
+        } catch (e) {
+            tempGame = new Chess();
+        }
+        
+        const movesToReplay: string[] = [];
+        
+        if (mode === 'sequence' && targetMoves) {
+            for (let i = 0; i < moveIndex; i++) {
+                if (targetMoves[i]) {
+                    movesToReplay.push(targetMoves[i].san);
+                }
+            }
+        } else if (mode === 'mistake' && feedback === 'correct' && targetNextMove) {
+            movesToReplay.push(targetNextMove);
+        }
+        
+        for (const san of movesToReplay) {
+            try {
+                const move = tempGame.move(san);
+                if (move && move.captured) {
+                    if (move.color === 'w') {
+                        capturedW.push(move.captured);
+                    } else {
+                        capturedB.push(move.captured);
+                    }
+                }
+            } catch (e) {
+                console.error("Error replaying move for captures:", san, e);
             }
         }
-    });
-
-    const getPieceSymbol = (type: string, color: 'w' | 'b') => {
-        // Unicode Chess Pieces
-        const symbols: Record<string, string> = {
-            'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚', // Black style
-            'P': '♙', 'N': '♘', 'B': '♗', 'R': '♖', 'Q': '♕', 'K': '♔'  // White style
-        };
-        // Note: Usually captures are shown as the piece type captured.
-        // We can use the same symbols or color them.
-        // Here we return the generic symbol key.
-        // If we want White Captured pieces (which are Black pieces), we return black symbols?
-        // Or we just return the type and style it.
-        // Let's return the type and use CSS for color.
-        const mapping: Record<string, string> = {
-            'p': '♟', 'n': '♞', 'b': '♝', 'r': '♜', 'q': '♛', 'k': '♚'
-        };
-        return mapping[type] || type;
-    };
+        
+        return { capturedWhite: capturedW, capturedBlack: capturedB };
+    }, [initialFen, mode, targetMoves, targetNextMove, moveIndex, feedback]);
 
     const renderCaptured = (list: string[], label: string, pieceColor: 'w' | 'b') => (
         <div className="flex items-center gap-2 text-xs text-gray-700">
             <span className="font-semibold min-w-[80px]">{label}:</span>
-            <div className="flex gap-1 flex-wrap">
+            <div className="flex gap-1 flex-wrap items-center">
                 {list.length === 0 && <span className="text-gray-400 italic">None</span>}
                 {list.map((p, idx) => (
-                    <span 
-                        key={idx} 
-                        className={clsx(
-                            "text-lg leading-none",
-                            pieceColor === 'b' ? "text-black" : "text-gray-500 drop-shadow-sm" // styling for white pieces to stand out
-                        )}
-                    >
-                        {getPieceSymbol(p, pieceColor)}
-                    </span>
+                    <img
+                        key={idx}
+                        src={PIECE_IMAGES[pieceColor + p.toLowerCase()] || ''}
+                        alt={p}
+                        className="w-6 h-6 select-none"
+                    />
                 ))}
             </div>
         </div>
