@@ -20,6 +20,7 @@ interface GameAreaProps {
     locked?: boolean;
     sessionTitle?: string;
     sessionType?: string;
+    onRemainingMovesChange?: (remaining: number) => void;
 }
 
 export const GameArea: React.FC<GameAreaProps> = ({ 
@@ -32,7 +33,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
     mode,
     locked = false,
     sessionTitle,
-    sessionType
+    sessionType,
+    onRemainingMovesChange
 }) => {
     const [game, setGame] = useState(() => {
         try {
@@ -332,6 +334,12 @@ export const GameArea: React.FC<GameAreaProps> = ({
         }
         return count;
     }, [mode, targetMoves, moveIndex, game, orientation]);
+
+    useEffect(() => {
+        if (onRemainingMovesChange) {
+            onRemainingMovesChange(remainingMoves);
+        }
+    }, [remainingMoves, onRemainingMovesChange]);
 
     const { capturedWhite, capturedBlack } = useMemo(() => {
         const capturedW: string[] = [];

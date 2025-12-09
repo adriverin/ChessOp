@@ -29,6 +29,9 @@ export const OpeningDrill: React.FC = () => {
     const [badges, setBadges] = useState<OpeningDrillBadge[]>([]);
     const [showStats, setShowStats] = useState(true);
 
+    const [remainingMoves, setRemainingMoves] = useState<number>(0);
+    const [lineDetailsOpen, setLineDetailsOpen] = useState<Record<string, boolean>>({});
+
     const summaryCounts = progress
         ? (() => {
             const total = progress.progress.length;
@@ -253,6 +256,49 @@ export const OpeningDrill: React.FC = () => {
         );
     }
 
+    const getFriendlyStatusFromSrs = () => {
+        if (!session || !session.srs) return { label: 'New line', helper: "Let's learn this line." };
+        const { status, streak, interval_days, due_date } = session.srs as any;
+        const isNew = (!due_date || due_date === null) && (!streak || streak === 0) && (!interval_days || interval_days === 0);
+        if (status === 'mastered') {
+            return { label: 'Mastered', helper: "You'll see this less often if you keep getting it right." };
+        }
+        if (status === 'due') {
+            return { label: 'Review due', helper: "Time to refresh this line before it slips." };
+        }
+        if (isNew) {
+            return { label: 'New line', helper: "We'll repeat this a bit to lock it in." };
+        }
+        return { label: 'Learning', helper: "We'll repeat this more often until you're solid." };
+    };
+
+    const getFriendlyStatusForItem = (item: any) => {
+        const isNew = !item.due_date && item.streak === 0 && item.interval_days === 0;
+        if (item.status === 'mastered') return 'Mastered';
+        if (item.status === 'due') return 'Review due';
+        if (isNew) return 'New line';
+        return 'Learning';
+    };
+
+    const getNextReviewText = (dueDate?: string | null) => {
+        if (!dueDate) return 'No review scheduled yet';
+        const due = new Date(dueDate);
+        const now = new Date();
+        const diffMs = due.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+        if (diffDays <= 0) return 'Next review today';
+        if (diffDays === 1) return 'Next review in 1 day';
+        return `Next review in ${diffDays} days`;
+    };
+
+    const friendlyHeader = getFriendlyStatusFromSrs();
+
+    const masteryBar = stats && stats.total_variations > 0 ? {
+        mastered: stats.mastered_variations,
+        total: stats.total_variations,
+        percent: Math.round((stats.mastered_variations / stats.total_variations) * 100)
+    } : null;
+
     // Drill Session View
     return (
         <main className="w-full max-w-7xl mx-auto py-2 px-3 sm:px-4 lg:px-6">
@@ -280,18 +326,17 @@ export const OpeningDrill: React.FC = () => {
                         </div>
                     ) : session ? (
                         <>
-                            <div className="mb-1 flex flex-wrap gap-2 text-xs">
-                                <span className="px-2 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100 font-semibold">
-                                    Streak: {session.srs.streak}
-                                </span>
-                                <span className="px-2 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-100 font-semibold">
-                                    EF: {session.srs.ease_factor.toFixed(2)}
-                                </span>
-                                <span className="px-2 py-1 rounded-full bg-green-50 text-green-700 border border-green-100 font-semibold">
-                                    Interval: {session.srs.interval_days.toFixed(1)} days
-                                </span>
-                                <span className="px-2 py-1 rounded-full bg-gray-50 text-gray-700 border border-gray-100 font-semibold">
-                                    Due: {session.srs.due_date ? new Date(session.srs.due_date).toLocaleDateString() : 'N/A'}
+                            <div className="flex flex-wrap items-center justify-between text-xs sm:text-sm mb-2 gap-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 font-medium">
+                                        {friendlyHeader.label}
+                                    </span>
+                                    <span className="text-gray-500">
+                                        {friendlyHeader.helper}
+                                    </span>
+                                </div>
+                                <span className="text-gray-500">
+                                    {remainingMoves} moves remaining
                                 </span>
                             </div>
 
@@ -304,6 +349,7 @@ export const OpeningDrill: React.FC = () => {
                                 onComplete={handleComplete}
                                 onMistake={handleMistake}
                                 locked={completed || failed}
+                                onRemainingMovesChange={setRemainingMoves}
                             />
 
                             {(completed || failed) && (
@@ -371,28 +417,53 @@ export const OpeningDrill: React.FC = () => {
                                     </span>
                                 </div>
                             )}
+                            {masteryBar && (
+                                <div className="mt-2">
+                                    <div className="flex justify-between text-[11px] text-gray-500 mb-1">
+                                        <span>{masteryBar.mastered} / {masteryBar.total} lines mastered</span>
+                                        <span>{masteryBar.percent}%</span>
+                                    </div>
+                                    <div className="h-1.5 w-full rounded-full bg-gray-100">
+                                        <div
+                                            className="h-1.5 rounded-full bg-emerald-500"
+                                            style={{ width: `${masteryBar.percent}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 lg:grid-cols-3 max-h-96 overflow-y-auto pr-1">
                                 {progress.progress.map(item => {
-                                    const isDue = item.status === 'due';
-                                    const isLearning = item.status === 'learning';
-                                    const badge = isDue ? 'bg-red-50 text-red-800 border-red-100' : isLearning ? 'bg-yellow-50 text-yellow-800 border-yellow-100' : 'bg-green-50 text-green-800 border-green-100';
-                                    const statusLabel = isDue ? 'Due' : isLearning ? 'Learning' : 'Mastered';
+                                    const statusLabel = getFriendlyStatusForItem(item);
+                                    const badge =
+                                        statusLabel === 'Review due'
+                                            ? 'bg-red-50 text-red-800 border-red-100'
+                                            : statusLabel === 'Learning' || statusLabel === 'New line'
+                                                ? 'bg-yellow-50 text-yellow-800 border-yellow-100'
+                                                : 'bg-green-50 text-green-800 border-green-100';
+                                    const nextReview = getNextReviewText(item.due_date);
+                                    const isOpen = lineDetailsOpen[item.variation_id] || false;
                                     return (
                                         <div key={item.variation_id} className={`p-2 rounded-lg border ${badge} text-xs`}>
                                             <div className="flex justify-between items-start mb-1">
                                                 <div className="font-semibold">Line #{item.line_number}</div>
                                                 <div className="font-bold opacity-75">{statusLabel}</div>
                                             </div>
-                                            
-                                            <div className="flex justify-between items-center text-[10px] text-gray-500 mt-1">
-                                                 <div>Due: {item.due_date ? new Date(item.due_date).toLocaleDateString() : 'N/A'}</div>
-                                                 {/* Advanced Stats (De-emphasized) */}
-                                                 <div className="flex gap-1.5 opacity-60">
-                                                    <span title="Ease Factor">EF:{item.ease_factor.toFixed(1)}</span>
-                                                    <span title="Streak">S:{item.streak}</span>
-                                                    <span title="Interval">I:{item.interval_days.toFixed(0)}d</span>
-                                                 </div>
-                                            </div>
+                                            <div className="text-[11px] text-gray-600">{nextReview}</div>
+                                            <button
+                                                className="mt-1 text-[11px] text-gray-500 underline"
+                                                onClick={() => setLineDetailsOpen(prev => ({ ...prev, [item.variation_id]: !isOpen }))}
+                                            >
+                                                {isOpen ? 'Hide details' : 'Show details'}
+                                            </button>
+                                            {isOpen && (
+                                                <div className="mt-1 text-[11px] text-gray-500 space-x-2">
+                                                    <span>EF: {item.ease_factor.toFixed(2)}</span>
+                                                    <span>Streak: {item.streak}</span>
+                                                    <span>Interval: {item.interval_days.toFixed(1)} days</span>
+                                                    <span>Due: {item.due_date ? new Date(item.due_date).toLocaleDateString() : 'N/A'}</span>
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}
