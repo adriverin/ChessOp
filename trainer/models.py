@@ -32,6 +32,30 @@ class Variation(models.Model):
     slug = models.SlugField(unique=True)
     moves = models.JSONField(help_text="List of moves objects with 'san' and 'desc'")
     
+    # Training Metadata
+    difficulty = models.CharField(
+        max_length=20, 
+        default="intermediate",
+        choices=[
+            ("beginner", "Beginner"),
+            ("intermediate", "Intermediate"),
+            ("advanced", "Advanced"),
+            ("elite", "Elite")
+        ]
+    )
+    training_goal = models.CharField(
+        max_length=20,
+        default="strategy",
+        choices=[
+            ("tactics", "Tactics"),
+            ("strategy", "Strategy"),
+            ("attack", "Attack"),
+            ("defense", "Defense"),
+            ("endgame", "Endgame")
+        ]
+    )
+    themes = models.JSONField(default=list, help_text="List of strategic themes, e.g., ['IQP', 'pawn_storm']")
+    
     def __str__(self):
         return f"{self.opening.name} - {self.name}"
 
@@ -90,6 +114,27 @@ class UserSRSProgress(models.Model):
     def __str__(self):
         return f"SRS: {self.profile.user.username} - {self.variation.name} (Streak: {self.streak})"
 
+class UserDrillSRSProgress(models.Model):
+    """Drill Mode SRS: Tracks mastery of a variation using Spaced Repetition within Opening Drill"""
+    profile = models.ForeignKey(UserProfile, related_name='drill_srs_progress', on_delete=models.CASCADE)
+    variation = models.ForeignKey(Variation, related_name='drill_srs_data', on_delete=models.CASCADE)
+    
+    next_review_date = models.DateTimeField(default=timezone.now)
+    interval = models.FloatField(default=0.0) # Days until next review
+    streak = models.IntegerField(default=0)
+    ease_factor = models.FloatField(default=2.5) 
+    
+    last_reviewed = models.DateTimeField(auto_now=True)
+    last_result = models.CharField(max_length=10, default="new", choices=[("success", "Success"), ("failure", "Failure"), ("new", "New")])
+    total_attempts = models.IntegerField(default=0)
+    total_successes = models.IntegerField(default=0)
+    
+    class Meta:
+        unique_together = ('profile', 'variation')
+
+    def __str__(self):
+        return f"Drill SRS: {self.profile.user.username} - {self.variation.name} (Interval: {self.interval})"
+
 class UserMistake(models.Model):
     """The Blunder Basket: Specific positions where user failed"""
     profile = models.ForeignKey(UserProfile, related_name='mistakes', on_delete=models.CASCADE)
@@ -103,6 +148,27 @@ class UserMistake(models.Model):
     
     def __str__(self):
         return f"Mistake: {self.profile.user.username} in {self.variation.name if self.variation else 'Unknown'}"
+
+# --- Opening Drill SRS (SM-2 style) ---
+
+class UserDrillSRSProgress(models.Model):
+    """Anki/SM-2 scheduling for Opening Drill mode (per user, per variation)."""
+    profile = models.ForeignKey(UserProfile, related_name='drill_srs_progress', on_delete=models.CASCADE)
+    variation = models.ForeignKey(Variation, related_name='drill_srs_data', on_delete=models.CASCADE)
+
+    ease_factor = models.FloatField(default=2.5)
+    interval_days = models.FloatField(default=0.0)
+    due_date = models.DateTimeField(default=timezone.now)
+    last_result = models.CharField(max_length=10, choices=[('success', 'Success'), ('failure', 'Failure')], blank=True, default='')
+    streak = models.IntegerField(default=0)
+    total_attempts = models.IntegerField(default=0)
+    total_successes = models.IntegerField(default=0)
+
+    class Meta:
+        unique_together = ('profile', 'variation')
+
+    def __str__(self):
+        return f"Drill SRS: {self.profile.user.username} - {self.variation.name} (EF: {self.ease_factor:.2f}, interval: {self.interval_days:.2f})"
 
 # --- Analytics ---
 

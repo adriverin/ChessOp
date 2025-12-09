@@ -26,6 +26,9 @@ export interface Variation {
     locked: boolean;
     moves: Move[];
     completed?: boolean;
+    difficulty?: string;
+    training_goal?: string;
+    themes?: string[];
 }
 
 export interface Opening {
@@ -38,6 +41,46 @@ export interface Opening {
         completed: number;
         percentage: number;
     };
+    drill_mode_unlocked?: boolean;
+}
+
+export interface OpeningDrillResponse {
+    opening: {
+        id: string;
+        name: string;
+    };
+    variation: {
+        id: string;
+        moves: Move[];
+        orientation: 'white' | 'black';
+    };
+    srs: OpeningDrillSRSData;
+}
+
+export interface OpeningDrillSRSData {
+    interval_days: number;
+    ease_factor: number;
+    streak: number;
+    due_date: string | null;
+    status: 'learning' | 'due' | 'mastered';
+}
+
+export interface OpeningDrillProgressItem {
+    variation_id: string;
+    line_number: number;
+    interval_days: number;
+    ease_factor: number;
+    streak: number;
+    due_date: string | null;
+    status: 'learning' | 'due' | 'mastered';
+}
+
+export interface OpeningDrillProgressResponse {
+    opening: {
+        id: string;
+        name: string;
+    };
+    progress: OpeningDrillProgressItem[];
 }
 
 export interface OpeningsResponse {
@@ -54,6 +97,9 @@ export interface RecallSessionMistake {
     correct_move: string;
     variation_name: string;
     orientation: 'white' | 'black';
+    difficulty?: string;
+    training_goal?: string;
+    themes?: string[];
 }
 
 export interface RecallSessionVariation {
@@ -62,6 +108,9 @@ export interface RecallSessionVariation {
     name: string;
     moves: Move[];
     orientation: 'white' | 'black';
+    difficulty?: string;
+    training_goal?: string;
+    themes?: string[];
 }
 
 export type RecallSessionResponse = RecallSessionMistake | RecallSessionVariation;
@@ -76,6 +125,7 @@ export interface SubmitVariationPayload {
     type: 'variation_complete';
     id: string;
     hint_used?: boolean;
+    mode?: 'opening_drill';
 }
 
 export interface SubmitMistakeFixedPayload {
@@ -90,7 +140,24 @@ export interface SubmitBlunderPayload {
     fen: string;
     wrong_move: string;
     correct_move: string;
+    mode?: 'opening_drill';
 }
 
 export type SubmitResultPayload = SubmitVariationPayload | SubmitMistakeFixedPayload | SubmitBlunderPayload;
 
+export interface ThemeStat {
+    name: string;
+    attempts: number;
+    successes: number;
+    accuracy: number;
+}
+
+export interface ThemeStatsResponse {
+    themes: ThemeStat[];
+}
+
+export interface RecallFilters {
+    difficulties?: string[];
+    training_goals?: string[];
+    themes?: string[];
+}

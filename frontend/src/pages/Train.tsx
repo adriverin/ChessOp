@@ -4,7 +4,7 @@ import { api } from '../api/client';
 import type { RecallSessionResponse } from '../types';
 import { GameArea } from '../components/GameArea';
 import { useUser } from '../context/UserContext';
-import { Trophy, ArrowRight } from 'lucide-react';
+import { Trophy, ArrowRight, Filter, Target } from 'lucide-react';
 
 export const Train: React.FC = () => {
     const { user, refreshUser } = useUser();
@@ -20,12 +20,26 @@ export const Train: React.FC = () => {
         setMessage(null);
         try {
             const variationId = searchParams.get('id');
-            const data = await api.getRecallSession(variationId || undefined);
+            
+            // Extract filters from URL
+            const difficulties = searchParams.get('difficulties')?.split(',').filter(Boolean);
+            const training_goals = searchParams.get('training_goals')?.split(',').filter(Boolean);
+            const themes = searchParams.get('themes')?.split(',').filter(Boolean);
+            
+            const filters = (difficulties || training_goals || themes) ? {
+                difficulties,
+                training_goals,
+                themes
+            } : undefined;
+
+            const data = await api.getRecallSession(variationId || undefined, filters);
             setSession(data);
         } catch (err: any) {
             console.error("Failed to fetch session", err);
             if (err.response?.status === 403) {
                 setMessage("You are out of stamina for today! Come back tomorrow.");
+            } else if (err.response?.status === 404) {
+                setMessage("No variations match your specific filters.");
             } else {
                 setMessage("No training available right now.");
             }
@@ -111,7 +125,7 @@ export const Train: React.FC = () => {
         return (
             <div className="text-center py-20">
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">{message || "All caught up!"}</h2>
-                <p className="text-gray-500 mb-6">Great job keeping your repertoire sharp.</p>
+                <p className="text-gray-500 mb-6">Try adjusting your filters or come back later.</p>
                 <button 
                     onClick={fetchSession} 
                     className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
@@ -124,6 +138,27 @@ export const Train: React.FC = () => {
 
     return (
         <div className="w-full max-w-6xl mx-auto">
+            {/* Session Metadata Banner */}
+            {!completed && (session.difficulty || session.training_goal || (session.themes && session.themes.length > 0)) && (
+                <div className="mb-4 flex flex-wrap items-center gap-2 animate-in fade-in slide-in-from-top-1">
+                    {session.difficulty && (
+                        <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full font-medium capitalize border border-gray-200">
+                            {session.difficulty}
+                        </span>
+                    )}
+                    {session.training_goal && (
+                        <span className="text-xs px-2 py-1 bg-purple-50 text-purple-700 rounded-full font-medium capitalize border border-purple-100 flex items-center gap-1">
+                            <Target size={10} /> {session.training_goal}
+                        </span>
+                    )}
+                    {session.themes?.map(t => (
+                        <span key={t} className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded-full font-medium capitalize border border-blue-100">
+                            {t.replace(/_/g, ' ')}
+                        </span>
+                    ))}
+                </div>
+            )}
+
             <div className="bg-white p-2 sm:p-3 rounded-xl shadow-sm border border-gray-100">
                 <GameArea
                     mode={session.type === 'mistake' ? 'mistake' : 'sequence'}
@@ -173,4 +208,3 @@ export const Train: React.FC = () => {
         </div>
     );
 };
-

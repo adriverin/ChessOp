@@ -4,7 +4,10 @@ import type {
     OpeningsResponse, 
     RecallSessionResponse, 
     SubmitResultPayload, 
-    SubmitResultResponse 
+    SubmitResultResponse,
+    ThemeStatsResponse,
+    OpeningDrillResponse,
+    OpeningDrillProgressResponse
 } from '../types';
 
 // Function to get CSRF token from cookies
@@ -40,6 +43,23 @@ client.interceptors.request.use(config => {
     return config;
 });
 
+export interface RecallFilters {
+    difficulties?: string[];
+    training_goals?: string[];
+    themes?: string[];
+}
+
+export interface OpeningDrillOpening {
+    id: number;
+    slug: string;
+    name: string;
+    drill_unlocked: boolean;
+}
+
+export interface OpeningDrillOpeningsResponse {
+    openings: OpeningDrillOpening[];
+}
+
 export const api = {
     getDashboard: async () => {
         const { data } = await client.get<DashboardResponse>('/dashboard/');
@@ -49,14 +69,58 @@ export const api = {
         const { data } = await client.get<OpeningsResponse>('/openings/');
         return data;
     },
-    getRecallSession: async (id?: string) => {
-        const url = id ? `/recall/session/?id=${id}` : '/recall/session/';
+    getRecallSession: async (id?: string, filters?: RecallFilters) => {
+        let url = '/recall/session/';
+        const params = new URLSearchParams();
+        
+        if (id) {
+            params.append('id', id);
+        }
+        
+        if (filters) {
+            if (filters.difficulties && filters.difficulties.length > 0) {
+                params.append('difficulties', filters.difficulties.join(','));
+            }
+            if (filters.training_goals && filters.training_goals.length > 0) {
+                params.append('training_goals', filters.training_goals.join(','));
+            }
+            if (filters.themes && filters.themes.length > 0) {
+                params.append('themes', filters.themes.join(','));
+            }
+        }
+        
+        const queryString = params.toString();
+        if (queryString) {
+            url += `?${queryString}`;
+        }
+        
         const { data } = await client.get<RecallSessionResponse>(url);
         return data;
     },
     submitResult: async (payload: SubmitResultPayload) => {
         const { data } = await client.post<SubmitResultResponse>('/submit-result/', payload);
         return data;
+    },
+    getThemeStats: async () => {
+        const { data } = await client.get<ThemeStatsResponse>('/stats/themes/');
+        return data;
+    },
+    getOpeningDrillOpenings: async () => {
+        const { data } = await client.get<OpeningDrillOpeningsResponse>('/opening-drill/openings/');
+        return data;
+    },
+    getOpeningDrillProgress: async (openingId: string) => {
+        const { data } = await client.get<OpeningDrillProgressResponse>('/opening-drill/progress/', {
+            params: { opening_id: openingId }
+        });
+        return data;
+    },
+    getOpeningDrillSession: async (openingId?: string) => {
+        let url = '/opening-drill/session/';
+        if (openingId) {
+            url += `?opening_id=${openingId}`;
+        }
+        const { data } = await client.get<OpeningDrillResponse>(url);
+        return data;
     }
 };
-
