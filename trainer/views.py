@@ -11,9 +11,10 @@ import json
 from .models import (
     OpeningCategory, Opening, Variation, UserProgress, 
     UserSRSProgress, UserMistake, MoveLog, DailyQuest, UserQuestProgress,
-    UserDrillSRSProgress
+    UserDrillSRSProgress, UserDrillAttempt
 )
 from .monetization import MonetizationManager, stamina_required
+from .drill_badges import get_opening_drill_badges
 
 @ensure_csrf_cookie
 def dashboard(request):
@@ -57,6 +58,9 @@ def api_get_dashboard_data(request):
         'xp': profile.total_xp,
         'level': profile.level,
         'is_premium': profile.is_premium,
+        'effective_premium': MonetizationManager.is_effective_premium(request.user),
+        'is_superuser': request.user.is_superuser,
+        'is_staff': request.user.is_staff,
         'quests': quests,
         # Add Heatmap summary if needed (or fetch via separate endpoint)
     })
@@ -210,7 +214,7 @@ def api_get_openings(request):
     
     if request.user.is_authenticated:
         try:
-            is_premium = request.user.profile.is_premium
+            is_premium = MonetizationManager.is_effective_premium(request.user)
             user_completed_ids = set(
                 UserProgress.objects.filter(profile=request.user.profile)
                 .values_list('variation__slug', flat=True)
@@ -697,7 +701,17 @@ def api_submit_result(request):
 
         # Opening Drill SRS update
         if mode == 'opening_drill':
-            _update_drill_srs(profile, variation, success=not hint_used)
+            success = not hint_used
+            _update_drill_srs(profile, variation, success=success)
+            
+            # Log attempt for stats
+            UserDrillAttempt.objects.create(
+                user=request.user,
+                variation=variation,
+                opening=variation.opening,
+                was_success=success,
+                mode='opening_drill'
+            )
         else:
             # Standard Progress - Only count as "completed" if no hints used
             if not hint_used:
@@ -776,6 +790,15 @@ def api_submit_result(request):
         if var:
             if mode == 'opening_drill':
                 _update_drill_srs(profile, var, success=False)
+                
+                # Log attempt for stats
+                UserDrillAttempt.objects.create(
+                    user=request.user,
+                    variation=var,
+                    opening=var.opening,
+                    was_success=False,
+                    mode='opening_drill'
+                )
             else:
                 srs = UserSRSProgress.objects.filter(profile=profile, variation=var).first()
                 if srs:
@@ -787,3 +810,95 @@ def api_submit_result(request):
         return JsonResponse({'success': True, 'message': 'Mistake recorded.'})
 
     return JsonResponse({'error': 'Unknown result type'}, status=400)
+
+@login_required
+def api_get_opening_drill_stats(request):
+    """
+    Returns stats and badges for a specific opening in Drill Mode.
+    """
+    opening_slug = request.GET.get('opening_id')
+    if not opening_slug:
+        return JsonResponse({'error': 'opening_id parameter is required'}, status=400)
+
+    opening = get_object_or_404(Opening, slug=opening_slug)
+    profile = request.user.profile
+
+    # Gating Check
+    if not opening_drill_unlocked(request.user, opening):
+        # Allow checking stats even if locked? 
+        # Requirement says: "If user not allowed (monetization or unlock gating) -> 403"
+        return JsonResponse({'error': 'Opening drill not unlocked for this opening'}, status=403)
+
+    # 1. Counts
+    variations = opening.variations.all()
+    total_variations = variations.count()
+    
+    srs_records = UserDrillSRSProgress.objects.filter(profile=profile, variation__opening=opening)
+    
+    # Definition of Mastered: streak >= 3 and interval_days >= 7 (from prompt suggestion)
+    # Filter in Python or DB. DB is faster.
+    mastered_count = srs_records.filter(streak__gte=3, interval_days__gte=7).count()
+    
+    now = timezone.now()
+    due_count = srs_records.filter(due_date__lte=now).count()
+    
+    # Learning: variations that have a record but not mastered? 
+    # Or simply: Total - Mastered?
+    # Prompt: "learning_count = total_variations - mastered_variations (or specific logic)"
+    # Let's use Total - Mastered as it's cleaner to cover everything.
+    learning_count = total_variations - mastered_count
+
+    # 2. Activity (Reviews)
+    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    seven_days_ago = now - timezone.timedelta(days=7)
+    
+    attempts_qs = UserDrillAttempt.objects.filter(user=request.user, opening=opening, mode='opening_drill')
+    
+    reviews_today = attempts_qs.filter(created_at__gte=today_start).count()
+    reviews_last_7_days = attempts_qs.filter(created_at__gte=seven_days_ago).count()
+    
+    # 3. Streaks
+    # Optimization: Fetch only necessary fields
+    attempts_history = list(attempts_qs.order_by('created_at').values_list('was_success', flat=True))
+    
+    current_flawless_streak = 0
+    longest_flawless_streak = 0
+    temp_streak = 0
+    
+    for success in attempts_history:
+        if success:
+            temp_streak += 1
+            if temp_streak > longest_streak:
+                longest_streak = temp_streak
+        else:
+            temp_streak = 0
+    
+    current_flawless_streak = temp_streak
+    
+    mastery_percentage = (mastered_count / total_variations) if total_variations > 0 else 0.0
+
+    stats = {
+        "total_variations": total_variations,
+        "mastered_variations": mastered_count,
+        "due_count": due_count,
+        "learning_count": learning_count,
+        "reviews_today": reviews_today,
+        "reviews_last_7_days": reviews_last_7_days,
+        "current_flawless_streak": current_flawless_streak,
+        "longest_flawless_streak": longest_flawless_streak,
+        "mastery_percentage": round(mastery_percentage, 2)
+    }
+
+    # 4. Badges
+    badges = get_opening_drill_badges(request.user, opening, stats, attempts_qs, srs_records)
+
+    return JsonResponse({
+        "opening": {
+            "id": opening.slug,
+            "slug": opening.slug,
+            "name": opening.name
+        },
+        "stats": stats,
+        "badges": badges
+    })
+

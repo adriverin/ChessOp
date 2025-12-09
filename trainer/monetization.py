@@ -16,14 +16,24 @@ class MonetizationManager:
         return getattr(settings, 'MONETIZATION_STRATEGY', 'HARD_LOCK')
 
     @staticmethod
+    def is_effective_premium(user):
+        """
+        Returns True if the user should be treated as premium for all gating.
+        Superusers and staff are always considered premium for testing/admin.
+        """
+        if not user.is_authenticated:
+            return False
+
+        if user.is_superuser or user.is_staff:
+            return True
+
+        return hasattr(user, "profile") and getattr(user.profile, "is_premium", False)
+
+    @staticmethod
     def check_permission(user, action_type, context=None):
         strategy = MonetizationManager.get_strategy()
         
-        if user.is_superuser: 
-            return True
-        
-        is_premium = user.is_authenticated and hasattr(user, 'profile') and user.profile.is_premium
-        if is_premium:
+        if MonetizationManager.is_effective_premium(user):
             return True
 
         if strategy == 'HARD_LOCK':
@@ -41,7 +51,7 @@ class MonetizationManager:
     @staticmethod
     def consume_resource(user, action_type):
         strategy = MonetizationManager.get_strategy()
-        if user.is_superuser or (user.is_authenticated and user.profile.is_premium):
+        if MonetizationManager.is_effective_premium(user):
             return
 
         if strategy == 'STAMINA' and action_type == 'PLAY_MOVE':

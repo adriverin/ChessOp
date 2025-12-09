@@ -114,27 +114,6 @@ class UserSRSProgress(models.Model):
     def __str__(self):
         return f"SRS: {self.profile.user.username} - {self.variation.name} (Streak: {self.streak})"
 
-class UserDrillSRSProgress(models.Model):
-    """Drill Mode SRS: Tracks mastery of a variation using Spaced Repetition within Opening Drill"""
-    profile = models.ForeignKey(UserProfile, related_name='drill_srs_progress', on_delete=models.CASCADE)
-    variation = models.ForeignKey(Variation, related_name='drill_srs_data', on_delete=models.CASCADE)
-    
-    next_review_date = models.DateTimeField(default=timezone.now)
-    interval = models.FloatField(default=0.0) # Days until next review
-    streak = models.IntegerField(default=0)
-    ease_factor = models.FloatField(default=2.5) 
-    
-    last_reviewed = models.DateTimeField(auto_now=True)
-    last_result = models.CharField(max_length=10, default="new", choices=[("success", "Success"), ("failure", "Failure"), ("new", "New")])
-    total_attempts = models.IntegerField(default=0)
-    total_successes = models.IntegerField(default=0)
-    
-    class Meta:
-        unique_together = ('profile', 'variation')
-
-    def __str__(self):
-        return f"Drill SRS: {self.profile.user.username} - {self.variation.name} (Interval: {self.interval})"
-
 class UserMistake(models.Model):
     """The Blunder Basket: Specific positions where user failed"""
     profile = models.ForeignKey(UserProfile, related_name='mistakes', on_delete=models.CASCADE)
@@ -184,6 +163,18 @@ class MoveLog(models.Model):
     
     def __str__(self):
         return f"{self.user.username}: {self.source_square}-{self.target_square} ({'OK' if self.is_correct else 'X'})"
+
+class UserDrillAttempt(models.Model):
+    """Analytics: Records every drill attempt for streaks and badges"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='drill_attempts')
+    variation = models.ForeignKey(Variation, on_delete=models.CASCADE)
+    opening = models.ForeignKey(Opening, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    was_success = models.BooleanField()
+    mode = models.CharField(max_length=32, default="opening_drill")
+
+    def __str__(self):
+        return f"{self.user.username} - {self.opening.name} - {'Success' if self.was_success else 'Fail'}"
 
 # --- Quests ---
 

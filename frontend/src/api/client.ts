@@ -60,6 +60,35 @@ export interface OpeningDrillOpeningsResponse {
     openings: OpeningDrillOpening[];
 }
 
+export interface OpeningDrillBadge {
+    id: string;
+    name: string;
+    description: string;
+    earned: boolean;
+}
+
+export interface OpeningDrillStats {
+    total_variations: number;
+    mastered_variations: number;
+    due_count: number;
+    learning_count: number;
+    reviews_today: number;
+    reviews_last_7_days: number;
+    current_flawless_streak: number;
+    longest_flawless_streak: number;
+    mastery_percentage: number; // 0–1
+}
+
+export interface OpeningDrillStatsResponse {
+    opening: {
+        id: number | string;
+        slug?: string;
+        name: string;
+    };
+    stats: OpeningDrillStats;
+    badges: OpeningDrillBadge[];
+}
+
 export const api = {
     getDashboard: async () => {
         const { data } = await client.get<DashboardResponse>('/dashboard/');
@@ -121,6 +150,10 @@ export const api = {
             url += `?opening_id=${openingId}`;
         }
         const { data } = await client.get<OpeningDrillResponse>(url);
+        return data;
+    },
+    getOpeningDrillStats: async (openingId: string | number) => {
+        const { data } = await client.get<OpeningDrillStatsResponse>("/opening-drill/stats/", { params: { opening_id: openingId } });
         return data;
     }
 };

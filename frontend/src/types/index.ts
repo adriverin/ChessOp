@@ -12,6 +12,9 @@ export interface DashboardResponse {
     xp?: number;
     level?: number;
     is_premium?: boolean;
+    effective_premium?: boolean;
+    is_superuser?: boolean;
+    is_staff?: boolean;
     quests?: Quest[];
 }
 

@@ -23,7 +23,7 @@ export const Profile: React.FC = () => {
                         <h2 className="text-xl font-bold text-gray-900">Chess Master</h2>
                         <p className="text-gray-500">Level {user.level}</p>
                     </div>
-                    {user.is_premium && (
+                    {user.effective_premium && (
                         <span className="ml-auto px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-bold flex items-center gap-1">
                             <Crown size={14} /> Premium
                         </span>
@@ -45,7 +45,7 @@ export const Profile: React.FC = () => {
                             <span>Account Type</span>
                         </div>
                         <span className="text-gray-900 font-medium">
-                            {user.is_premium ? 'Premium Member' : 'Free Tier'}
+                            {user.effective_premium ? 'Premium Member' : 'Free Tier'}
                         </span>
                     </div>
                 </div>

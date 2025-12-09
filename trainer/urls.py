@@ -11,4 +11,5 @@ urlpatterns = [
     path('api/opening-drill/session/', views.api_get_opening_drill_session, name='api_get_opening_drill_session'),
     path('api/opening-drill/openings/', views.api_get_opening_drill_openings, name='api_get_opening_drill_openings'),
     path('api/opening-drill/progress/', views.api_get_opening_drill_progress, name='api_get_opening_drill_progress'),
+    path('api/opening-drill/stats/', views.api_get_opening_drill_stats, name='api_get_opening_drill_stats'),
 ]

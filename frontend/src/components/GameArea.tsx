@@ -469,10 +469,10 @@ export const GameArea: React.FC<GameAreaProps> = ({
     };
 
     return (
-        <div className="flex flex-col lg:flex-row gap-6 justify-center items-stretch w-full">
+        <div className="flex flex-col lg:flex-row gap-4 justify-center items-stretch w-full">
             
             {/* Left Column: Board + Progress + Status */}
-            <div className="flex flex-col w-full max-w-2xl gap-3">
+            <div className="flex flex-col w-full max-w-2xl gap-2">
                 {/* Progress */}
                 <div className="w-full shrink-0">
                     <div className="flex justify-between text-xs text-gray-600 mb-1 font-medium">
@@ -515,7 +515,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                 </div>
 
                 {/* Status Bar */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 flex items-center justify-between w-full shrink-0">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 flex items-center justify-between w-full shrink-0">
                     <div className="flex items-center gap-3">
                         {feedback === 'correct' && <span className="text-green-600 font-bold flex items-center gap-1.5 text-sm"><CheckCircle size={18}/> Correct!</span>}
                         {feedback === 'wrong' && <span className="text-red-600 font-bold flex items-center gap-1.5 text-sm"><XCircle size={18}/> Incorrect</span>}
@@ -612,10 +612,10 @@ export const GameArea: React.FC<GameAreaProps> = ({
             {/* Right Column: Sidebar */}
             <div className="relative flex flex-col w-full lg:w-[300px] shrink-0">
                 {/* Wrapper to match height on desktop */}
-                <div className="flex flex-col gap-3 lg:absolute lg:inset-0">
+                <div className="flex flex-col gap-2 lg:absolute lg:inset-0">
                     
                     {/* Session Info (Moved from Header) */}
-                    <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm shrink-0">
+                    <div className="bg-white p-2 rounded-xl border border-gray-200 shadow-sm shrink-0">
                             <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wide mb-1">
                             <Brain size={12} />
                             {sessionType === 'mistake' && "Fix Blunder"}
@@ -629,7 +629,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
 
                     {/* Log */}
                     <div className="flex flex-col flex-1 min-h-0 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                            <div className="flex items-center justify-between p-3 border-b border-gray-100 text-xs font-semibold text-gray-700 shrink-0 bg-gray-50/50">
+                            <div className="flex items-center justify-between p-2 border-b border-gray-100 text-xs font-semibold text-gray-700 shrink-0 bg-gray-50/50">
                             <span>Line Moves</span>
                             {!logRevealed && (
                                 <button
@@ -647,14 +647,14 @@ export const GameArea: React.FC<GameAreaProps> = ({
                     </div>
                     
                     {/* Captured pieces */}
-                    <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm space-y-2 shrink-0">
+                    <div className="bg-white border border-gray-200 rounded-xl p-2 shadow-sm space-y-2 shrink-0">
                         <div className="text-xs font-semibold text-gray-700 uppercase tracking-wider opacity-75">Captured</div>
                         {renderCaptured(capturedWhite, "White", 'b')}
                         {renderCaptured(capturedBlack, "Black", 'w')}
                     </div>
 
                     {/* Practice Mode (Moved to Bottom) */}
-                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 shrink-0">
+                    <div className="bg-gray-50 p-2 rounded-xl border border-gray-200 shrink-0">
                         <div className="flex items-center justify-between text-xs text-gray-600">
                             <span className="font-semibold">Practice Mode</span>
                             <select

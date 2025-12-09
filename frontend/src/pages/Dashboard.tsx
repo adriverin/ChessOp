@@ -219,7 +219,7 @@ export const Dashboard: React.FC = () => {
                         </Link>
 
                         {/* Premium Banner */}
-                        {!user.is_premium && (
+                        {!user.effective_premium && (
                             <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100">
                                 <div className="flex items-center gap-3 mb-2">
                                     <Lock className="text-purple-600 w-5 h-5" />
