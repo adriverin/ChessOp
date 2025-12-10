@@ -103,6 +103,10 @@ export interface RecallSessionMistake {
     difficulty?: string;
     training_goal?: string;
     themes?: string[];
+    opening?: {
+        slug: string;
+        name: string;
+    };
 }
 
 export interface RecallSessionVariation {
@@ -114,6 +118,10 @@ export interface RecallSessionVariation {
     difficulty?: string;
     training_goal?: string;
     themes?: string[];
+    opening?: {
+        slug: string;
+        name: string;
+    };
 }
 
 export type RecallSessionResponse = RecallSessionMistake | RecallSessionVariation;

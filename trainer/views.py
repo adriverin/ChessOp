@@ -7,7 +7,6 @@ from django.utils import timezone
 from django.db.models import Q, Sum, Count, Case, When, IntegerField
 import random
 import json
-import logging
 
 from .models import (
     OpeningCategory, Opening, Variation, UserProgress, 
@@ -16,8 +15,6 @@ from .models import (
 )
 from .monetization import MonetizationManager, stamina_required
 from .drill_badges import get_opening_drill_badges
-
-logger = logging.getLogger(__name__)
 
 @ensure_csrf_cookie
 def dashboard(request):
@@ -314,18 +311,24 @@ def api_get_recall_session(request):
     difficulties = request.GET.get('difficulties', '').split(',')
     training_goals = request.GET.get('training_goals', '').split(',')
     themes = request.GET.get('themes', '').split(',')
+    opening_slug = request.GET.get('opening_id')
+    opening = None
+    if opening_slug:
+        opening = get_object_or_404(Opening, slug=opening_slug)
     
     # Clean up empty strings
     difficulties = [d for d in difficulties if d]
     training_goals = [g for g in training_goals if g]
     themes = [t for t in themes if t]
     
-    has_filters = bool(difficulties or training_goals or themes)
+    has_filters = bool(difficulties or training_goals or themes or opening)
 
     # 0. Specific Variation Request (Overrides everything)
     requested_id = request.GET.get('id')
     if requested_id:
         variation = get_object_or_404(Variation, slug=requested_id)
+        if opening and variation.opening_id != opening.id:
+            return JsonResponse({'message': 'Variation not in requested opening'}, status=404)
         tags = variation.opening.get_tags_list()
         orientation = 'black' if 'Black' in tags else 'white'
         return JsonResponse({
@@ -336,7 +339,11 @@ def api_get_recall_session(request):
             'orientation': orientation,
             'difficulty': variation.difficulty,
             'training_goal': variation.training_goal,
-            'themes': variation.themes
+            'themes': variation.themes,
+            'opening': {
+                'slug': variation.opening.slug,
+                'name': variation.opening.name
+            }
         })
     
     # Helper to apply filters to a QuerySet (UserSRSProgress or Variation)
@@ -348,6 +355,8 @@ def api_get_recall_session(request):
             queryset = queryset.filter(**{f"{prefix}difficulty__in": difficulties})
         if training_goals:
             queryset = queryset.filter(**{f"{prefix}training_goal__in": training_goals})
+        if opening:
+            queryset = queryset.filter(**{f"{prefix}opening": opening})
         
         # NOTE: Theme filtering is done in Python later because SQLite doesn't support JSON contains
             
@@ -376,6 +385,8 @@ def api_get_recall_session(request):
     if not has_filters:
         # Standard logic: prioritize blunders
         blunders = UserMistake.objects.filter(profile=profile, resolved=False)
+        if opening:
+            blunders = blunders.filter(variation__opening=opening)
         if blunders.exists():
             mistake = blunders.first()
             return _return_mistake(mistake)
@@ -412,8 +423,13 @@ def api_get_recall_session(request):
         return _return_variation(srs_item.variation, 'srs_review')
 
     # 3. New Random (if not locked)
-    known_ids = UserSRSProgress.objects.filter(profile=profile).values_list('variation_id', flat=True)
+    known_ids_qs = UserSRSProgress.objects.filter(profile=profile)
+    if opening:
+        known_ids_qs = known_ids_qs.filter(variation__opening=opening)
+    known_ids = known_ids_qs.values_list('variation_id', flat=True)
     available = Variation.objects.exclude(id__in=known_ids)
+    if opening:
+        available = available.filter(opening=opening)
     
     if has_filters:
         available = apply_filters(available)
@@ -443,6 +459,8 @@ def api_get_recall_session(request):
     # even if they've already learned it or it's not due.
     if has_filters:
         fallback_candidates = Variation.objects.all()
+        if opening:
+            fallback_candidates = fallback_candidates.filter(opening=opening)
         fallback_candidates = apply_filters(fallback_candidates)
         
         candidates_list = []
@@ -546,12 +564,7 @@ def api_get_opening_drill_progress(request):
     progress_items = []
     for idx, var in enumerate(variations, start=1):
         srs = UserDrillSRSProgress.objects.filter(profile=profile, variation=var).first()
-        status = 'learning'
-        if srs:
-            if srs.due_date <= now:
-                status = 'due'
-            else:
-                status = 'mastered'
+        status = _drill_status(srs)
 
         progress_items.append({
             'variation_id': var.slug,
@@ -582,7 +595,11 @@ def _return_variation(variation, type_label):
         'orientation': orientation,
         'difficulty': variation.difficulty,
         'training_goal': variation.training_goal,
-        'themes': variation.themes
+        'themes': variation.themes,
+        'opening': {
+            'slug': variation.opening.slug,
+            'name': variation.opening.name
+        }
     })
 
 def _return_mistake(mistake):
@@ -596,7 +613,11 @@ def _return_mistake(mistake):
         'wrong_move': mistake.wrong_move,
         'correct_move': mistake.correct_move,
         'variation_name': mistake.variation.name if mistake.variation else "Unknown Position",
-        'orientation': orientation
+        'orientation': orientation,
+        'opening': {
+            'slug': mistake.variation.opening.slug,
+            'name': mistake.variation.opening.name
+        } if mistake.variation else None
     })
 
 @login_required
@@ -832,74 +853,78 @@ def api_get_opening_drill_stats(request):
         # Requirement says: "If user not allowed (monetization or unlock gating) -> 403"
         return JsonResponse({'error': 'Opening drill not unlocked for this opening'}, status=403)
 
-    try:
-        # 1. Counts
-        variations = opening.variations.all()
-        total_variations = variations.count()
+    # 1. Counts (use the same status definition as UI)
+    variations = opening.variations.all()
+    total_variations = variations.count()
+    
+    srs_records = UserDrillSRSProgress.objects.filter(profile=profile, variation__opening=opening)
 
-        srs_records = UserDrillSRSProgress.objects.filter(profile=profile, variation__opening=opening)
+    mastered_count = 0
+    due_count = 0
+    learning_count = 0
 
-        mastered_count = srs_records.filter(streak__gte=3, interval_days__gte=7).count()
+    now = timezone.now()
+    for var in variations:
+        srs = srs_records.filter(variation=var).first()
+        status = _drill_status(srs)
+        if status == 'mastered':
+            mastered_count += 1
+        elif status == 'due':
+            due_count += 1
+        else:
+            learning_count += 1
 
-        now = timezone.now()
-        due_count = srs_records.filter(due_date__lte=now).count()
+    # 2. Activity (Reviews)
+    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    seven_days_ago = now - timezone.timedelta(days=7)
+    
+    attempts_qs = UserDrillAttempt.objects.filter(user=request.user, opening=opening, mode='opening_drill')
+    
+    reviews_today = attempts_qs.filter(created_at__gte=today_start).count()
+    reviews_last_7_days = attempts_qs.filter(created_at__gte=seven_days_ago).count()
+    
+    # 3. Streaks
+    # Optimization: Fetch only necessary fields
+    attempts_history = list(attempts_qs.order_by('created_at').values_list('was_success', flat=True))
+    
+    current_flawless_streak = 0
+    longest_flawless_streak = 0
+    temp_streak = 0
+    
+    for success in attempts_history:
+        if success:
+            temp_streak += 1
+            if temp_streak > longest_flawless_streak:
+                longest_flawless_streak = temp_streak
+        else:
+            temp_streak = 0
+    
+    current_flawless_streak = temp_streak
+    
+    mastery_percentage = (mastered_count / total_variations) if total_variations > 0 else 0.0
 
-        # Learning: assume remaining lines are learning (never mastered yet)
-        learning_count = max(total_variations - mastered_count, 0)
+    stats = {
+        "total_variations": total_variations,
+        "mastered_variations": mastered_count,
+        "due_count": due_count,
+        "learning_count": learning_count,
+        "reviews_today": reviews_today,
+        "reviews_last_7_days": reviews_last_7_days,
+        "current_flawless_streak": current_flawless_streak,
+        "longest_flawless_streak": longest_flawless_streak,
+        "mastery_percentage": round(mastery_percentage, 2)
+    }
 
-        # 2. Activity (Reviews)
-        today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        seven_days_ago = now - timezone.timedelta(days=7)
+    # 4. Badges
+    badges = get_opening_drill_badges(request.user, opening, stats, attempts_qs, srs_records)
 
-        attempts_qs = UserDrillAttempt.objects.filter(user=request.user, opening=opening, mode='opening_drill')
-
-        reviews_today = attempts_qs.filter(created_at__gte=today_start).count()
-        reviews_last_7_days = attempts_qs.filter(created_at__gte=seven_days_ago).count()
-
-        # 3. Streaks
-        attempts_history = list(attempts_qs.order_by('created_at').values_list('was_success', flat=True))
-
-        current_flawless_streak = 0
-        longest_flawless_streak = 0
-        temp_streak = 0
-
-        for success in attempts_history:
-            if success:
-                temp_streak += 1
-                if temp_streak > longest_flawless_streak:
-                    longest_flawless_streak = temp_streak
-            else:
-                temp_streak = 0
-
-        current_flawless_streak = temp_streak
-
-        mastery_percentage = (mastered_count / total_variations) if total_variations > 0 else 0.0
-
-        stats = {
-            "total_variations": total_variations,
-            "mastered_variations": mastered_count,
-            "due_count": due_count,
-            "learning_count": learning_count,
-            "reviews_today": reviews_today,
-            "reviews_last_7_days": reviews_last_7_days,
-            "current_flawless_streak": current_flawless_streak,
-            "longest_flawless_streak": longest_flawless_streak,
-            "mastery_percentage": round(mastery_percentage, 2)
-        }
-
-        # 4. Badges
-        badges = get_opening_drill_badges(request.user, opening, stats, attempts_qs, srs_records)
-
-        return JsonResponse({
-            "opening": {
-                "id": opening.slug,
-                "slug": opening.slug,
-                "name": opening.name
-            },
-            "stats": stats,
-            "badges": badges
-        })
-    except Exception as exc:  # pragma: no cover - guardrail logging
-        logger.exception("Failed to compute opening drill stats for opening %s", opening_slug)
-        return JsonResponse({"error": "Failed to load drill stats"}, status=500)
+    return JsonResponse({
+        "opening": {
+            "id": opening.slug,
+            "slug": opening.slug,
+            "name": opening.name
+        },
+        "stats": stats,
+        "badges": badges
+    })
 

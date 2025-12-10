@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { OpeningDrillOpening, OpeningDrillStats, OpeningDrillBadge } from '../api/client';
-import type { OpeningDrillResponse, OpeningDrillProgressResponse } from '../types';
+import type { OpeningDrillResponse } from '../types';
 import { GameArea } from '../components/GameArea';
 import { useUser } from '../context/UserContext';
 import { Trophy, ArrowRight, XCircle, Lock, Target, Star, Medal, ChevronDown, ChevronUp } from 'lucide-react';
@@ -23,24 +23,9 @@ export const OpeningDrill: React.FC = () => {
     const [completed, setCompleted] = useState(false);
     const [failed, setFailed] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
-    const [progress, setProgress] = useState<OpeningDrillProgressResponse | null>(null);
-    const [progressLoading, setProgressLoading] = useState(false);
     const [stats, setStats] = useState<OpeningDrillStats | null>(null);
     const [badges, setBadges] = useState<OpeningDrillBadge[]>([]);
     const [showStats, setShowStats] = useState(true);
-
-    const [remainingMoves, setRemainingMoves] = useState<number>(0);
-    const [lineDetailsOpen, setLineDetailsOpen] = useState<Record<string, boolean>>({});
-
-    const summaryCounts = progress
-        ? (() => {
-            const total = progress.progress.length;
-            const due = progress.progress.filter(p => p.status === 'due').length;
-            const learning = progress.progress.filter(p => p.status === 'learning').length;
-            const mastered = total - due - learning;
-            return { total, due, learning, mastered };
-        })()
-        : null;
 
     // Fetch Available Openings on Mount
     useEffect(() => {
@@ -67,19 +52,6 @@ export const OpeningDrill: React.FC = () => {
             .catch(console.error)
             .finally(() => setOpeningsLoading(false));
     }, [user, searchParams, setSearchParams]);
-
-    const fetchProgress = useCallback(async (openingId: string) => {
-        setProgressLoading(true);
-        try {
-            const data = await api.getOpeningDrillProgress(openingId);
-            setProgress(data);
-        } catch (err) {
-            console.error('Failed to fetch drill progress', err);
-            setProgress(null);
-        } finally {
-            setProgressLoading(false);
-        }
-    }, []);
 
     const fetchStats = useCallback(async (openingId: string) => {
         try {
@@ -119,16 +91,14 @@ export const OpeningDrill: React.FC = () => {
     // Trigger session fetch when selection changes
     useEffect(() => {
         if (selectedOpeningId) {
-            fetchProgress(selectedOpeningId);
             fetchStats(selectedOpeningId);
             fetchSession();
         } else {
             setSession(null);
-            setProgress(null);
             setStats(null);
             setBadges([]);
         }
-    }, [selectedOpeningId, fetchSession, fetchProgress, fetchStats]);
+    }, [selectedOpeningId, fetchSession, fetchStats]);
 
     const handleSelectOpening = (slug: string) => {
         setSelectedOpeningId(slug);
@@ -153,7 +123,6 @@ export const OpeningDrill: React.FC = () => {
             }
             refreshUser();
             if (selectedOpeningId) {
-                fetchProgress(selectedOpeningId);
                 fetchStats(selectedOpeningId);
             }
         } catch (err) {
@@ -176,7 +145,6 @@ export const OpeningDrill: React.FC = () => {
             });
             setMessage("Incorrect move. The correct move was " + correctMove);
             if (selectedOpeningId) {
-                fetchProgress(selectedOpeningId);
                 fetchStats(selectedOpeningId);
             }
         } catch (err) {
@@ -256,48 +224,19 @@ export const OpeningDrill: React.FC = () => {
         );
     }
 
-    const getFriendlyStatusFromSrs = () => {
-        if (!session || !session.srs) return { label: 'New line', helper: "Let's learn this line." };
-        const { status, streak, interval_days, due_date } = session.srs as any;
-        const isNew = (!due_date || due_date === null) && (!streak || streak === 0) && (!interval_days || interval_days === 0);
-        if (status === 'mastered') {
-            return { label: 'Mastered', helper: "You'll see this less often if you keep getting it right." };
-        }
-        if (status === 'due') {
-            return { label: 'Review due', helper: "Time to refresh this line before it slips." };
-        }
-        if (isNew) {
-            return { label: 'New line', helper: "We'll repeat this a bit to lock it in." };
-        }
-        return { label: 'Learning', helper: "We'll repeat this more often until you're solid." };
-    };
+    const unlockedOpenings = availableOpenings.filter(o => o.drill_unlocked);
 
-    const getFriendlyStatusForItem = (item: any) => {
-        const isNew = !item.due_date && item.streak === 0 && item.interval_days === 0;
-        if (item.status === 'mastered') return 'Mastered';
-        if (item.status === 'due') return 'Review due';
-        if (isNew) return 'New line';
-        return 'Learning';
-    };
+    const srsStatus = session?.srs.status || 'learning';
+    const statusLabel = srsStatus === 'mastered' ? 'Mastered' : srsStatus === 'due' ? 'Review' : 'Learning';
+    const helperText = srsStatus === 'mastered'
+        ? "This line is mastered and will appear less often."
+        : srsStatus === 'due'
+            ? "This line is scheduled for review. Keep it fresh!"
+            : "We’ll repeat this line more often until you’re solid.";
 
-    const getNextReviewText = (dueDate?: string | null) => {
-        if (!dueDate) return 'No review scheduled yet';
-        const due = new Date(dueDate);
-        const now = new Date();
-        const diffMs = due.getTime() - now.getTime();
-        const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-        if (diffDays <= 0) return 'Next review today';
-        if (diffDays === 1) return 'Next review in 1 day';
-        return `Next review in ${diffDays} days`;
-    };
-
-    const friendlyHeader = getFriendlyStatusFromSrs();
-
-    const masteryBar = stats && stats.total_variations > 0 ? {
-        mastered: stats.mastered_variations,
-        total: stats.total_variations,
-        percent: Math.round((stats.mastered_variations / stats.total_variations) * 100)
-    } : null;
+    const masteredCount = stats?.mastered_variations ?? 0;
+    const totalCount = stats?.total_variations ?? 0;
+    const masteryPct = totalCount > 0 ? Math.round((masteredCount / totalCount) * 100) : 0;
 
     // Drill Session View
     return (
@@ -326,18 +265,16 @@ export const OpeningDrill: React.FC = () => {
                         </div>
                     ) : session ? (
                         <>
-                            <div className="flex flex-wrap items-center justify-between text-xs sm:text-sm mb-2 gap-2">
-                                <div className="flex items-center gap-2">
-                                    <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-700 px-2 py-0.5 font-medium">
-                                        {friendlyHeader.label}
-                                    </span>
-                                    <span className="text-gray-500">
-                                        {friendlyHeader.helper}
-                                    </span>
-                                </div>
-                                <span className="text-gray-500">
-                                    {remainingMoves} moves remaining
+                            <div className="mb-2 flex items-center gap-3">
+                                <span className={clsx(
+                                    "inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold border",
+                                    srsStatus === 'mastered' ? "bg-green-50 text-green-700 border-green-200" :
+                                    srsStatus === 'due' ? "bg-amber-50 text-amber-700 border-amber-200" :
+                                    "bg-blue-50 text-blue-700 border-blue-200"
+                                )}>
+                                    {statusLabel}
                                 </span>
+                                <span className="text-sm text-gray-600">{helperText}</span>
                             </div>
 
                             <GameArea
@@ -349,7 +286,11 @@ export const OpeningDrill: React.FC = () => {
                                 onComplete={handleComplete}
                                 onMistake={handleMistake}
                                 locked={completed || failed}
-                                onRemainingMovesChange={setRemainingMoves}
+                                opening={{ slug: session.opening.id, name: session.opening.name }}
+                                openingOptions={unlockedOpenings.map(o => ({ slug: o.slug, name: o.name }))}
+                                onSelectOpening={handleSelectOpening}
+                                showInlineProgress={true}
+                                headerMode="drill"
                             />
 
                             {(completed || failed) && (
@@ -393,87 +334,25 @@ export const OpeningDrill: React.FC = () => {
                     )}
                 </section>
 
-                {/* Drill Progress */}
-                <section className="bg-white border border-gray-200 rounded-2xl p-3 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-lg font-bold text-gray-900">Drill Progress</h3>
-                        {progressLoading && <span className="text-xs text-gray-500">Updating...</span>}
-                    </div>
-                    {progress && (
-                        <>
-                            {summaryCounts && (
-                                <div className="flex flex-wrap gap-2 text-xs font-semibold mb-2">
-                                    <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 text-red-700 px-3 py-1">
-                                        {summaryCounts.due} due
-                                    </span>
-                                    <span className="inline-flex items-center gap-1 rounded-full border border-yellow-200 bg-yellow-50 text-yellow-700 px-3 py-1">
-                                        {summaryCounts.learning} learning
-                                    </span>
-                                    <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 text-green-700 px-3 py-1">
-                                        {summaryCounts.mastered} mastered
-                                    </span>
-                                    <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 text-gray-700 px-3 py-1">
-                                        {summaryCounts.total} total lines
-                                    </span>
-                                </div>
-                            )}
-                            {masteryBar && (
-                                <div className="mt-2">
-                                    <div className="flex justify-between text-[11px] text-gray-500 mb-1">
-                                        <span>{masteryBar.mastered} / {masteryBar.total} lines mastered</span>
-                                        <span>{masteryBar.percent}%</span>
-                                    </div>
-                                    <div className="h-1.5 w-full rounded-full bg-gray-100">
-                                        <div
-                                            className="h-1.5 rounded-full bg-emerald-500"
-                                            style={{ width: `${masteryBar.percent}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 lg:grid-cols-3 max-h-96 overflow-y-auto pr-1">
-                                {progress.progress.map(item => {
-                                    const statusLabel = getFriendlyStatusForItem(item);
-                                    const badge =
-                                        statusLabel === 'Review due'
-                                            ? 'bg-red-50 text-red-800 border-red-100'
-                                            : statusLabel === 'Learning' || statusLabel === 'New line'
-                                                ? 'bg-yellow-50 text-yellow-800 border-yellow-100'
-                                                : 'bg-green-50 text-green-800 border-green-100';
-                                    const nextReview = getNextReviewText(item.due_date);
-                                    const isOpen = lineDetailsOpen[item.variation_id] || false;
-                                    return (
-                                        <div key={item.variation_id} className={`p-2 rounded-lg border ${badge} text-xs`}>
-                                            <div className="flex justify-between items-start mb-1">
-                                                <div className="font-semibold">Line #{item.line_number}</div>
-                                                <div className="font-bold opacity-75">{statusLabel}</div>
-                                            </div>
-                                            <div className="text-[11px] text-gray-600">{nextReview}</div>
-                                            <button
-                                                className="mt-1 text-[11px] text-gray-500 underline"
-                                                onClick={() => setLineDetailsOpen(prev => ({ ...prev, [item.variation_id]: !isOpen }))}
-                                            >
-                                                {isOpen ? 'Hide details' : 'Show details'}
-                                            </button>
-                                            {isOpen && (
-                                                <div className="mt-1 text-[11px] text-gray-500 space-x-2">
-                                                    <span>EF: {item.ease_factor.toFixed(2)}</span>
-                                                    <span>Streak: {item.streak}</span>
-                                                    <span>Interval: {item.interval_days.toFixed(1)} days</span>
-                                                    <span>Due: {item.due_date ? new Date(item.due_date).toLocaleDateString() : 'N/A'}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                {/* Mastery Progress */}
+                {stats && (
+                    <section className="bg-white border border-gray-200 rounded-2xl p-3 shadow-sm">
+                        <div className="flex items-center justify-between mb-2">
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900">Lines mastered in this opening</h3>
+                                <p className="text-sm text-gray-600">
+                                    {masteredCount} / {totalCount} lines mastered • {masteryPct}%
+                                </p>
                             </div>
-                        </>
-                    )}
-                    {!progress && !progressLoading && (
-                        <div className="text-sm text-gray-500">Progress data not available.</div>
-                    )}
-                </section>
+                        </div>
+                        <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                                style={{ width: `${masteryPct}%` }}
+                            />
+                        </div>
+                    </section>
+                )}
 
                 {/* Stats & Badges */}
                 {stats && (

@@ -47,6 +47,7 @@ export interface RecallFilters {
     difficulties?: string[];
     training_goals?: string[];
     themes?: string[];
+    opening_id?: string;
 }
 
 export interface OpeningDrillOpening {
@@ -98,23 +99,31 @@ export const api = {
         const { data } = await client.get<OpeningsResponse>('/openings/');
         return data;
     },
-    getRecallSession: async (id?: string, filters?: RecallFilters) => {
+    getRecallSession: async (id?: string, filters?: RecallFilters, openingId?: string) => {
         let url = '/recall/session/';
         const params = new URLSearchParams();
         
         if (id) {
             params.append('id', id);
         }
+
+        const effectiveFilters = {
+            ...filters,
+            opening_id: filters?.opening_id || openingId
+        };
         
-        if (filters) {
-            if (filters.difficulties && filters.difficulties.length > 0) {
-                params.append('difficulties', filters.difficulties.join(','));
+        if (effectiveFilters) {
+            if (effectiveFilters.difficulties && effectiveFilters.difficulties.length > 0) {
+                params.append('difficulties', effectiveFilters.difficulties.join(','));
             }
-            if (filters.training_goals && filters.training_goals.length > 0) {
-                params.append('training_goals', filters.training_goals.join(','));
+            if (effectiveFilters.training_goals && effectiveFilters.training_goals.length > 0) {
+                params.append('training_goals', effectiveFilters.training_goals.join(','));
             }
-            if (filters.themes && filters.themes.length > 0) {
-                params.append('themes', filters.themes.join(','));
+            if (effectiveFilters.themes && effectiveFilters.themes.length > 0) {
+                params.append('themes', effectiveFilters.themes.join(','));
+            }
+            if (effectiveFilters.opening_id) {
+                params.append('opening_id', effectiveFilters.opening_id);
             }
         }
         

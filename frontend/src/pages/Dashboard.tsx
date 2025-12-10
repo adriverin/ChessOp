@@ -198,7 +198,7 @@ export const Dashboard: React.FC = () => {
                                             <Target className="text-red-500" /> Opening Drill
                                         </h3>
                                         <p className="text-gray-500">
-                                            Test your opening mastery
+                                            Spaced repetition training
                                         </p>
                                     </div>
                                     <ChevronRight className="w-8 h-8 text-gray-300 group-hover:text-red-500 transition-colors" />

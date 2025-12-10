@@ -20,7 +20,15 @@ interface GameAreaProps {
     locked?: boolean;
     sessionTitle?: string;
     sessionType?: string;
-    onRemainingMovesChange?: (remaining: number) => void;
+    opening?: { slug: string; name: string };
+    openingOptions?: { slug: string; name: string }[];
+    onSelectOpening?: (slug: string) => void;
+    showInlineProgress?: boolean;
+    onRemainingMovesChange?: (remaining: number, total: number) => void;
+    lineOptions?: { id: string; label: string }[];
+    selectedLineId?: string;
+    onSelectLine?: (id: string) => void;
+    headerMode?: 'drill' | 'training';
 }
 
 export const GameArea: React.FC<GameAreaProps> = ({ 
@@ -34,7 +42,15 @@ export const GameArea: React.FC<GameAreaProps> = ({
     locked = false,
     sessionTitle,
     sessionType,
-    onRemainingMovesChange
+    opening,
+    openingOptions,
+    onSelectOpening,
+    showInlineProgress = true,
+    onRemainingMovesChange,
+    lineOptions,
+    selectedLineId,
+    onSelectLine,
+    headerMode = 'training'
 }) => {
     const [game, setGame] = useState(() => {
         try {
@@ -55,6 +71,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
         return saved === 'stay' ? 'stay' : 'snap';
     });
     const [logRevealed, setLogRevealed] = useState(false);
+    const [openingPickerOpen, setOpeningPickerOpen] = useState(false);
+    const [linePickerOpen, setLinePickerOpen] = useState(false);
     
     const activeMoveRef = useRef<HTMLDivElement>(null);
     const logContainerRef = useRef<HTMLDivElement>(null);
@@ -315,31 +333,55 @@ export const GameArea: React.FC<GameAreaProps> = ({
         }
     }, [initialFen, targetMoves, targetNextMove, mode, orientation]);
 
+    const initialTurn = useMemo(() => {
+        const safeChess = (fen?: string) => {
+            try {
+                return new Chess(fen || undefined);
+            } catch (e) {
+                return new Chess();
+            }
+        };
+        return safeChess(initialFen).turn();
+    }, [initialFen]);
+
     // Derived helpers
-    const totalMoves = mode === 'sequence' && targetMoves ? targetMoves.length : (mode === 'mistake' ? 1 : 0);
-    
-    const remainingMoves = useMemo(() => {
+    const userMoveIndices = useMemo(() => {
+        if (mode !== 'sequence' || !targetMoves) return [];
+        const userColor = orientation === 'white' ? 'w' : 'b';
+        const startingTurn = initialTurn;
+        const opposite = startingTurn === 'w' ? 'b' : 'w';
+        return targetMoves
+            .map((_, idx) => {
+                const moveColor = idx % 2 === 0 ? startingTurn : opposite;
+                return moveColor === userColor ? idx : null;
+            })
+            .filter((idx): idx is number => idx !== null);
+    }, [mode, targetMoves, orientation, initialTurn]);
+
+    const totalUserMoves = useMemo(() => {
         if (mode === 'mistake') return 1;
         if (mode !== 'sequence' || !targetMoves) return 0;
+        return userMoveIndices.length;
+    }, [mode, targetMoves, userMoveIndices]);
 
-        let count = 0;
-        let currentTurn = game.turn(); // 'w' or 'b'
-        const userColor = orientation === 'white' ? 'w' : 'b';
+    const userMovesCompleted = useMemo(() => {
+        if (mode === 'mistake') return feedback === 'correct' ? 1 : 0;
+        if (mode !== 'sequence' || !targetMoves) return 0;
+        return userMoveIndices.filter(idx => idx < moveIndex).length;
+    }, [mode, targetMoves, userMoveIndices, moveIndex, feedback]);
 
-        for (let i = moveIndex; i < targetMoves.length; i++) {
-            if (currentTurn === userColor) {
-                count++;
-            }
-            currentTurn = currentTurn === 'w' ? 'b' : 'w';
-        }
-        return count;
-    }, [mode, targetMoves, moveIndex, game, orientation]);
+    const remainingMoves = useMemo(() => {
+        if (totalUserMoves === 0) return 0;
+        return Math.max(totalUserMoves - userMovesCompleted, 0);
+    }, [totalUserMoves, userMovesCompleted]);
+
+    const progressPercent = totalUserMoves === 0 ? 100 : (userMovesCompleted / totalUserMoves) * 100;
 
     useEffect(() => {
         if (onRemainingMovesChange) {
-            onRemainingMovesChange(remainingMoves);
+            onRemainingMovesChange(remainingMoves, totalUserMoves);
         }
-    }, [remainingMoves, onRemainingMovesChange]);
+    }, [remainingMoves, totalUserMoves, onRemainingMovesChange]);
 
     const { capturedWhite, capturedBlack } = useMemo(() => {
         const capturedW: string[] = [];
@@ -384,7 +426,22 @@ export const GameArea: React.FC<GameAreaProps> = ({
         return { capturedWhite: capturedW, capturedBlack: capturedB };
     }, [initialFen, mode, targetMoves, targetNextMove, moveIndex, feedback]);
 
-    const renderCaptured = (list: string[], label: string, pieceColor: 'w' | 'b') => (
+    const pieceValues: Record<string, number> = {
+        p: 1,
+        n: 3,
+        b: 3,
+        r: 5,
+        q: 9
+    };
+
+    const materialDiff = useMemo(() => {
+        const sumPieces = (list: string[]) => list.reduce((acc, p) => acc + (pieceValues[p.toLowerCase()] || 0), 0);
+        const wScore = sumPieces(capturedWhite);
+        const bScore = sumPieces(capturedBlack);
+        return wScore - bScore;
+    }, [capturedWhite, capturedBlack]);
+
+    const renderCaptured = (list: string[], label: string, pieceColor: 'w' | 'b', aheadBy?: number) => (
         <div className="flex items-center gap-2 text-xs text-gray-700">
             <span className="font-semibold min-w-[80px]">{label}:</span>
             <div className="flex gap-1 flex-wrap items-center">
@@ -398,6 +455,11 @@ export const GameArea: React.FC<GameAreaProps> = ({
                     />
                 ))}
             </div>
+            {aheadBy && aheadBy > 0 && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-semibold border border-emerald-100">
+                    +{aheadBy}
+                </span>
+            )}
         </div>
     );
 
@@ -481,19 +543,20 @@ export const GameArea: React.FC<GameAreaProps> = ({
             
             {/* Left Column: Board + Progress + Status */}
             <div className="flex flex-col w-full max-w-2xl gap-2">
-                {/* Progress */}
-                <div className="w-full shrink-0">
-                    <div className="flex justify-between text-xs text-gray-600 mb-1 font-medium">
-                        <span>Progress</span>
-                        <span>{remainingMoves} moves remaining</span>
+                {showInlineProgress && (
+                    <div className="w-full shrink-0">
+                        <div className="flex justify-between text-xs text-gray-600 mb-1 font-medium">
+                            <span>Progress</span>
+                            <span>{totalUserMoves === 0 ? '0 moves to play' : `${remainingMoves} moves remaining`}</span>
+                        </div>
+                        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                            <div 
+                                className="h-full bg-blue-500 transition-all duration-500 ease-out"
+                                style={{ width: `${progressPercent}%` }}
+                            />
+                        </div>
                     </div>
-                    <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div 
-                            className="h-full bg-blue-500 transition-all duration-500 ease-out"
-                            style={{ width: totalMoves > 0 ? `${((moveIndex) / totalMoves) * 100}%` : '0%' }}
-                        />
-                    </div>
-                </div>
+                )}
 
                 {/* Board Container */}
                 <div className="w-full aspect-square rounded overflow-hidden relative bg-gray-200">
@@ -623,16 +686,84 @@ export const GameArea: React.FC<GameAreaProps> = ({
                 <div className="flex flex-col gap-2 lg:absolute lg:inset-0">
                     
                     {/* Session Info (Moved from Header) */}
-                    <div className="bg-white p-2 rounded-xl border border-gray-200 shadow-sm shrink-0">
-                            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wide mb-1">
+                    <div className="bg-white p-2 rounded-xl border border-gray-200 shadow-sm shrink-0 relative">
+                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wide mb-1">
                             <Brain size={12} />
-                            {sessionType === 'mistake' && "Fix Blunder"}
-                            {sessionType === 'srs_review' && "Review"}
-                            {sessionType === 'new_learn' && "Learn"}
+                            {headerMode === 'drill' ? "Spaced Repetition Training" : "Opening Training"}
                         </div>
-                        <h3 className="text-sm font-bold text-gray-900 leading-snug">
-                            {sessionTitle}
-                        </h3>
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-3 flex-wrap">
+                                {opening && openingOptions && openingOptions.length > 0 && onSelectOpening ? (
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => {
+                                                setOpeningPickerOpen(prev => !prev);
+                                                setLinePickerOpen(false);
+                                            }}
+                                            className="text-sm font-bold text-gray-900 leading-snug hover:text-blue-700 transition-colors"
+                                            title="Switch opening"
+                                        >
+                                            {opening.name}
+                                        </button>
+                                        {openingPickerOpen && (
+                                            <div className="absolute right-0 z-20 mt-1 w-56 max-h-56 overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg p-1">
+                                                {openingOptions.map(opt => (
+                                                    <button
+                                                        key={opt.slug}
+                                                        onClick={() => {
+                                                            setOpeningPickerOpen(false);
+                                                            if (opt.slug !== opening.slug) {
+                                                                onSelectOpening(opt.slug);
+                                                            }
+                                                        }}
+                                                        className="w-full text-left px-2 py-1.5 rounded-md text-sm hover:bg-blue-50 transition-colors"
+                                                    >
+                                                        {opt.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <h3 className="text-sm font-bold text-gray-900 leading-snug">
+                                        {sessionTitle}
+                                    </h3>
+                                )}
+
+                                {headerMode === 'training' && lineOptions && lineOptions.length > 0 && onSelectLine && (
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => {
+                                                setLinePickerOpen(prev => !prev);
+                                                setOpeningPickerOpen(false);
+                                            }}
+                                            className="text-xs font-semibold text-gray-700 leading-snug hover:text-blue-700 transition-colors"
+                                            title="Switch line"
+                                        >
+                                            {lineOptions.find(l => l.id === selectedLineId)?.label || lineOptions[0].label}
+                                        </button>
+                                        {linePickerOpen && (
+                                            <div className="absolute right-0 z-20 mt-1 w-56 max-h-56 overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg p-1">
+                                                {lineOptions.map(opt => (
+                                                    <button
+                                                        key={opt.id}
+                                                        onClick={() => {
+                                                            setLinePickerOpen(false);
+                                                            if (opt.id !== selectedLineId) {
+                                                                onSelectLine(opt.id);
+                                                            }
+                                                        }}
+                                                        className="w-full text-left px-2 py-1.5 rounded-md text-sm hover:bg-blue-50 transition-colors"
+                                                    >
+                                                        {opt.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
                     {/* Log */}
@@ -657,8 +788,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
                     {/* Captured pieces */}
                     <div className="bg-white border border-gray-200 rounded-xl p-2 shadow-sm space-y-2 shrink-0">
                         <div className="text-xs font-semibold text-gray-700 uppercase tracking-wider opacity-75">Captured</div>
-                        {renderCaptured(capturedWhite, "White", 'b')}
-                        {renderCaptured(capturedBlack, "Black", 'w')}
+                        {renderCaptured(capturedWhite, "White", 'b', materialDiff > 0 ? materialDiff : undefined)}
+                        {renderCaptured(capturedBlack, "Black", 'w', materialDiff < 0 ? Math.abs(materialDiff) : undefined)}
                     </div>
 
                     {/* Practice Mode (Moved to Bottom) */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import type { RecallSessionResponse } from '../types';
@@ -8,18 +8,75 @@ import { Trophy, ArrowRight, Filter, Target } from 'lucide-react';
 
 export const Train: React.FC = () => {
     const { user, refreshUser } = useUser();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [session, setSession] = useState<RecallSessionResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [completed, setCompleted] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
+    const [openings, setOpenings] = useState<{ slug: string; name: string; variations: { id: string; name: string; label: string; locked?: boolean }[] }[]>([]);
+    const [selectedOpening, setSelectedOpening] = useState<string | null>(null);
+    const [selectedVariation, setSelectedVariation] = useState<string | null>(searchParams.get('id'));
+
+    // Load available openings and variations
+    useEffect(() => {
+        api.getOpenings()
+            .then(data => {
+                const isPremium = Boolean(user?.effective_premium || user?.is_premium || user?.is_superuser || user?.is_staff);
+                const flattened: { slug: string; name: string; variations: { id: string; name: string; label: string; locked?: boolean }[] }[] = [];
+                Object.values(data).forEach(openingList => {
+                    openingList.forEach(o => {
+                        const vars = (isPremium ? o.variations : o.variations.filter(v => !v.locked)).map((v, idx) => ({
+                            id: v.id,
+                            name: v.name,
+                            label: v.name || `Line #${idx + 1}`,
+                            locked: v.locked
+                        }));
+                        if (vars.length > 0) {
+                            flattened.push({ slug: o.id, name: o.name, variations: vars });
+                        }
+                    });
+                });
+                setOpenings(flattened);
+
+                // Initialize selection if missing
+                const currentVar = searchParams.get('id');
+                if (!selectedOpening && !selectedVariation) {
+                    const firstOpening = flattened[0];
+                    if (firstOpening) {
+                        setSelectedOpening(firstOpening.slug);
+                        setSelectedVariation(firstOpening.variations[0]?.id || null);
+                    }
+                } else if (currentVar && !selectedVariation) {
+                    // Infer opening from variation id if possible
+                    const found = flattened.find(op => op.variations.some(v => v.id === currentVar));
+                    if (found) {
+                        setSelectedOpening(found.slug);
+                        setSelectedVariation(currentVar);
+                    }
+                }
+            })
+            .catch(console.error);
+    }, [user]);
+
+    const openingOptions = useMemo(() => openings.map(o => ({ slug: o.slug, name: o.name })), [openings]);
+    const currentOpening = openings.find(o => o.slug === selectedOpening) || openings[0];
+    const lineOptions = currentOpening ? currentOpening.variations : [];
+
+    useEffect(() => {
+        if (!selectedOpening && currentOpening) {
+            setSelectedOpening(currentOpening.slug);
+        }
+        if (!selectedVariation && currentOpening && currentOpening.variations.length > 0) {
+            setSelectedVariation(currentOpening.variations[0].id);
+        }
+    }, [currentOpening, selectedOpening, selectedVariation]);
 
     const fetchSession = useCallback(async () => {
         setLoading(true);
         setCompleted(false);
         setMessage(null);
         try {
-            const variationId = searchParams.get('id');
+            const variationId = selectedVariation || searchParams.get('id');
             
             // Extract filters from URL
             const difficulties = searchParams.get('difficulties')?.split(',').filter(Boolean);
@@ -34,6 +91,13 @@ export const Train: React.FC = () => {
 
             const data = await api.getRecallSession(variationId || undefined, filters);
             setSession(data);
+            // Infer opening from response if provided
+            if (!selectedOpening && 'opening' in data && (data as any).opening?.slug) {
+                setSelectedOpening((data as any).opening.slug);
+            }
+            if (!selectedVariation && variationId) {
+                setSelectedVariation(variationId);
+            }
         } catch (err: any) {
             console.error("Failed to fetch session", err);
             if (err.response?.status === 403) {
@@ -46,11 +110,37 @@ export const Train: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [searchParams]);
+    }, [searchParams, selectedVariation, selectedOpening]);
 
     useEffect(() => {
         fetchSession();
     }, [fetchSession]);
+
+    const updateSearchWithVariation = (variationId: string) => {
+        const next = new URLSearchParams(searchParams);
+        if (variationId) {
+            next.set('id', variationId);
+        } else {
+            next.delete('id');
+        }
+        setSearchParams(next);
+    };
+
+    const handleSelectOpening = (slug: string) => {
+        const newOpening = openings.find(o => o.slug === slug);
+        if (!newOpening) return;
+        setSelectedOpening(slug);
+        const firstVar = newOpening.variations[0]?.id || null;
+        setSelectedVariation(firstVar);
+        if (firstVar) {
+            updateSearchWithVariation(firstVar);
+        }
+    };
+
+    const handleSelectLine = (variationId: string) => {
+        setSelectedVariation(variationId);
+        updateSearchWithVariation(variationId);
+    };
 
     const handleComplete = async (success: boolean, hintUsed: boolean) => {
         if (!session) return;
@@ -171,6 +261,17 @@ export const Train: React.FC = () => {
                     onComplete={handleComplete}
                     onMistake={handleMistake}
                     locked={completed}
+                    opening={
+                        currentOpening
+                            ? { slug: currentOpening.slug, name: currentOpening.name }
+                            : undefined
+                    }
+                    openingOptions={openingOptions}
+                    onSelectOpening={handleSelectOpening}
+                    lineOptions={lineOptions.map(l => ({ id: l.id, label: l.label }))}
+                    selectedLineId={selectedVariation || undefined}
+                    onSelectLine={handleSelectLine}
+                    headerMode="training"
                 />
 
                 {completed && (
