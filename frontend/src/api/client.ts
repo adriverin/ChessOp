@@ -50,6 +50,7 @@ export interface RecallFilters {
     themes?: string[];
     opening_id?: string;
     use_repertoire_only?: boolean;
+    side?: 'white' | 'black';
 }
 
 export interface RepertoireOpening {
@@ -140,6 +141,9 @@ export const api = {
             }
             if (typeof effectiveFilters.use_repertoire_only === 'boolean') {
                 params.append('use_repertoire_only', String(effectiveFilters.use_repertoire_only));
+            }
+            if (effectiveFilters.side) {
+                params.append('side', effectiveFilters.side);
             }
         }
         

@@ -459,7 +459,10 @@ def api_get_recall_session(request):
     training_goals = [g for g in training_goals if g]
     themes = [t for t in themes if t]
 
+    side_param = request.GET.get("side")
     side_to_train = infer_side_from_opening(opening) if opening else UserRepertoireOpening.SIDE_WHITE
+    if side_param in [UserRepertoireOpening.SIDE_WHITE, UserRepertoireOpening.SIDE_BLACK]:
+        side_to_train = side_param
     repertoire_opening_ids = []
     if use_repertoire_only:
         repertoire_opening_ids = list(
@@ -469,9 +472,9 @@ def api_get_recall_session(request):
                 is_active=True,
             ).values_list("opening_id", flat=True)
         )
-        # If user has no repertoire for this side, fall back to standard pool
+        # If user explicitly requested repertoire-only but has none, return an error
         if not repertoire_opening_ids:
-            use_repertoire_only = False
+            return JsonResponse({'error': 'No repertoire openings for this side'}, status=404)
 
     has_filters = bool(difficulties or training_goals or themes or opening or use_repertoire_only)
 
@@ -481,6 +484,8 @@ def api_get_recall_session(request):
         variation = get_object_or_404(Variation, slug=requested_id)
         if opening and variation.opening_id != opening.id:
             return JsonResponse({'message': 'Variation not in requested opening'}, status=404)
+        if use_repertoire_only and repertoire_opening_ids and variation.opening_id not in repertoire_opening_ids:
+            return JsonResponse({'message': 'Variation not in repertoire for this side'}, status=404)
         tags = variation.opening.get_tags_list()
         orientation = 'black' if 'Black' in tags else 'white'
         return JsonResponse({

@@ -1,37 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useUser } from '../context/UserContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { Award, Zap, ChevronRight, Lock, LogIn, Target, BarChart2, ArrowRight } from 'lucide-react';
+import { Zap, ChevronRight, Lock, LogIn, Target, Star, Check } from 'lucide-react';
 import { api } from '../api/client';
-import type { ThemeStat } from '../types';
+import type { Opening, RepertoireResponse } from '../types';
 
 export const Dashboard: React.FC = () => {
     const { user, loading } = useUser();
-    const [themeStats, setThemeStats] = useState<ThemeStat[]>([]);
-    const [statsLoading, setStatsLoading] = useState(true);
+    const [repertoire, setRepertoire] = useState<RepertoireResponse | null>(null);
+    const [openingsLookup, setOpeningsLookup] = useState<Record<string, Opening>>({});
+    const [repertoireLoading, setRepertoireLoading] = useState(true);
+    const [repertoireFilter, setRepertoireFilter] = useState<'all' | 'white' | 'black'>('all');
     const navigate = useNavigate();
 
     useEffect(() => {
-        if (user?.is_authenticated) {
-            // Fetch Theme Stats
-            api.getThemeStats()
-                .then(data => setThemeStats(data.themes))
-                .catch(console.error)
-                .finally(() => setStatsLoading(false));
-        } else {
-            setStatsLoading(false);
+        if (!user?.is_authenticated) {
+            setRepertoireLoading(false);
+            return;
         }
+        setRepertoireLoading(true);
+        Promise.all([api.getRepertoire(), api.getOpenings()])
+            .then(([rep, openingsData]) => {
+                setRepertoire(rep);
+                const lookup: Record<string, Opening> = {};
+                Object.values(openingsData).forEach(openings => {
+                    openings.forEach((o: Opening) => {
+                        lookup[o.id] = o;
+                    });
+                });
+                setOpeningsLookup(lookup);
+            })
+            .catch(console.error)
+            .finally(() => setRepertoireLoading(false));
     }, [user]);
 
-    const handleTrainTheme = (theme: string) => {
-        navigate(`/train?themes=${theme}`);
-    };
-
-    const handleTrainWeakest = () => {
-        // Pick top 3 weakest themes
-        const weakest = themeStats.slice(0, 3).map(t => t.name).join(',');
-        navigate(`/train?themes=${weakest}`);
-    };
+    const repertoireEntries = useMemo(() => {
+        if (!repertoire) return [];
+        const items = [...(repertoire.white || []), ...(repertoire.black || [])].map(item => {
+            const meta = openingsLookup[item.opening_id];
+            const total = meta?.progress?.total ?? 0;
+            const completed = meta?.progress?.completed ?? 0;
+            const mastered = total > 0 && completed >= total;
+            const progressLabel = total > 0 ? `${completed} / ${total} lines` : 'No lines trained';
+            const progressPct = meta?.progress?.percentage ?? 0;
+            return {
+                ...item,
+                name: meta?.name || item.name,
+                progressLabel,
+                mastered,
+                progressPct,
+            };
+        });
+        if (repertoireFilter === 'white') return items.filter(i => i.side === 'white');
+        if (repertoireFilter === 'black') return items.filter(i => i.side === 'black');
+        return items;
+    }, [repertoire, openingsLookup, repertoireFilter]);
 
     if (loading) return <div className="flex justify-center p-10">Loading...</div>;
     
@@ -92,150 +115,139 @@ export const Dashboard: React.FC = () => {
                 </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
-                {/* Daily Quests */}
-                <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                    <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                        <Award className="text-yellow-500" /> Daily Quests
-                    </h3>
-                    <div className="space-y-4">
-                        {user.quests?.map((quest, idx) => (
-                            <div key={idx} className={`p-4 rounded-lg border ${quest.completed ? 'bg-green-50 border-green-100' : 'bg-gray-50 border-gray-100'}`}>
-                                <div className="flex justify-between items-start mb-2">
-                                    <h4 className={`font-semibold ${quest.completed ? 'text-green-800' : 'text-gray-800'}`}>
-                                        {quest.title}
-                                    </h4>
-                                    <span className="px-2 py-1 bg-white rounded text-xs font-bold text-yellow-600 shadow-sm border border-yellow-100">
-                                        +{quest.reward} XP
-                                    </span>
-                                </div>
-                                <p className="text-sm text-gray-500 mb-3">{quest.description}</p>
-                                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                    <div 
-                                        className={`h-full transition-all ${quest.completed ? 'bg-green-500' : 'bg-blue-500'}`}
-                                        style={{ width: `${Math.min(100, (quest.progress / quest.target) * 100)}%` }}
-                                    ></div>
-                                </div>
-                                <div className="text-right text-xs mt-1 text-gray-500">
-                                    {quest.progress} / {quest.target}
-                                </div>
-                            </div>
+            {/* Repertoire Blocks */}
+            {/* My Repertoire */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-900">My Repertoire</h3>
+                        <p className="text-gray-500">Train only the openings you play.</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {(['all', 'white', 'black'] as const).map(val => (
+                            <button
+                                key={val}
+                                onClick={() => setRepertoireFilter(val)}
+                                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+                                    repertoireFilter === val
+                                        ? 'bg-blue-600 text-white border-blue-600'
+                                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                }`}
+                            >
+                                {val === 'all' ? 'All' : val === 'white' ? 'White' : 'Black'}
+                            </button>
                         ))}
-                        {(!user.quests || user.quests.length === 0) && (
-                            <p className="text-gray-400 italic text-center py-4">No quests available today.</p>
-                        )}
                     </div>
                 </div>
 
-                {/* Right Column Stack */}
-                <div className="space-y-6">
-                    {/* Weakest Themes Widget */}
-                    <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                                <BarChart2 className="text-orange-500" /> Weakest Themes
-                            </h3>
-                            {!statsLoading && themeStats.length > 0 && (
-                                <button 
-                                    onClick={handleTrainWeakest}
-                                    className="text-xs font-bold text-orange-600 hover:text-orange-800 flex items-center gap-1"
-                                >
-                                    Train All <ArrowRight size={12} />
-                                </button>
-                            )}
+                <div className="mt-4">
+                    {repertoireLoading ? (
+                        <div className="text-sm text-gray-400">Loading repertoire...</div>
+                    ) : repertoireEntries.length === 0 ? (
+                        <div className="text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-200 rounded-lg p-4 flex flex-col gap-2">
+                            <span>You haven’t added any openings to your repertoire yet. Go to Openings to star your favourite lines.</span>
+                            <button
+                                onClick={() => navigate('/openings')}
+                                className="self-start px-3 py-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800"
+                            >
+                                Go to Openings
+                            </button>
                         </div>
-                        
-                        {statsLoading ? (
-                            <div className="text-center py-4 text-gray-400">Loading stats...</div>
-                        ) : themeStats.length === 0 ? (
-                            <div className="text-center py-4 text-gray-400 italic bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                                <p>Play more games to track your theme performance!</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {themeStats.slice(0, 3).map(stat => (
-                                    <div key={stat.name} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg border border-orange-100 group">
+                    ) : (
+                        <div className="grid md:grid-cols-2 gap-3">
+                            {repertoireEntries.map(item => (
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(`/train?side=${item.side}&opening_id=${item.opening_id}&repertoire_only=true`)}
+                                    key={`${item.side}-${item.opening_id}`}
+                                    className="border border-gray-200 rounded-lg p-3 bg-gray-50 flex items-center justify-between gap-2 text-left hover:border-blue-200 hover:bg-white transition"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <Star className="w-4 h-4 text-yellow-500" fill="#facc15" />
                                         <div>
-                                            <div className="font-medium text-gray-800 capitalize">{stat.name.replace(/_/g, ' ')}</div>
-                                            <div className="text-xs text-gray-500">
-                                                {stat.successes}/{stat.attempts} correct ({Math.round(stat.accuracy * 100)}%)
+                                            <div className="font-semibold text-gray-900 hover:underline">{item.name}</div>
+                                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                <span className="px-2 py-0.5 rounded-full border border-gray-200 bg-white">
+                                                    {item.side === 'white' ? 'White' : 'Black'}
+                                                </span>
+                                                <span>{item.progressLabel}</span>
                                             </div>
                                         </div>
-                                        <button 
-                                            onClick={() => handleTrainTheme(stat.name)}
-                                            className="px-3 py-1.5 bg-white text-orange-600 text-xs font-bold rounded-md border border-orange-200 shadow-sm hover:bg-orange-100 transition-colors"
-                                        >
-                                            Train
-                                        </button>
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Quick Actions */}
-                    <div className="space-y-4">
-                        <Link to="/train" className="block group">
-                            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-md p-6 text-white transition-transform transform hover:-translate-y-1">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <h3 className="text-xl font-bold mb-1 flex items-center gap-2">
-                                            <Zap className="fill-current" /> Start Training
-                                        </h3>
-                                        <p className="text-blue-100">Continue your daily streak</p>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-800">
+                                            {Math.round(item.progressPct)}%
+                                        </span>
+                                        {item.mastered && <Check className="w-4 h-4 text-green-600" />}
                                     </div>
-                                    <ChevronRight className="w-8 h-8 opacity-50 group-hover:opacity-100 transition-opacity" />
-                                </div>
-                            </div>
-                        </Link>
-
-                        {/* Opening Drill Card */}
-                        <Link to="/drill" className="block group">
-                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 transition-transform transform hover:-translate-y-1 hover:shadow-md">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <h3 className="text-xl font-bold text-gray-800 mb-1 flex items-center gap-2">
-                                            <Target className="text-red-500" /> Opening Drill
-                                        </h3>
-                                        <p className="text-gray-500">
-                                            Spaced repetition training
-                                        </p>
-                                    </div>
-                                    <ChevronRight className="w-8 h-8 text-gray-300 group-hover:text-red-500 transition-colors" />
-                                </div>
-                            </div>
-                        </Link>
-
-                        <Link to="/openings" className="block group">
-                            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 transition-transform transform hover:-translate-y-1 hover:shadow-md">
-                                <div className="flex justify-between items-center">
-                                    <div>
-                                        <h3 className="text-xl font-bold text-gray-800 mb-1">Review Openings</h3>
-                                        <p className="text-gray-500">Browse your repertoire</p>
-                                    </div>
-                                    <ChevronRight className="w-8 h-8 text-gray-300 group-hover:text-blue-500 transition-colors" />
-                                </div>
-                            </div>
-                        </Link>
-
-                        {/* Premium Banner */}
-                        {!user.effective_premium && (
-                            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <Lock className="text-purple-600 w-5 h-5" />
-                                    <h3 className="font-bold text-purple-800">Premium Features</h3>
-                                </div>
-                                <p className="text-sm text-purple-600 mb-3">
-                                    Unlock unlimited variations and detailed analytics.
-                                </p>
-                                <button className="text-sm font-bold text-purple-700 hover:text-purple-900 underline">
-                                    Upgrade now
                                 </button>
-                            </div>
-                        )}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
+
+            {/* Quick Actions */}
+            <div className="space-y-4">
+                    <Link to="/train" className="block group">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-md p-6 text-white transition-transform transform hover:-translate-y-1">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h3 className="text-xl font-bold mb-1 flex items-center gap-2">
+                                        <Zap className="fill-current" /> Start Training
+                                    </h3>
+                                    <p className="text-blue-100">Continue your daily streak</p>
+                                </div>
+                                <ChevronRight className="w-8 h-8 opacity-50 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                        </div>
+                    </Link>
+
+                    {/* Opening Drill Card */}
+                    <Link to="/drill" className="block group">
+                        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 transition-transform transform hover:-translate-y-1 hover:shadow-md">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-800 mb-1 flex items-center gap-2">
+                                        <Target className="text-red-500" /> Opening Drill
+                                    </h3>
+                                    <p className="text-gray-500">
+                                        Spaced repetition training
+                                    </p>
+                                </div>
+                                <ChevronRight className="w-8 h-8 text-gray-300 group-hover:text-red-500 transition-colors" />
+                            </div>
+                        </div>
+                    </Link>
+
+                    <Link to="/openings" className="block group">
+                        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 transition-transform transform hover:-translate-y-1 hover:shadow-md">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-800 mb-1">Review Openings</h3>
+                                    <p className="text-gray-500">Browse your repertoire</p>
+                                </div>
+                                <ChevronRight className="w-8 h-8 text-gray-300 group-hover:text-blue-500 transition-colors" />
+                            </div>
+                        </div>
+                    </Link>
+
+                    {/* Premium Banner */}
+                    {!user.effective_premium && (
+                        <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-100">
+                            <div className="flex items-center gap-3 mb-2">
+                                <Lock className="text-purple-600 w-5 h-5" />
+                                <h3 className="font-bold text-purple-800">Premium Features</h3>
+                            </div>
+                            <p className="text-sm text-purple-600 mb-3">
+                                Unlock unlimited variations and detailed analytics.
+                            </p>
+                            <button className="text-sm font-bold text-purple-700 hover:text-purple-900 underline">
+                                Upgrade now
+                            </button>
+                        </div>
+                    )}
+                </div>
         </div>
     );
 };

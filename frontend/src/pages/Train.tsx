@@ -17,8 +17,11 @@ export const Train: React.FC = () => {
     const [openings, setOpenings] = useState<{ slug: string; name: string; variations: { id: string; name: string; label: string; locked?: boolean }[] }[]>([]);
     const [selectedOpening, setSelectedOpening] = useState<string | null>(null);
     const [selectedVariation, setSelectedVariation] = useState<string | null>(searchParams.get('id'));
-    const [useRepertoireOnly, setUseRepertoireOnly] = useState(false);
+    const initialRepertoireOnly = searchParams.get('repertoire_only') === 'true';
+    const [useRepertoireOnly, setUseRepertoireOnly] = useState(initialRepertoireOnly);
     const [hasRepertoire, setHasRepertoire] = useState(false);
+    const sideParam = searchParams.get('side') as 'white' | 'black' | null;
+    const openingFilter = searchParams.get('opening_id') || undefined;
 
     // Load available openings and variations
     useEffect(() => {
@@ -100,18 +103,24 @@ export const Train: React.FC = () => {
             const training_goals = searchParams.get('training_goals')?.split(',').filter(Boolean);
             const themes = searchParams.get('themes')?.split(',').filter(Boolean);
             
-            const filters = (difficulties || training_goals || themes || (useRepertoireOnly && hasRepertoire)) ? {
+            const filters = (difficulties || training_goals || themes || (useRepertoireOnly && hasRepertoire) || sideParam || openingFilter) ? {
                 difficulties,
                 training_goals,
                 themes,
-                use_repertoire_only: useRepertoireOnly && hasRepertoire
+                use_repertoire_only: useRepertoireOnly && hasRepertoire,
+                side: sideParam || undefined,
+                opening_id: openingFilter
             } : undefined;
 
             const data = await api.getRecallSession(variationId || undefined, filters);
             setSession(data);
             // Infer opening from response if provided
-            if (!selectedOpening && 'opening' in data && (data as any).opening?.slug) {
-                setSelectedOpening((data as any).opening.slug);
+            if (!selectedOpening) {
+                if (openingFilter) {
+                    setSelectedOpening(openingFilter);
+                } else if ('opening' in data && (data as any).opening?.slug) {
+                    setSelectedOpening((data as any).opening.slug);
+                }
             }
             if (!selectedVariation && variationId) {
                 setSelectedVariation(variationId);
@@ -128,7 +137,7 @@ export const Train: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [searchParams, selectedVariation, selectedOpening, useRepertoireOnly, hasRepertoire]);
+    }, [searchParams, selectedVariation, selectedOpening, useRepertoireOnly, hasRepertoire, sideParam]);
 
     useEffect(() => {
         fetchSession();
