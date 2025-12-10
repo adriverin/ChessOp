@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -58,6 +59,37 @@ class Variation(models.Model):
     
     def __str__(self):
         return f"{self.opening.name} - {self.name}"
+
+
+class UserRepertoireOpening(models.Model):
+    SIDE_WHITE = "white"
+    SIDE_BLACK = "black"
+    SIDE_CHOICES = (
+        (SIDE_WHITE, "White"),
+        (SIDE_BLACK, "Black"),
+    )
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    opening = models.ForeignKey(Opening, on_delete=models.CASCADE)
+    side = models.CharField(max_length=5, choices=SIDE_CHOICES)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ("user", "opening", "side")
+
+    def __str__(self):
+        return f"{self.user} - {self.opening} ({self.side})"
+
+
+def infer_side_from_opening(opening: Opening) -> str:
+    """
+    Determine whether an opening is played by White or Black.
+    Falls back to 'white' if ambiguous.
+    """
+    tags = opening.get_tags_list()
+    if "Black" in tags:
+        return UserRepertoireOpening.SIDE_BLACK
+    return UserRepertoireOpening.SIDE_WHITE
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')

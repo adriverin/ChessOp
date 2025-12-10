@@ -47,6 +47,17 @@ export interface Opening {
     drill_mode_unlocked?: boolean;
 }
 
+export interface RepertoireOpening {
+    opening_id: string;
+    name: string;
+    side: 'white' | 'black';
+}
+
+export interface RepertoireResponse {
+    white: RepertoireOpening[];
+    black: RepertoireOpening[];
+}
+
 export interface OpeningDrillResponse {
     opening: {
         id: string;
@@ -171,4 +182,6 @@ export interface RecallFilters {
     difficulties?: string[];
     training_goals?: string[];
     themes?: string[];
+    opening_id?: string;
+    use_repertoire_only?: boolean;
 }

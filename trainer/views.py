@@ -9,9 +9,19 @@ import random
 import json
 
 from .models import (
-    OpeningCategory, Opening, Variation, UserProgress, 
-    UserSRSProgress, UserMistake, MoveLog, DailyQuest, UserQuestProgress,
-    UserDrillSRSProgress, UserDrillAttempt
+    OpeningCategory,
+    Opening,
+    Variation,
+    UserProgress,
+    UserSRSProgress,
+    UserMistake,
+    MoveLog,
+    DailyQuest,
+    UserQuestProgress,
+    UserDrillSRSProgress,
+    UserDrillAttempt,
+    UserRepertoireOpening,
+    infer_side_from_opening,
 )
 from .monetization import MonetizationManager, stamina_required
 from .drill_badges import get_opening_drill_badges
@@ -81,6 +91,57 @@ def opening_drill_unlocked(user, opening):
     ).values_list('variation_id', flat=True))
     
     return var_ids.issubset(completed_ids)
+
+
+def _serialize_repertoire(user):
+    repertoire = (
+        UserRepertoireOpening.objects.filter(user=user, is_active=True)
+        .select_related("opening")
+    )
+    grouped = {"white": [], "black": []}
+    for item in repertoire:
+        grouped[item.side].append(
+            {"opening_id": item.opening.slug, "name": item.opening.name}
+        )
+    return grouped
+
+
+def _get_unlocked_opening_slugs(user):
+    """
+    Mirrors the Hard Lock gating used in api_get_openings.
+    Returns slugs of openings with at least one unlocked variation.
+    """
+    if not user.is_authenticated:
+        return set()
+
+    if MonetizationManager.is_effective_premium(user):
+        return set(Opening.objects.values_list("slug", flat=True))
+
+    strategy = MonetizationManager.get_strategy()
+    if strategy != "HARD_LOCK":
+        return set(Opening.objects.values_list("slug", flat=True))
+
+    limit = 5
+    variations_count = 0
+    unlocked = set()
+
+    categories = OpeningCategory.objects.prefetch_related("openings__variations").all()
+    for category in categories:
+        for opening in category.openings.all():
+            opening_has_access = False
+            for _ in opening.variations.all():
+                is_locked = False
+                if variations_count >= limit:
+                    is_locked = True
+                variations_count += 1
+
+                if not is_locked:
+                    opening_has_access = True
+
+            if opening_has_access:
+                unlocked.add(opening.slug)
+
+    return unlocked
 
 
 # --- Opening Drill SRS Helpers (SM-2 inspired) ---
@@ -293,6 +354,72 @@ def api_get_openings(request):
         
     return JsonResponse(data)
 
+
+@login_required
+def api_get_repertoire(request):
+    """
+    Returns the current user's repertoire grouped by side.
+    """
+    return JsonResponse(_serialize_repertoire(request.user))
+
+
+@require_POST
+@login_required
+def api_toggle_repertoire(request):
+    """
+    Toggle an opening in the user's repertoire.
+    Enforces monetization rules for free users.
+    """
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    opening_id = data.get('opening_id')
+    active = data.get('active')
+
+    if opening_id is None:
+        return JsonResponse({'error': 'opening_id is required'}, status=400)
+    if active is None:
+        return JsonResponse({'error': 'active flag is required'}, status=400)
+
+    opening = Opening.objects.filter(slug=opening_id).first() or Opening.objects.filter(id=opening_id).first()
+    if not opening:
+        return JsonResponse({'error': 'Invalid opening_id'}, status=404)
+
+    side = infer_side_from_opening(opening)
+    user = request.user
+
+    # Monetization gating: free users can only add unlocked openings
+    if not MonetizationManager.is_effective_premium(user):
+        unlocked_slugs = _get_unlocked_opening_slugs(user)
+        if opening.slug not in unlocked_slugs:
+            return JsonResponse(
+                {'error': 'Opening not unlocked for free users'},
+                status=403
+            )
+
+    if active:
+        repertoire_entry, _ = UserRepertoireOpening.objects.get_or_create(
+            user=user,
+            opening=opening,
+            side=side,
+            defaults={'is_active': True},
+        )
+        if not repertoire_entry.is_active:
+            repertoire_entry.is_active = True
+            repertoire_entry.save()
+    else:
+        repertoire_entry = UserRepertoireOpening.objects.filter(
+            user=user, opening=opening, side=side
+        ).first()
+        if repertoire_entry:
+            repertoire_entry.is_active = False
+            repertoire_entry.save()
+
+    return JsonResponse(_serialize_repertoire(user))
+
+
 @login_required
 @stamina_required
 def api_get_recall_session(request):
@@ -307,7 +434,6 @@ def api_get_recall_session(request):
     
     # Parse Filter Params
     # Expected format: ?difficulties=beginner,elite&training_goals=tactics&themes=IQP,pawn_storm
-    
     difficulties = request.GET.get('difficulties', '').split(',')
     training_goals = request.GET.get('training_goals', '').split(',')
     themes = request.GET.get('themes', '').split(',')
@@ -315,13 +441,39 @@ def api_get_recall_session(request):
     opening = None
     if opening_slug:
         opening = get_object_or_404(Opening, slug=opening_slug)
-    
+
+    # Optional repertoire-only flag (query param or JSON body if POST)
+    use_repertoire_only = False
+    if request.method == "POST":
+        try:
+            body_data = json.loads(request.body or "{}")
+            use_repertoire_only = bool(body_data.get("use_repertoire_only", False))
+        except Exception:
+            pass
+    qp_flag = request.GET.get("use_repertoire_only")
+    if qp_flag and qp_flag.lower() in ("1", "true", "yes", "on"):
+        use_repertoire_only = True
+
     # Clean up empty strings
     difficulties = [d for d in difficulties if d]
     training_goals = [g for g in training_goals if g]
     themes = [t for t in themes if t]
-    
-    has_filters = bool(difficulties or training_goals or themes or opening)
+
+    side_to_train = infer_side_from_opening(opening) if opening else UserRepertoireOpening.SIDE_WHITE
+    repertoire_opening_ids = []
+    if use_repertoire_only:
+        repertoire_opening_ids = list(
+            UserRepertoireOpening.objects.filter(
+                user=request.user,
+                side=side_to_train,
+                is_active=True,
+            ).values_list("opening_id", flat=True)
+        )
+        # If user has no repertoire for this side, fall back to standard pool
+        if not repertoire_opening_ids:
+            use_repertoire_only = False
+
+    has_filters = bool(difficulties or training_goals or themes or opening or use_repertoire_only)
 
     # 0. Specific Variation Request (Overrides everything)
     requested_id = request.GET.get('id')
@@ -347,7 +499,7 @@ def api_get_recall_session(request):
         })
     
     # Helper to apply filters to a QuerySet (UserSRSProgress or Variation)
-    def apply_filters(queryset, model_prefix=''):
+    def apply_filters(queryset, model_prefix='', repertoire_ids=None):
         # model_prefix allows filtering on 'variation__' for SRSProgress or direct fields for Variation
         prefix = f"{model_prefix}__" if model_prefix else ""
         
@@ -357,6 +509,8 @@ def api_get_recall_session(request):
             queryset = queryset.filter(**{f"{prefix}training_goal__in": training_goals})
         if opening:
             queryset = queryset.filter(**{f"{prefix}opening": opening})
+        if repertoire_ids:
+            queryset = queryset.filter(**{f"{prefix}opening_id__in": repertoire_ids})
         
         # NOTE: Theme filtering is done in Python later because SQLite doesn't support JSON contains
             
@@ -394,7 +548,11 @@ def api_get_recall_session(request):
         # Filtered logic: Only show blunders that match criteria
         blunders = UserMistake.objects.filter(profile=profile, resolved=False)
         # This requires joining on variation to filter
-        blunders = apply_filters(blunders, model_prefix='variation')
+        blunders = apply_filters(
+            blunders,
+            model_prefix='variation',
+            repertoire_ids=repertoire_opening_ids if use_repertoire_only else None,
+        )
         
         # Apply theme filter in Python
         if themes and blunders.exists():
@@ -410,7 +568,11 @@ def api_get_recall_session(request):
     due_srs = UserSRSProgress.objects.filter(profile=profile, next_review_date__lte=now).order_by('next_review_date')
     
     if has_filters:
-        due_srs = apply_filters(due_srs, model_prefix='variation')
+        due_srs = apply_filters(
+            due_srs,
+            model_prefix='variation',
+            repertoire_ids=repertoire_opening_ids if use_repertoire_only else None,
+        )
         
     # Apply theme filter in Python
     if themes and due_srs.exists():
@@ -426,13 +588,18 @@ def api_get_recall_session(request):
     known_ids_qs = UserSRSProgress.objects.filter(profile=profile)
     if opening:
         known_ids_qs = known_ids_qs.filter(variation__opening=opening)
+    if use_repertoire_only and repertoire_opening_ids:
+        known_ids_qs = known_ids_qs.filter(variation__opening_id__in=repertoire_opening_ids)
     known_ids = known_ids_qs.values_list('variation_id', flat=True)
     available = Variation.objects.exclude(id__in=known_ids)
     if opening:
         available = available.filter(opening=opening)
     
     if has_filters:
-        available = apply_filters(available)
+        available = apply_filters(
+            available,
+            repertoire_ids=repertoire_opening_ids if use_repertoire_only else None,
+        )
     
     # Apply theme filter in Python
     candidates = []
@@ -461,7 +628,10 @@ def api_get_recall_session(request):
         fallback_candidates = Variation.objects.all()
         if opening:
             fallback_candidates = fallback_candidates.filter(opening=opening)
-        fallback_candidates = apply_filters(fallback_candidates)
+        fallback_candidates = apply_filters(
+            fallback_candidates,
+            repertoire_ids=repertoire_opening_ids if use_repertoire_only else None,
+        )
         
         candidates_list = []
         if fallback_candidates.exists():

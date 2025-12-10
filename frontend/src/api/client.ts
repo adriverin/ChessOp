@@ -1,13 +1,14 @@
 import axios from 'axios';
-import type { 
-    DashboardResponse, 
-    OpeningsResponse, 
-    RecallSessionResponse, 
-    SubmitResultPayload, 
+import type {
+    DashboardResponse,
+    OpeningsResponse,
+    RecallSessionResponse,
+    SubmitResultPayload,
     SubmitResultResponse,
     ThemeStatsResponse,
     OpeningDrillResponse,
-    OpeningDrillProgressResponse
+    OpeningDrillProgressResponse,
+    RepertoireResponse,
 } from '../types';
 
 // Function to get CSRF token from cookies
@@ -48,6 +49,18 @@ export interface RecallFilters {
     training_goals?: string[];
     themes?: string[];
     opening_id?: string;
+    use_repertoire_only?: boolean;
+}
+
+export interface RepertoireOpening {
+    opening_id: string;
+    name: string;
+    side: "white" | "black";
+}
+
+export interface RepertoireResponse {
+    white: RepertoireOpening[];
+    black: RepertoireOpening[];
 }
 
 export interface OpeningDrillOpening {
@@ -125,6 +138,9 @@ export const api = {
             if (effectiveFilters.opening_id) {
                 params.append('opening_id', effectiveFilters.opening_id);
             }
+            if (typeof effectiveFilters.use_repertoire_only === 'boolean') {
+                params.append('use_repertoire_only', String(effectiveFilters.use_repertoire_only));
+            }
         }
         
         const queryString = params.toString();
@@ -133,6 +149,17 @@ export const api = {
         }
         
         const { data } = await client.get<RecallSessionResponse>(url);
+        return data;
+    },
+    getRepertoire: async () => {
+        const { data } = await client.get<RepertoireResponse>('/repertoire/');
+        return data;
+    },
+    toggleRepertoire: async (openingId: string, active: boolean) => {
+        const { data } = await client.post<RepertoireResponse>('/repertoire/toggle/', {
+            opening_id: openingId,
+            active
+        });
         return data;
     },
     submitResult: async (payload: SubmitResultPayload) => {

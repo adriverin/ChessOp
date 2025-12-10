@@ -4,7 +4,8 @@ import { api } from '../api/client';
 import type { RecallSessionResponse } from '../types';
 import { GameArea } from '../components/GameArea';
 import { useUser } from '../context/UserContext';
-import { Trophy, ArrowRight, Filter, Target } from 'lucide-react';
+import { Trophy, ArrowRight, Target } from 'lucide-react';
+import clsx from 'clsx';
 
 export const Train: React.FC = () => {
     const { user, refreshUser } = useUser();
@@ -16,6 +17,8 @@ export const Train: React.FC = () => {
     const [openings, setOpenings] = useState<{ slug: string; name: string; variations: { id: string; name: string; label: string; locked?: boolean }[] }[]>([]);
     const [selectedOpening, setSelectedOpening] = useState<string | null>(null);
     const [selectedVariation, setSelectedVariation] = useState<string | null>(searchParams.get('id'));
+    const [useRepertoireOnly, setUseRepertoireOnly] = useState(false);
+    const [hasRepertoire, setHasRepertoire] = useState(false);
 
     // Load available openings and variations
     useEffect(() => {
@@ -58,6 +61,20 @@ export const Train: React.FC = () => {
             .catch(console.error);
     }, [user]);
 
+    // Load repertoire to drive the optional recall filter
+    useEffect(() => {
+        api.getRepertoire()
+            .then(data => {
+                const has = (data.white?.length ?? 0) + (data.black?.length ?? 0) > 0;
+                setHasRepertoire(has);
+                // Default to on if the user already has a repertoire
+                setUseRepertoireOnly(prev => prev || has);
+            })
+            .catch(() => {
+                setHasRepertoire(false);
+            });
+    }, [user]);
+
     const openingOptions = useMemo(() => openings.map(o => ({ slug: o.slug, name: o.name })), [openings]);
     const currentOpening = openings.find(o => o.slug === selectedOpening) || openings[0];
     const lineOptions = currentOpening ? currentOpening.variations : [];
@@ -83,10 +100,11 @@ export const Train: React.FC = () => {
             const training_goals = searchParams.get('training_goals')?.split(',').filter(Boolean);
             const themes = searchParams.get('themes')?.split(',').filter(Boolean);
             
-            const filters = (difficulties || training_goals || themes) ? {
+            const filters = (difficulties || training_goals || themes || (useRepertoireOnly && hasRepertoire)) ? {
                 difficulties,
                 training_goals,
-                themes
+                themes,
+                use_repertoire_only: useRepertoireOnly && hasRepertoire
             } : undefined;
 
             const data = await api.getRecallSession(variationId || undefined, filters);
@@ -110,7 +128,7 @@ export const Train: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [searchParams, selectedVariation, selectedOpening]);
+    }, [searchParams, selectedVariation, selectedOpening, useRepertoireOnly, hasRepertoire]);
 
     useEffect(() => {
         fetchSession();
@@ -250,6 +268,23 @@ export const Train: React.FC = () => {
             )}
 
             <div className="bg-white p-2 sm:p-3 rounded-xl shadow-sm border border-gray-100">
+                <div className="mb-3 flex items-start gap-3">
+                    <input
+                        type="checkbox"
+                        id="use-repertoire-only"
+                        className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        checked={hasRepertoire && useRepertoireOnly}
+                        disabled={!hasRepertoire}
+                        onChange={(e) => setUseRepertoireOnly(e.target.checked)}
+                    />
+                    <label htmlFor="use-repertoire-only" className={clsx("flex flex-col text-sm", !hasRepertoire && "text-gray-400")}>
+                        <span className="font-semibold text-gray-800">Use my repertoire only</span>
+                        <span className="text-xs text-gray-500">If enabled, recall uses only your repertoire openings for this side.</span>
+                        {!hasRepertoire && (
+                            <span className="text-[11px] text-gray-400 mt-1">Add openings to your repertoire to enable this.</span>
+                        )}
+                    </label>
+                </div>
                 <GameArea
                     mode={session.type === 'mistake' ? 'mistake' : 'sequence'}
                     sessionTitle={session.type === 'mistake' ? session.variation_name : session.name}

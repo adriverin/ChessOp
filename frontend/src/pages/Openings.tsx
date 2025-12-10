@@ -1,14 +1,15 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
-import type { OpeningsResponse, Opening, Variation } from '../types';
-import { Lock, ChevronDown, ChevronUp, Book, Check, PlayCircle, Filter, X } from 'lucide-react';
+import type { OpeningsResponse, Opening, Variation, RepertoireResponse } from '../types';
+import { Lock, ChevronDown, ChevronUp, Book, Check, PlayCircle, Filter, X, Star } from 'lucide-react';
 import clsx from 'clsx';
 
 export const Openings: React.FC = () => {
     const [data, setData] = useState<OpeningsResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [expandedOpening, setExpandedOpening] = useState<string | null>(null);
+    const [repertoire, setRepertoire] = useState<RepertoireResponse | null>(null);
     
     // Filters State
     const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>([]);
@@ -17,11 +18,44 @@ export const Openings: React.FC = () => {
     const [showFilters, setShowFilters] = useState(false);
 
     useEffect(() => {
-        api.getOpenings()
-            .then(setData)
+        setLoading(true);
+        Promise.all([
+            api.getOpenings(),
+            api.getRepertoire().catch(() => null)
+        ])
+            .then(([openingsData, repertoireData]) => {
+                setData(openingsData);
+                if (repertoireData) {
+                    setRepertoire(repertoireData);
+                }
+            })
             .catch(err => console.error(err))
             .finally(() => setLoading(false));
     }, []);
+
+    const inferSideFromTags = (tags: string[]): "white" | "black" => {
+        return tags.includes("Black") ? "black" : "white";
+    };
+
+    const isOpeningInRepertoire = (opening: Opening) => {
+        if (!repertoire) return false;
+        const side = inferSideFromTags(opening.tags);
+        return (repertoire[side] || []).some(item => item.opening_id === opening.id);
+    };
+
+    const toggleOpeningInRepertoire = async (opening: Opening) => {
+        const currentlyIn = isOpeningInRepertoire(opening);
+        try {
+            const updated = await api.toggleRepertoire(opening.id, !currentlyIn);
+            setRepertoire(updated);
+        } catch (err: any) {
+            if (err?.response?.status === 403) {
+                alert("Upgrade to add this opening to your repertoire.");
+            } else {
+                alert("Could not update repertoire. Please try again.");
+            }
+        }
+    };
 
     // Extract unique filter options from data
     const filterOptions = useMemo(() => {
@@ -217,6 +251,8 @@ export const Openings: React.FC = () => {
                                 <OpeningCard 
                                     key={opening.id} 
                                     opening={opening} 
+                                    inRepertoire={isOpeningInRepertoire(opening)}
+                                    onToggleRepertoire={() => toggleOpeningInRepertoire(opening)}
                                     isExpanded={expandedOpening === opening.id}
                                     onToggle={() => setExpandedOpening(curr => curr === opening.id ? null : opening.id)}
                                 />
@@ -231,10 +267,16 @@ export const Openings: React.FC = () => {
 
 const OpeningCard: React.FC<{ 
     opening: Opening; 
+    inRepertoire: boolean;
+    onToggleRepertoire: () => void;
     isExpanded: boolean; 
     onToggle: () => void; 
-}> = ({ opening, isExpanded, onToggle }) => {
+}> = ({ opening, inRepertoire, onToggleRepertoire, isExpanded, onToggle }) => {
     const progress = opening.progress || { total: 0, completed: 0, percentage: 0 };
+    const handleRepertoireClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onToggleRepertoire();
+    };
 
     return (
         <div className={`bg-white rounded-lg shadow-sm border transition-all ${isExpanded ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200 hover:border-blue-200'}`}>
@@ -253,7 +295,24 @@ const OpeningCard: React.FC<{
                             ))}
                         </div>
                     </div>
-                    {isExpanded ? <ChevronUp className="text-gray-400 w-5 h-5" /> : <ChevronDown className="text-gray-400 w-5 h-5" />}
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleRepertoireClick}
+                            className={clsx(
+                                "p-2 rounded-full border transition-colors",
+                                inRepertoire
+                                    ? "bg-yellow-50 border-yellow-200 text-yellow-500"
+                                    : "bg-white border-gray-200 text-gray-400 hover:bg-gray-100"
+                            )}
+                            title={inRepertoire ? "In my repertoire" : "Add to my repertoire"}
+                        >
+                            <Star
+                                className="w-4 h-4"
+                                fill={inRepertoire ? "#facc15" : "none"}
+                            />
+                        </button>
+                        {isExpanded ? <ChevronUp className="text-gray-400 w-5 h-5" /> : <ChevronDown className="text-gray-400 w-5 h-5" />}
+                    </div>
                 </div>
 
                 {/* Progress Bar */}
