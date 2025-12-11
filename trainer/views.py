@@ -101,7 +101,7 @@ def _serialize_repertoire(user):
     grouped = {"white": [], "black": []}
     for item in repertoire:
         grouped[item.side].append(
-            {"opening_id": item.opening.slug, "name": item.opening.name}
+            {"opening_id": item.opening.slug, "name": item.opening.name, "side": item.side}
         )
     return grouped
 

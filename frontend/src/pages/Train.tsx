@@ -22,6 +22,7 @@ export const Train: React.FC = () => {
     const [hasRepertoire, setHasRepertoire] = useState(false);
     const sideParam = searchParams.get('side') as 'white' | 'black' | null;
     const openingFilter = searchParams.get('opening_id') || undefined;
+    const hasSpecificOpening = Boolean(openingFilter);
 
     // Load available openings and variations
     useEffect(() => {
@@ -44,9 +45,13 @@ export const Train: React.FC = () => {
                 });
                 setOpenings(flattened);
 
-                // Initialize selection if missing
+                // Initialize selection based on opening filter or existing selection
                 const currentVar = searchParams.get('id');
-                if (!selectedOpening && !selectedVariation) {
+                const openingFromFilter = openingFilter ? flattened.find(op => op.slug === openingFilter) : null;
+                if (openingFromFilter) {
+                    setSelectedOpening(openingFromFilter.slug);
+                    setSelectedVariation(openingFromFilter.variations[0]?.id || null);
+                } else if (!selectedOpening && !selectedVariation) {
                     const firstOpening = flattened[0];
                     if (firstOpening) {
                         setSelectedOpening(firstOpening.slug);
@@ -79,7 +84,7 @@ export const Train: React.FC = () => {
     }, [user]);
 
     const openingOptions = useMemo(() => openings.map(o => ({ slug: o.slug, name: o.name })), [openings]);
-    const currentOpening = openings.find(o => o.slug === selectedOpening) || openings[0];
+    const currentOpening = openings.find(o => o.slug === (openingFilter || selectedOpening)) || openings.find(o => o.slug === selectedOpening) || openings[0];
     const lineOptions = currentOpening ? currentOpening.variations : [];
 
     useEffect(() => {
@@ -90,6 +95,14 @@ export const Train: React.FC = () => {
             setSelectedVariation(currentOpening.variations[0].id);
         }
     }, [currentOpening, selectedOpening, selectedVariation]);
+
+    // If the URL opening_id changes, sync selection and clear old variation id
+    useEffect(() => {
+        if (openingFilter) {
+            setSelectedOpening(openingFilter);
+            setSelectedVariation(null);
+        }
+    }, [openingFilter]);
 
     const fetchSession = useCallback(async () => {
         setLoading(true);
@@ -137,7 +150,7 @@ export const Train: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [searchParams, selectedVariation, selectedOpening, useRepertoireOnly, hasRepertoire, sideParam]);
+    }, [searchParams, selectedVariation, selectedOpening, useRepertoireOnly, hasRepertoire, sideParam, openingFilter]);
 
     useEffect(() => {
         fetchSession();
@@ -277,23 +290,25 @@ export const Train: React.FC = () => {
             )}
 
             <div className="bg-white p-2 sm:p-3 rounded-xl shadow-sm border border-gray-100">
-                <div className="mb-3 flex items-start gap-3">
-                    <input
-                        type="checkbox"
-                        id="use-repertoire-only"
-                        className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        checked={hasRepertoire && useRepertoireOnly}
-                        disabled={!hasRepertoire}
-                        onChange={(e) => setUseRepertoireOnly(e.target.checked)}
-                    />
-                    <label htmlFor="use-repertoire-only" className={clsx("flex flex-col text-sm", !hasRepertoire && "text-gray-400")}>
-                        <span className="font-semibold text-gray-800">Use my repertoire only</span>
-                        <span className="text-xs text-gray-500">If enabled, recall uses only your repertoire openings for this side.</span>
-                        {!hasRepertoire && (
-                            <span className="text-[11px] text-gray-400 mt-1">Add openings to your repertoire to enable this.</span>
-                        )}
-                    </label>
-                </div>
+                {!hasSpecificOpening && (
+                    <div className="mb-3 flex items-start gap-3">
+                        <input
+                            type="checkbox"
+                            id="use-repertoire-only"
+                            className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            checked={hasRepertoire && useRepertoireOnly}
+                            disabled={!hasRepertoire}
+                            onChange={(e) => setUseRepertoireOnly(e.target.checked)}
+                        />
+                        <label htmlFor="use-repertoire-only" className={clsx("flex flex-col text-sm", !hasRepertoire && "text-gray-400")}>
+                            <span className="font-semibold text-gray-800">Use my repertoire only</span>
+                            <span className="text-xs text-gray-500">If enabled, recall uses only your repertoire openings for this side.</span>
+                            {!hasRepertoire && (
+                                <span className="text-[11px] text-gray-400 mt-1">Add openings to your repertoire to enable this.</span>
+                            )}
+                        </label>
+                    </div>
+                )}
                 <GameArea
                     mode={session.type === 'mistake' ? 'mistake' : 'sequence'}
                     sessionTitle={session.type === 'mistake' ? session.variation_name : session.name}

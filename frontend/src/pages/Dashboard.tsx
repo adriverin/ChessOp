@@ -45,14 +45,15 @@ export const Dashboard: React.FC = () => {
             const progressPct = meta?.progress?.percentage ?? 0;
             return {
                 ...item,
+                side: (item as any).side || item.side || 'white',
                 name: meta?.name || item.name,
                 progressLabel,
                 mastered,
                 progressPct,
             };
         });
-        if (repertoireFilter === 'white') return items.filter(i => i.side === 'white');
-        if (repertoireFilter === 'black') return items.filter(i => i.side === 'black');
+        if (repertoireFilter === 'white') return items.filter(i => (i.side || '').toLowerCase() === 'white');
+        if (repertoireFilter === 'black') return items.filter(i => (i.side || '').toLowerCase() === 'black');
         return items;
     }, [repertoire, openingsLookup, repertoireFilter]);
 
@@ -115,80 +116,80 @@ export const Dashboard: React.FC = () => {
                 </div>
             </div>
 
-            {/* Repertoire Blocks */}
-            {/* My Repertoire */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                    <div>
-                        <h3 className="text-xl font-bold text-gray-900">My Repertoire</h3>
-                        <p className="text-gray-500">Train only the openings you play.</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {(['all', 'white', 'black'] as const).map(val => (
-                            <button
-                                key={val}
-                                onClick={() => setRepertoireFilter(val)}
-                                className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
-                                    repertoireFilter === val
-                                        ? 'bg-blue-600 text-white border-blue-600'
-                                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                                }`}
-                            >
-                                {val === 'all' ? 'All' : val === 'white' ? 'White' : 'Black'}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="mt-4">
-                    {repertoireLoading ? (
-                        <div className="text-sm text-gray-400">Loading repertoire...</div>
-                    ) : repertoireEntries.length === 0 ? (
-                        <div className="text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-200 rounded-lg p-4 flex flex-col gap-2">
-                            <span>You haven’t added any openings to your repertoire yet. Go to Openings to star your favourite lines.</span>
-                            <button
-                                onClick={() => navigate('/openings')}
-                                className="self-start px-3 py-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800"
-                            >
-                                Go to Openings
-                            </button>
+            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)]">
+                {/* My Repertoire */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div>
+                            <h3 className="text-xl font-bold text-gray-900">My Repertoire</h3>
+                            <p className="text-gray-500">Train only the openings you play.</p>
                         </div>
-                    ) : (
-                        <div className="grid md:grid-cols-2 gap-3">
-                            {repertoireEntries.map(item => (
+                        <div className="flex items-center gap-2">
+                            {(['all', 'white', 'black'] as const).map(val => (
                                 <button
-                                    type="button"
-                                    onClick={() => navigate(`/train?side=${item.side}&opening_id=${item.opening_id}&repertoire_only=true`)}
-                                    key={`${item.side}-${item.opening_id}`}
-                                    className="border border-gray-200 rounded-lg p-3 bg-gray-50 flex items-center justify-between gap-2 text-left hover:border-blue-200 hover:bg-white transition"
+                                    key={val}
+                                    onClick={() => setRepertoireFilter(val)}
+                                    className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
+                                        repertoireFilter === val
+                                            ? 'bg-blue-600 text-white border-blue-600'
+                                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                                    }`}
                                 >
-                                    <div className="flex items-center gap-3">
-                                        <Star className="w-4 h-4 text-yellow-500" fill="#facc15" />
-                                        <div>
-                                            <div className="font-semibold text-gray-900 hover:underline">{item.name}</div>
-                                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                                                <span className="px-2 py-0.5 rounded-full border border-gray-200 bg-white">
-                                                    {item.side === 'white' ? 'White' : 'Black'}
-                                                </span>
-                                                <span>{item.progressLabel}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-800">
-                                            {Math.round(item.progressPct)}%
-                                        </span>
-                                        {item.mastered && <Check className="w-4 h-4 text-green-600" />}
-                                    </div>
+                                    {val === 'all' ? 'All' : val === 'white' ? 'White' : 'Black'}
                                 </button>
                             ))}
                         </div>
-                    )}
-                </div>
-            </div>
+                    </div>
 
-            {/* Quick Actions */}
-            <div className="space-y-4">
+                    <div className="mt-4">
+                        {repertoireLoading ? (
+                            <div className="text-sm text-gray-400">Loading repertoire...</div>
+                        ) : repertoireEntries.length === 0 ? (
+                            <div className="text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-200 rounded-lg p-4 flex flex-col gap-2">
+                                <span>You haven’t added any openings to your repertoire yet. Go to Openings to star your favourite lines.</span>
+                                <button
+                                    onClick={() => navigate('/openings')}
+                                    className="self-start px-3 py-1.5 text-sm font-semibold text-blue-600 hover:text-blue-800"
+                                >
+                                    Go to Openings
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="grid md:grid-cols-2 gap-3">
+                                {repertoireEntries.map(item => (
+                                    <button
+                                        type="button"
+                                        onClick={() => navigate(`/train?side=${item.side}&opening_id=${item.opening_id}&repertoire_only=true`)}
+                                        key={`${item.side}-${item.opening_id}`}
+                                        className="border border-gray-200 rounded-lg p-3 bg-gray-50 flex items-center justify-between gap-2 text-left hover:border-blue-200 hover:bg-white transition"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <Star className="w-4 h-4 text-yellow-500" fill="#facc15" />
+                                            <div>
+                                                <div className="font-semibold text-gray-900 hover:underline">{item.name}</div>
+                                                <div className="flex items-center gap-2 text-xs text-gray-500">
+                                                    <span className="px-2 py-0.5 rounded-full border border-gray-200 bg-white">
+                                                        {item.side === 'white' ? 'White' : 'Black'}
+                                                    </span>
+                                                    <span>{item.progressLabel}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-800">
+                                                {Math.round(item.progressPct)}%
+                                            </span>
+                                            {item.mastered && <Check className="w-4 h-4 text-green-600" />}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Quick Actions */}
+                <div className="space-y-4">
                     <Link to="/train" className="block group">
                         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-md p-6 text-white transition-transform transform hover:-translate-y-1">
                             <div className="flex justify-between items-center">
@@ -248,6 +249,7 @@ export const Dashboard: React.FC = () => {
                         </div>
                     )}
                 </div>
+            </div>
         </div>
     );
 };

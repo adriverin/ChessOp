@@ -333,7 +333,7 @@ const OpeningCard: React.FC<{
             {isExpanded && (
                 <div className="border-t border-gray-100 bg-gray-50 p-2 rounded-b-lg space-y-1">
                     {opening.variations.map(variant => (
-                        <VariationItem key={variant.id} variation={variant} />
+                        <VariationItem key={variant.id} variation={variant} openingSlug={opening.id} />
                     ))}
                     {opening.variations.length === 0 && (
                         <p className="text-sm text-gray-400 p-2 italic">No variations match.</p>
@@ -344,14 +344,14 @@ const OpeningCard: React.FC<{
     );
 };
 
-const VariationItem: React.FC<{ variation: Variation }> = ({ variation }) => {
+const VariationItem: React.FC<{ variation: Variation; openingSlug: string }> = ({ variation, openingSlug }) => {
     const [showMoves, setShowMoves] = useState(false);
     const navigate = useNavigate();
 
     const handleTrain = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (variation.locked) return;
-        navigate(`/train?id=${variation.id}`);
+        navigate(`/train?id=${variation.id}&opening_id=${openingSlug}`);
     };
 
     const handleToggleMoves = (e: React.MouseEvent) => {
