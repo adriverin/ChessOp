@@ -106,6 +106,8 @@ class UserProfile(models.Model):
     stripe_subscription_id = models.CharField(max_length=255, null=True, blank=True)
     subscription_status = models.CharField(max_length=50, null=True, blank=True)
     current_period_end = models.DateTimeField(null=True, blank=True)
+    cancel_at_period_end = models.BooleanField(default=False)
+    canceled_at = models.DateTimeField(null=True, blank=True)
     plan_interval = models.CharField(max_length=10, null=True, blank=True)
     trial_ends_at = models.DateTimeField(null=True, blank=True)
 

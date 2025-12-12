@@ -29,6 +29,18 @@ export const OpeningDrill: React.FC = () => {
     const [badges, setBadges] = useState<OpeningDrillBadge[]>([]);
     const [showStats, setShowStats] = useState(true);
 
+    const handlePremiumError = useCallback((err: any) => {
+        if (err?.response?.status === 403 && err?.response?.data?.error === 'PREMIUM_REQUIRED') {
+            if (user?.is_authenticated) {
+                navigate('/pricing');
+            } else {
+                navigate('/login', { state: { from: { pathname: '/pricing' } } });
+            }
+            return true;
+        }
+        return false;
+    }, [navigate, user]);
+
     // Fetch Available Openings on Mount
     useEffect(() => {
         if (!user?.is_authenticated) return;
@@ -51,9 +63,13 @@ export const OpeningDrill: React.FC = () => {
                     }
                 }
             })
-            .catch(console.error)
+            .catch(err => {
+                if (!handlePremiumError(err)) {
+                    console.error(err);
+                }
+            })
             .finally(() => setOpeningsLoading(false));
-    }, [user, searchParams, setSearchParams]);
+    }, [user, searchParams, setSearchParams, handlePremiumError]);
 
     const fetchStats = useCallback(async (openingId: string) => {
         try {
@@ -61,9 +77,11 @@ export const OpeningDrill: React.FC = () => {
             setStats(data.stats);
             setBadges(data.badges);
         } catch (err) {
-            console.error('Failed to fetch stats', err);
+            if (!handlePremiumError(err)) {
+                console.error('Failed to fetch stats', err);
+            }
         }
-    }, []);
+    }, [handlePremiumError]);
 
     const fetchSession = useCallback(async () => {
         if (!selectedOpeningId) return;
@@ -76,6 +94,9 @@ export const OpeningDrill: React.FC = () => {
             const data = await api.getOpeningDrillSession(selectedOpeningId);
             setSession(data);
         } catch (err: any) {
+            if (handlePremiumError(err)) {
+                return;
+            }
             console.error("Failed to fetch drill session", err);
             if (err.response?.status === 403) {
                 setMessage("This opening is not unlocked for drilling yet. You must successfully train all variations first.");
@@ -88,7 +109,7 @@ export const OpeningDrill: React.FC = () => {
         } finally {
             setSessionLoading(false);
         }
-    }, [selectedOpeningId]);
+    }, [selectedOpeningId, handlePremiumError]);
 
     // Trigger session fetch when selection changes
     useEffect(() => {

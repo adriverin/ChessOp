@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useUser } from '../context/UserContext';
 import { api } from '../api/client';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -6,16 +6,101 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 export const Subscription: React.FC = () => {
     const { user, loading, refreshUser } = useUser();
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [managing, setManaging] = useState(false);
-    
+    const [syncing, setSyncing] = useState(false);
+    const [syncTimedOut, setSyncTimedOut] = useState(false);
+
     const isUpgraded = searchParams.get('upgraded') === '1';
 
     useEffect(() => {
-        if (isUpgraded) {
-            refreshUser();
+        if (!isUpgraded) return;
+
+        let cancelled = false;
+        const attempts = [1000, 2000, 3000, 5000, 8000];
+
+        const removeUpgradeFlag = () => {
+            const params = new URLSearchParams(searchParams);
+            params.delete('upgraded');
+            setSearchParams(params, { replace: true });
+        };
+
+        const checkPremium = async () => {
+            setSyncing(true);
+            setSyncTimedOut(false);
+
+            for (const delay of attempts) {
+                if (cancelled) return;
+
+                try {
+                    const data = await api.me();
+                    const status = data.subscription?.status;
+                    const periodEnd = data.subscription?.currentPeriodEnd ? new Date(data.subscription.currentPeriodEnd) : null;
+                    const isCancelActive = data.subscription?.cancelAtPeriodEnd && periodEnd ? periodEnd.getTime() > Date.now() : false;
+                    const isPremiumLike = Boolean(
+                        data.isPremium ||
+                        status === 'active' ||
+                        status === 'trialing' ||
+                        status === 'active_canceling' ||
+                        isCancelActive
+                    );
+
+                    if (isPremiumLike) {
+                        await refreshUser();
+                        removeUpgradeFlag();
+                        setSyncing(false);
+                        return;
+                    }
+                } catch (err) {
+                    console.error('Failed to sync subscription', err);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+
+            if (!cancelled) {
+                setSyncTimedOut(true);
+                setSyncing(false);
+            }
+        };
+
+        checkPremium();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isUpgraded, refreshUser, searchParams, setSearchParams]);
+
+    const subscription = user?.subscription;
+
+    const currentPeriodEnd = useMemo(() => subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd) : null, [subscription]);
+    const trialEndsAt = useMemo(() => subscription?.trialEndsAt ? new Date(subscription.trialEndsAt) : null, [subscription]);
+
+    const statusLabel = useMemo(() => {
+        const status = subscription?.status;
+
+        if (status === 'trialing') {
+            return `Trial${trialEndsAt ? ` (ends on ${trialEndsAt.toLocaleDateString()})` : ''}`;
         }
-    }, [isUpgraded]);
+
+        if (status === 'active_canceling' || subscription?.cancelAtPeriodEnd) {
+            return `Cancels on ${currentPeriodEnd ? currentPeriodEnd.toLocaleDateString() : 'period end'}`;
+        }
+
+        if (status === 'past_due') {
+            return 'Payment issue';
+        }
+
+        if (status === 'active') {
+            return 'Premium Active';
+        }
+
+        if (status === 'canceled') {
+            return 'Inactive';
+        }
+
+        return user?.is_premium ? 'Premium Active' : 'Free Tier';
+    }, [subscription, currentPeriodEnd, trialEndsAt, user?.is_premium]);
 
     if (loading) return <div>Loading...</div>;
 
@@ -48,26 +133,44 @@ export const Subscription: React.FC = () => {
                 </div>
             )}
 
+            {syncing && (
+                <div className="bg-blue-900 text-blue-100 p-4 rounded mb-4">
+                    Syncing your subscription...
+                </div>
+            )}
+
+            {syncTimedOut && (
+                <div className="bg-yellow-900 text-yellow-100 p-4 rounded mb-4 space-y-2">
+                    <p>We're still confirming your subscription. If it doesn't update soon, click refresh or contact support.</p>
+                    <button
+                        onClick={() => refreshUser()}
+                        className="bg-yellow-700 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded"
+                    >
+                        Refresh
+                    </button>
+                </div>
+            )}
+
             <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
                 <div className="mb-6">
                     <h2 className="text-xl font-semibold mb-2">Status</h2>
-                    <div className="text-lg">
-                        {user.is_premium ? (
-                            <span className="text-green-400 font-bold">Premium Active</span>
-                        ) : (
-                            <span className="text-gray-400">Free Tier</span>
-                        )}
-                    </div>
+                    <div className="text-lg font-semibold text-white">{statusLabel}</div>
                 </div>
 
                 {user.subscription && (
                     <div className="mb-6 space-y-2">
-                        <p><span className="text-gray-400">Status:</span> {user.subscription.status}</p>
+                        <p><span className="text-gray-400">Status:</span> {user.subscription.status || 'unknown'}</p>
                         {user.subscription.planInterval && (
                              <p><span className="text-gray-400">Plan:</span> {user.subscription.planInterval}ly</p>
                         )}
                         {user.subscription.currentPeriodEnd && (
                             <p><span className="text-gray-400">Current Period End:</span> {new Date(user.subscription.currentPeriodEnd).toLocaleDateString()}</p>
+                        )}
+                        {user.subscription.trialEndsAt && (
+                            <p><span className="text-gray-400">Trial Ends:</span> {new Date(user.subscription.trialEndsAt).toLocaleDateString()}</p>
+                        )}
+                        {user.subscription.cancelAtPeriodEnd && user.subscription.currentPeriodEnd && (
+                            <p><span className="text-gray-400">Cancellation Date:</span> {new Date(user.subscription.currentPeriodEnd).toLocaleDateString()}</p>
                         )}
                     </div>
                 )}
