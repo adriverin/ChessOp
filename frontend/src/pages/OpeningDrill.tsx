@@ -257,7 +257,7 @@ export const OpeningDrill: React.FC = () => {
 
             <div className="space-y-2">
                 {/* Training Card: Board + controls */}
-                <section className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
+                <section className="bg-white p-2 rounded-2xl shadow-sm border border-gray-100 relative">
                     {sessionLoading ? (
                         <div className="flex flex-col items-center justify-center h-96 text-gray-500">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-2"></div>
@@ -277,6 +277,36 @@ export const OpeningDrill: React.FC = () => {
                                 <span className="text-sm text-gray-600">{helperText}</span>
                             </div>
 
+                            {(completed || failed) && (
+                                <div className="absolute top-0 left-0 right-0 z-20 flex justify-center p-2">
+                                    <div className={`w-full max-w-2xl rounded-lg border p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 shadow-lg ${
+                                        completed ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
+                                    }`}>
+                                        <div className={`flex items-center gap-2 ${completed ? 'text-green-700' : 'text-red-700'}`}>
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
+                                                completed ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                                            }`}>
+                                                {completed ? <Trophy size={14} /> : <XCircle size={14} />}
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-sm">
+                                                    {completed ? "Success!" : "Failed Attempt"}
+                                                </div>
+                                                <div className="text-xs font-medium opacity-80">{message}</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button 
+                                                onClick={fetchSession} 
+                                                className="inline-flex items-center gap-1 bg-blue-600 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-blue-700 transition shadow-sm"
+                                            >
+                                                Next Line <ArrowRight size={12} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <GameArea
                                 mode="sequence"
                                 sessionTitle={`${session.opening.name} Drill`}
@@ -292,34 +322,6 @@ export const OpeningDrill: React.FC = () => {
                                 showInlineProgress={true}
                                 headerMode="drill"
                             />
-
-                            {(completed || failed) && (
-                                <div className={`mt-2 rounded-lg border p-2 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 ${
-                                    completed ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
-                                }`}>
-                                    <div className={`flex items-center gap-2 ${completed ? 'text-green-700' : 'text-red-700'}`}>
-                                        <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
-                                            completed ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
-                                        }`}>
-                                            {completed ? <Trophy size={14} /> : <XCircle size={14} />}
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-sm">
-                                                {completed ? "Success!" : "Failed Attempt"}
-                                            </div>
-                                            <div className="text-xs font-medium opacity-80">{message}</div>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <button 
-                                            onClick={fetchSession} 
-                                            className="inline-flex items-center gap-1 bg-blue-600 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-blue-700 transition shadow-sm"
-                                        >
-                                            Next Line <ArrowRight size={12} />
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
                         </>
                     ) : (
                         <div className="text-center py-20">

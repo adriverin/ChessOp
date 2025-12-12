@@ -351,7 +351,7 @@ const VariationItem: React.FC<{ variation: Variation; openingSlug: string }> = (
     const handleTrain = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (variation.locked) return;
-        navigate(`/train?id=${variation.id}&opening_id=${openingSlug}`);
+        navigate(`/train?id=${variation.id}&opening_id=${openingSlug}&mode=review`);
     };
 
     const handleToggleMoves = (e: React.MouseEvent) => {

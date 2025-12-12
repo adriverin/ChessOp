@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
 import type { Move as APIMove } from '../types';
-import { RotateCcw, CheckCircle, XCircle, HelpCircle, Brain } from 'lucide-react';
+import { RotateCcw, CheckCircle, XCircle, HelpCircle, Brain, ChevronLeft, ChevronRight } from 'lucide-react';
 import clsx from 'clsx';
+import confetti from 'canvas-confetti';
 import { PIECE_IMAGES } from './ChessPieceImages';
 import 'chessground/assets/chessground.base.css';
 import 'chessground/assets/chessground.brown.css';
@@ -65,7 +66,9 @@ export const GameArea: React.FC<GameAreaProps> = ({
     const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
     const [hint, setHint] = useState<string | null>(null);
     const [hintsUsed, setHintsUsed] = useState(false);
+    const [hasMistakeInLine, setHasMistakeInLine] = useState(false);
     const [wrongMoveView, setWrongMoveView] = useState<{ fen: string; lastMove?: [string, string] } | null>(null);
+    const [maxPlayedIndex, setMaxPlayedIndex] = useState(0);
     const [wrongMoveMode, setWrongMoveMode] = useState<'snap' | 'stay'>(() => {
         const saved = typeof window !== 'undefined' ? localStorage.getItem('wrongMoveMode') : null;
         return saved === 'stay' ? 'stay' : 'snap';
@@ -73,6 +76,29 @@ export const GameArea: React.FC<GameAreaProps> = ({
     const [logRevealed, setLogRevealed] = useState(false);
     const [openingPickerOpen, setOpeningPickerOpen] = useState(false);
     const [linePickerOpen, setLinePickerOpen] = useState(false);
+    
+    // Audio sounds
+    // NOTE: move.mp3, success.mp3, error.mp3, and capture.mp3
+    // must be real audio files in public/sounds/. Repo placeholders are empty; replace with actual assets.
+    const moveSound = useMemo(() => new Audio('/sounds/move.mp3'), []);
+    const successSound = useMemo(() => new Audio('/sounds/success.mp3'), []);
+    const errorSound = useMemo(() => new Audio('/sounds/error.mp3'), []);
+    const captureSound = useMemo(() => new Audio('/sounds/capture.mp3'), []);
+
+    const playSound = (audio: HTMLAudioElement) => {
+        try {
+            audio.currentTime = 0;
+            audio.play().catch(e => console.warn("Audio play failed", e));
+        } catch (e) {
+            console.warn("Audio error", e);
+        }
+    };
+
+    const playMoveSound = (moveInfo: { captured?: boolean; san?: string }) => {
+        const isCapture = Boolean(moveInfo?.captured) || (moveInfo?.san ? moveInfo.san.includes('x') : false);
+        const sound = isCapture ? captureSound : moveSound;
+        playSound(sound);
+    };
     
     const activeMoveRef = useRef<HTMLDivElement>(null);
     const logContainerRef = useRef<HTMLDivElement>(null);
@@ -187,6 +213,12 @@ export const GameArea: React.FC<GameAreaProps> = ({
         };
     }, [game, orientation, locked, wrongMoveView]);
 
+    useEffect(() => {
+        if (moveIndex > maxPlayedIndex) {
+            setMaxPlayedIndex(moveIndex);
+        }
+    }, [moveIndex, maxPlayedIndex]);
+
     // Handle Move Logic
     const handleMove = (source: string, target: string) => {
         if (wrongMoveView) {
@@ -221,6 +253,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                 setGame(gameCopy);
                 setFeedback('correct');
                 setHint(null);
+                playMoveSound({ captured: !!result.captured, san: result.san });
                 
                 // Handle Progression
                 if (mode === 'mistake') {
@@ -244,7 +277,9 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                     const autoRes = g2.move(nextMove.san);
                                     if (autoRes) {
                                         setGame(g2);
+                                        playMoveSound({ captured: !!autoRes.captured, san: autoRes.san });
                                         setMoveIndex(nextIndex + 1);
+                                        setFeedback(null);
                                         if (nextIndex + 1 >= targetMoves.length) {
                                             setTimeout(() => onComplete(true, hintsUsed), 500);
                                         }
@@ -257,6 +292,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
             } else {
                 // Wrong move
                 setFeedback('wrong');
+                setHasMistakeInLine(true);
+                playSound(errorSound);
                 onMistake(fenBeforeMove, playedSan, expectedMove);
 
                 if (wrongMoveMode === 'stay') {
@@ -301,9 +338,11 @@ export const GameArea: React.FC<GameAreaProps> = ({
         const newGame = safeChess(initialFen);
         setGame(newGame);
         setMoveIndex(0);
+        setMaxPlayedIndex(0);
         setFeedback(null);
         setHint(null);
         setHintsUsed(false);
+        setHasMistakeInLine(false);
         setWrongMoveView(null);
         setLogRevealed(false);
 
@@ -329,6 +368,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
             if (currentIndex > 0) {
                 setGame(new Chess(currentGame.fen()));
                 setMoveIndex(currentIndex);
+                setMaxPlayedIndex(currentIndex);
             }
         }
     }, [initialFen, targetMoves, targetNextMove, mode, orientation]);
@@ -364,18 +404,66 @@ export const GameArea: React.FC<GameAreaProps> = ({
         return userMoveIndices.length;
     }, [mode, targetMoves, userMoveIndices]);
 
+    const effectiveMovePointer = useMemo(() => {
+        if (mode !== 'sequence' || !targetMoves) return 0;
+        // Count the current move as "done" ONLY if it's the last move and marked correct.
+        // For intermediate moves, moveIndex already advances past the completed move.
+        const isLastMove = moveIndex === targetMoves.length - 1;
+        const extra = (feedback === 'correct' && isLastMove) ? 1 : 0;
+        return moveIndex + extra;
+    }, [mode, targetMoves, moveIndex, feedback]);
+
     const userMovesCompleted = useMemo(() => {
         if (mode === 'mistake') return feedback === 'correct' ? 1 : 0;
         if (mode !== 'sequence' || !targetMoves) return 0;
-        return userMoveIndices.filter(idx => idx < moveIndex).length;
-    }, [mode, targetMoves, userMoveIndices, moveIndex, feedback]);
+        return userMoveIndices.filter(idx => idx < effectiveMovePointer).length;
+    }, [mode, targetMoves, userMoveIndices, effectiveMovePointer, feedback]);
+
+    const isLineCompleted = useMemo(() => {
+        if (mode === 'mistake') return feedback === 'correct';
+        if (mode !== 'sequence' || !targetMoves) return false;
+        
+        // Completed if we've advanced past all moves OR we are at the last move and just got it right
+        return moveIndex >= targetMoves.length || (moveIndex === targetMoves.length - 1 && feedback === 'correct');
+    }, [mode, targetMoves, moveIndex, feedback]);
+
+    // Play success sound on completion
+    useEffect(() => {
+        if (isLineCompleted) {
+            playSound(successSound);
+            
+            // Trigger confetti on perfect run
+            if (!hasMistakeInLine && !hintsUsed) {
+                if (containerRef.current) {
+                     const rect = containerRef.current.getBoundingClientRect();
+                     // Calculate normalized coordinates (0-1) for origin
+                     const x = (rect.left + rect.width / 2) / window.innerWidth;
+                     const y = (rect.top + rect.height / 3) / window.innerHeight;
+                     
+                     const myConfetti = confetti.create(undefined, { resize: true, useWorker: true });
+                     myConfetti({
+                        particleCount: 150,
+                        spread: 70,
+                        origin: { x, y },
+                        disableForReducedMotion: true,
+                        zIndex: 100 // Above board
+                    });
+                }
+            }
+        }
+    }, [isLineCompleted, successSound, hasMistakeInLine, hintsUsed]);
 
     const remainingMoves = useMemo(() => {
         if (totalUserMoves === 0) return 0;
-        return Math.max(totalUserMoves - userMovesCompleted, 0);
-    }, [totalUserMoves, userMovesCompleted]);
+        const remaining = Math.max(totalUserMoves - userMovesCompleted, 0);
+        return isLineCompleted ? 0 : remaining;
+    }, [totalUserMoves, userMovesCompleted, isLineCompleted]);
 
-    const progressPercent = totalUserMoves === 0 ? 100 : (userMovesCompleted / totalUserMoves) * 100;
+    const progressPercent = useMemo(() => {
+        if (totalUserMoves === 0) return 100;
+        const pct = (Math.min(userMovesCompleted, totalUserMoves) / totalUserMoves) * 100;
+        return isLineCompleted ? 100 : pct;
+    }, [totalUserMoves, userMovesCompleted, isLineCompleted]);
 
     useEffect(() => {
         if (onRemainingMovesChange) {
@@ -538,6 +626,33 @@ export const GameArea: React.FC<GameAreaProps> = ({
         }
     };
 
+    const jumpTo = (index: number) => {
+        const safeChess = (fen?: string) => {
+            try {
+                return new Chess(fen || undefined);
+            } catch (e) { return new Chess(); }
+        };
+        const newGame = safeChess(initialFen);
+        
+        let movesToPlay: string[] = [];
+        if (mode === 'sequence' && targetMoves) {
+            movesToPlay = targetMoves.slice(0, index).map(m => m.san);
+        } else if (mode === 'mistake' && targetNextMove && index > 0) {
+            movesToPlay = [targetNextMove];
+        }
+
+        for (const san of movesToPlay) {
+            try {
+                newGame.move(san);
+            } catch (e) { break; }
+        }
+
+        setGame(newGame);
+        setMoveIndex(index);
+        setFeedback(null); // Clear feedback when navigating
+        setWrongMoveView(null);
+    };
+
     return (
         <div className="flex flex-col lg:flex-row gap-4 justify-center items-stretch w-full">
             
@@ -620,9 +735,11 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                 const newGame = safeChess(initialFen);
                                 setGame(newGame);
                                 setMoveIndex(0);
+                                setMaxPlayedIndex(0);
                                 setFeedback(null);
                                 setHint(null);
                                 setHintsUsed(false);
+                                setHasMistakeInLine(false);
                                 setWrongMoveView(null);
                                 setLogRevealed(false);
                                 
@@ -642,6 +759,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                     if (currentIndex > 0) {
                                         setGame(new Chess(currentGame.fen()));
                                         setMoveIndex(currentIndex);
+                                        setMaxPlayedIndex(currentIndex);
                                     }
                                 }
                                 
@@ -666,14 +784,25 @@ export const GameArea: React.FC<GameAreaProps> = ({
                         >
                             <RotateCcw size={18} />
                         </button>
-                        {wrongMoveView && wrongMoveMode === 'stay' && (
+                        
+                        <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
                             <button
-                                onClick={handleRevertWrong}
-                                className="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700 transition shadow-sm font-semibold"
+                                onClick={() => jumpTo(moveIndex - 1)}
+                                disabled={moveIndex <= 0}
+                                className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-white rounded-md disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                                title="Step Back"
                             >
-                                Revert Board
+                                <ChevronLeft size={16} />
                             </button>
-                        )}
+                            <button
+                                onClick={() => jumpTo(moveIndex + 1)}
+                                disabled={moveIndex >= maxPlayedIndex}
+                                className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-white rounded-md disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                                title="Step Forward"
+                            >
+                                <ChevronRight size={16} />
+                            </button>
+                        </div>
                     </div>
                 </div>
 

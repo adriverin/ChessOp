@@ -159,7 +159,7 @@ export const Dashboard: React.FC = () => {
                                 {repertoireEntries.map(item => (
                                     <button
                                         type="button"
-                                        onClick={() => navigate(`/train?side=${item.side}&opening_id=${item.opening_id}&repertoire_only=true`)}
+                                        onClick={() => navigate(`/train?side=${item.side}&opening_id=${item.opening_id}&repertoire_only=true&mode=review`)}
                                         key={`${item.side}-${item.opening_id}`}
                                         className="border border-gray-200 rounded-lg p-3 bg-gray-50 flex items-center justify-between gap-2 text-left hover:border-blue-200 hover:bg-white transition"
                                     >
@@ -190,14 +190,12 @@ export const Dashboard: React.FC = () => {
 
                 {/* Quick Actions */}
                 <div className="space-y-4">
-                    <Link to="/train" className="block group">
+                    <Link to="/openings" className="block group">
                         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-md p-6 text-white transition-transform transform hover:-translate-y-1">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <h3 className="text-xl font-bold mb-1 flex items-center gap-2">
-                                        <Zap className="fill-current" /> Start Training
-                                    </h3>
-                                    <p className="text-blue-100">Continue your daily streak</p>
+                                    <h3 className="text-xl font-bold mb-1">Practice Openings</h3>
+                                    <p className="text-blue-100">Browse your repertoire</p>
                                 </div>
                                 <ChevronRight className="w-8 h-8 opacity-50 group-hover:opacity-100 transition-opacity" />
                             </div>
@@ -221,12 +219,14 @@ export const Dashboard: React.FC = () => {
                         </div>
                     </Link>
 
-                    <Link to="/openings" className="block group">
+                    <Link to="/train" className="block group">
                         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 transition-transform transform hover:-translate-y-1 hover:shadow-md">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <h3 className="text-xl font-bold text-gray-800 mb-1">Review Openings</h3>
-                                    <p className="text-gray-500">Browse your repertoire</p>
+                                    <h3 className="text-xl font-bold text-gray-800 mb-1 flex items-center gap-2">
+                                        <Zap className="text-blue-600" /> One Move Drill
+                                    </h3>
+                                    <p className="text-gray-500">Continue your daily streak</p>
                                 </div>
                                 <ChevronRight className="w-8 h-8 text-gray-300 group-hover:text-blue-500 transition-colors" />
                             </div>

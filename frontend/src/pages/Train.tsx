@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { RecallSessionResponse } from '../types';
 import { GameArea } from '../components/GameArea';
@@ -10,6 +10,7 @@ import clsx from 'clsx';
 export const Train: React.FC = () => {
     const { user, refreshUser } = useUser();
     const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
     const [session, setSession] = useState<RecallSessionResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [completed, setCompleted] = useState(false);
@@ -23,6 +24,7 @@ export const Train: React.FC = () => {
     const sideParam = searchParams.get('side') as 'white' | 'black' | null;
     const openingFilter = searchParams.get('opening_id') || undefined;
     const hasSpecificOpening = Boolean(openingFilter);
+    const isReviewMode = searchParams.get('mode') === 'review';
 
     // Load available openings and variations
     useEffect(() => {
@@ -50,7 +52,9 @@ export const Train: React.FC = () => {
                 const openingFromFilter = openingFilter ? flattened.find(op => op.slug === openingFilter) : null;
                 if (openingFromFilter) {
                     setSelectedOpening(openingFromFilter.slug);
-                    setSelectedVariation(openingFromFilter.variations[0]?.id || null);
+                    // Use the URL variation ID if it exists and belongs to this opening
+                    const match = currentVar ? openingFromFilter.variations.find(v => v.id === currentVar) : null;
+                    setSelectedVariation(match ? match.id : (openingFromFilter.variations[0]?.id || null));
                 } else if (!selectedOpening && !selectedVariation) {
                     const firstOpening = flattened[0];
                     if (firstOpening) {
@@ -100,9 +104,11 @@ export const Train: React.FC = () => {
     useEffect(() => {
         if (openingFilter) {
             setSelectedOpening(openingFilter);
-            setSelectedVariation(null);
+            if (!searchParams.get('id')) {
+                setSelectedVariation(null);
+            }
         }
-    }, [openingFilter]);
+    }, [openingFilter, searchParams]);
 
     const fetchSession = useCallback(async () => {
         setLoading(true);
@@ -269,7 +275,7 @@ export const Train: React.FC = () => {
     return (
         <div className="w-full max-w-6xl mx-auto">
             {/* Session Metadata Banner */}
-            {!completed && (session.difficulty || session.training_goal || (session.themes && session.themes.length > 0)) && (
+            {!completed && !hasSpecificOpening && (session.difficulty || session.training_goal || (session.themes && session.themes.length > 0)) && (
                 <div className="mb-4 flex flex-wrap items-center gap-2 animate-in fade-in slide-in-from-top-1">
                     {session.difficulty && (
                         <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full font-medium capitalize border border-gray-200">
@@ -289,7 +295,49 @@ export const Train: React.FC = () => {
                 </div>
             )}
 
-            <div className="bg-white p-2 sm:p-3 rounded-xl shadow-sm border border-gray-100">
+            <div className="bg-white p-2 sm:p-3 rounded-xl shadow-sm border border-gray-100 relative">
+                {completed && (
+                    <div className="absolute top-0 left-0 right-0 z-20 flex justify-center p-2">
+                        <div className="w-full max-w-2xl rounded-lg border border-green-200 bg-green-50 p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 shadow-lg">
+                            <div className="flex items-center gap-3 text-green-700">
+                                <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center shrink-0">
+                                    <Trophy size={16} />
+                                </div>
+                                <div>
+                                    <div className="font-bold text-green-800 text-sm">Session Complete</div>
+                                    <div className="text-xs font-medium text-green-700/80">{message}</div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        setCompleted(false);
+                                        setMessage(null);
+                                        fetchSession();
+                                    }}
+                                    className="text-xs font-medium text-blue-600 hover:text-blue-800 px-3 py-1.5 hover:bg-blue-50 rounded-md transition-colors"
+                                >
+                                    Try again
+                                </button>
+                                {isReviewMode ? (
+                                    <button 
+                                        onClick={() => navigate('/openings')} 
+                                        className="inline-flex items-center gap-1 bg-blue-600 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-blue-700 transition shadow-sm"
+                                    >
+                                        Train another opening <ArrowRight size={12} />
+                                    </button>
+                                ) : (
+                                    <button 
+                                        onClick={fetchSession} 
+                                        className="inline-flex items-center gap-1 bg-blue-600 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-blue-700 transition shadow-sm"
+                                    >
+                                        Next <ArrowRight size={12} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
                 {!hasSpecificOpening && (
                     <div className="mb-3 flex items-start gap-3">
                         <input
@@ -332,38 +380,6 @@ export const Train: React.FC = () => {
                     onSelectLine={handleSelectLine}
                     headerMode="training"
                 />
-
-                {completed && (
-                    <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300">
-                        <div className="flex items-center gap-3 text-green-700">
-                            <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center shrink-0">
-                                <Trophy size={16} />
-                            </div>
-                            <div>
-                                <div className="font-bold text-green-800 text-sm">Session Complete</div>
-                                <div className="text-xs font-medium text-green-700/80">{message}</div>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => {
-                                    setCompleted(false);
-                                    setMessage(null);
-                                    fetchSession();
-                                }}
-                                className="text-xs font-medium text-blue-600 hover:text-blue-800 px-3 py-1.5 hover:bg-blue-50 rounded-md transition-colors"
-                            >
-                                Train Again
-                            </button>
-                            <button 
-                                onClick={fetchSession} 
-                                className="inline-flex items-center gap-1 bg-blue-600 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-blue-700 transition shadow-sm"
-                            >
-                                Next <ArrowRight size={12} />
-                            </button>
-                        </div>
-                    </div>
-                )}
             </div>
         </div>
     );
