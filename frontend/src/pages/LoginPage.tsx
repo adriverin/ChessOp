@@ -6,14 +6,14 @@ export const LoginPage = () => {
     const { login } = useUser();
     const navigate = useNavigate();
     const location = useLocation();
-    
+
     // Fallback to home if no state
     const fromState = location.state?.from;
     const from =
         (fromState?.pathname || '/') +
         (fromState?.search || '') +
         (fromState?.hash || '');
-    
+
     const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
@@ -25,14 +25,10 @@ export const LoginPage = () => {
         setIsLoading(true);
         try {
             await login({ identifier, password });
-            
-            // If inside a modal (backgroundLocation exists), we can navigate back
-            // or if specific 'from' was set, go there.
+
             if (location.state?.from) {
                 navigate(from, { replace: true });
             } else {
-                // If opened voluntarily, just close modal (go back)
-                // If it was a full page load (rare now), go home/dashboard
                 if (window.history.length > 1) {
                     navigate(-1);
                 } else {
@@ -51,15 +47,15 @@ export const LoginPage = () => {
     };
 
     return (
-        <div className="bg-white p-8">
-            <h2 className="text-2xl font-bold mb-6 text-center text-blue-600">Log In</h2>
-            {error && <div className="mb-4 p-3 bg-red-100 text-red-700 rounded border border-red-300">{error}</div>}
+        <div className="bg-slate-900/80 p-8 rounded-2xl border border-slate-800 shadow-2xl shadow-black/40 text-slate-100">
+            <h2 className="text-2xl font-semibold mb-6 text-center text-indigo-200">Log In</h2>
+            {error && <div className="mb-4 p-3 bg-rose-500/20 text-rose-100 rounded border border-rose-400/30">{error}</div>}
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium mb-1 text-gray-700">Email or Username</label>
-                    <input 
-                        type="text" 
-                        className="w-full bg-white border border-gray-300 rounded p-2 focus:border-blue-500 focus:outline-none text-gray-900"
+                    <label className="block text-sm font-medium mb-1 text-slate-200">Email or Username</label>
+                    <input
+                        type="text"
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 focus:border-indigo-500 focus:outline-none text-white placeholder:text-slate-500"
                         value={identifier}
                         onChange={(e) => setIdentifier(e.target.value)}
                         required
@@ -67,25 +63,25 @@ export const LoginPage = () => {
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-medium mb-1 text-gray-700">Password</label>
-                    <input 
-                        type="password" 
-                        className="w-full bg-white border border-gray-300 rounded p-2 focus:border-blue-500 focus:outline-none text-gray-900"
+                    <label className="block text-sm font-medium mb-1 text-slate-200">Password</label>
+                    <input
+                        type="password"
+                        className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 focus:border-indigo-500 focus:outline-none text-white placeholder:text-slate-500"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
                     />
                 </div>
-                <button 
-                    type="submit" 
+                <button
+                    type="submit"
                     disabled={isLoading}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors disabled:opacity-50"
+                    className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-semibold py-2 px-4 rounded-full transition-colors disabled:opacity-50 shadow-lg shadow-indigo-900/40"
                 >
                     {isLoading ? 'Logging in...' : 'Log In'}
                 </button>
             </form>
-            <div className="mt-4 text-center text-sm text-gray-500">
-                Don't have an account? <Link to="/signup" className="text-blue-600 hover:underline" state={location.state}>Sign up</Link>
+            <div className="mt-4 text-center text-sm text-slate-400">
+                Don't have an account? <Link to="/signup" className="text-indigo-200 hover:underline" state={location.state}>Signup</Link>
             </div>
         </div>
     );

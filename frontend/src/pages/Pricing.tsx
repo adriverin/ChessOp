@@ -85,57 +85,57 @@ export const Pricing: React.FC = () => {
     if (loading) return <div className="flex justify-center p-10">Loading...</div>;
 
     return (
-        <div className="max-w-4xl mx-auto p-6">
-            <h1 className="text-3xl font-bold mb-8 text-center text-gray-900">Upgrade to Premium</h1>
-            
+        <div className="max-w-4xl mx-auto p-6 text-slate-100">
+            <h1 className="text-3xl font-semibold mb-6 text-center">Upgrade to Premium</h1>
+
             {isCanceled && (
-                <div className="bg-yellow-50 text-yellow-900 p-4 rounded border border-yellow-200 mb-6 text-center">
+                <div className="bg-amber-500/20 text-amber-100 p-4 rounded-xl border border-amber-400/30 mb-6 text-center">
                     Checkout canceled. No charge was made.
                 </div>
             )}
 
             {error && (
-                <div className="bg-red-50 text-red-900 p-4 rounded border border-red-200 mb-6 text-center">
+                <div className="bg-rose-500/20 text-rose-100 p-4 rounded-xl border border-rose-400/30 mb-6 text-center">
                     {error}
                 </div>
             )}
 
-            <div className="grid md:grid-cols-2 gap-8">
+            <div className="grid md:grid-cols-2 gap-6">
                 {/* Monthly */}
-                <div className="bg-white p-8 rounded-lg border border-gray-200 flex flex-col items-center shadow-sm">
-                    <h2 className="text-2xl font-bold mb-2 text-gray-900">Monthly</h2>
-                    <p className="text-4xl font-bold mb-4 text-gray-900">$4.99<span className="text-base font-normal text-gray-500">/mo</span></p>
-                    <p className="text-green-700 mb-6 font-semibold">7-day free trial</p>
-                    <ul className="text-gray-700 space-y-2 mb-8 text-center">
+                <div className="bg-slate-900/70 p-8 rounded-2xl border border-slate-800 flex flex-col items-center shadow-2xl shadow-black/40">
+                    <h2 className="text-2xl font-semibold mb-2">Monthly</h2>
+                    <p className="text-4xl font-bold mb-4 text-white">$4.99<span className="text-base font-normal text-slate-400">/mo</span></p>
+                    <p className="text-emerald-200 mb-6 font-semibold">7-day free trial</p>
+                    <ul className="text-slate-300 space-y-2 mb-8 text-center">
                         <li>Unlimited openings</li>
                         <li>Unlimited drills</li>
                         <li>Advanced stats</li>
                     </ul>
-                    <button 
+                    <button
                         onClick={() => handleSubscribe('monthly')}
                         disabled={loading}
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded w-full transition-colors disabled:opacity-50"
+                        className="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold py-3 px-8 rounded-full w-full transition-colors disabled:opacity-50 shadow-lg shadow-indigo-900/40"
                     >
                         {isPremium ? 'Manage Subscription' : 'Start Free Trial'}
                     </button>
                 </div>
 
                 {/* Yearly */}
-                <div className="bg-white p-8 rounded-lg border border-gray-200 flex flex-col items-center relative overflow-hidden shadow-sm">
-                    <div className="absolute top-0 right-0 bg-green-600 text-xs px-2 py-1 rounded-bl-lg text-white">
+                <div className="bg-slate-900/70 p-8 rounded-2xl border border-slate-800 flex flex-col items-center relative overflow-hidden shadow-2xl shadow-black/40">
+                    <div className="absolute top-0 right-0 bg-emerald-500 text-xs px-3 py-1 rounded-bl-xl text-white font-semibold">
                         Best Value
                     </div>
-                    <h2 className="text-2xl font-bold mb-2 text-gray-900">Yearly</h2>
-                    <p className="text-4xl font-bold mb-4 text-gray-900">$34.99<span className="text-base font-normal text-gray-500">/yr</span></p>
-                    <p className="text-green-700 mb-6 font-semibold">7-day free trial</p>
-                    <ul className="text-gray-700 space-y-2 mb-8 text-center">
+                    <h2 className="text-2xl font-semibold mb-2">Yearly</h2>
+                    <p className="text-4xl font-bold mb-4 text-white">$34.99<span className="text-base font-normal text-slate-400">/yr</span></p>
+                    <p className="text-emerald-200 mb-6 font-semibold">7-day free trial</p>
+                    <ul className="text-slate-300 space-y-2 mb-8 text-center">
                         <li>All Monthly features</li>
                         <li>Save ~40%</li>
                     </ul>
-                    <button 
+                    <button
                         onClick={() => handleSubscribe('yearly')}
                         disabled={loading}
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded w-full transition-colors disabled:opacity-50"
+                        className="bg-indigo-500 hover:bg-indigo-400 text-white font-semibold py-3 px-8 rounded-full w-full transition-colors disabled:opacity-50 shadow-lg shadow-indigo-900/40"
                     >
                         {isPremium ? 'Manage Subscription' : 'Start Free Trial'}
                     </button>
@@ -143,11 +143,11 @@ export const Pricing: React.FC = () => {
             </div>
 
             {isPremium && (
-                <div className="mt-8 text-center text-gray-600">
-                    You are already subscribed.{' '}
+                <div className="mt-8 text-center text-slate-400">
+                    You are already subscribed.{" "}
                     <button
                         onClick={() => navigate('/subscription')}
-                        className="text-blue-700 underline"
+                        className="text-indigo-200 underline"
                     >
                         Manage your subscription
                     </button>

@@ -452,16 +452,16 @@ export const Train: React.FC = () => {
 
     const activeSession = isOneMoveMode && oneMoveSession ? oneMoveSession : session;
 
-    if (loading) return <div className="flex justify-center items-center h-64">Loading session...</div>;
+    if (loading) return <div className="flex justify-center items-center h-64 text-slate-300">Loading session...</div>;
     
     if (!session) {
         return (
             <div className="text-center py-20">
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">{message || "All caught up!"}</h2>
-                <p className="text-gray-500 mb-6">Try adjusting your filters or come back later.</p>
-                <button 
-                    onClick={fetchSession} 
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+                <h2 className="text-3xl font-semibold text-white mb-3">{message || "All caught up!"}</h2>
+                <p className="text-slate-400 mb-8">Try adjusting your filters or come back later.</p>
+                <button
+                    onClick={fetchSession}
+                    className="bg-indigo-500 text-white px-6 py-2 rounded-full hover:bg-indigo-400 transition shadow-lg shadow-indigo-900/30"
                 >
                     Check Again
                 </button>
@@ -470,7 +470,7 @@ export const Train: React.FC = () => {
     }
 
     return (
-        <div className="w-full max-w-6xl mx-auto">
+        <div className="w-full max-w-6xl mx-auto space-y-4">
             {/* Session Metadata Banner - Hidden in Train Mode for now */}
             {/* {!completed && !hasSpecificOpening && !isOneMoveMode && (session.difficulty || session.training_goal || (session.themes && session.themes.length > 0)) && (
                 <div className="mb-4 flex flex-wrap items-center gap-2 animate-in fade-in slide-in-from-top-1">
@@ -492,17 +492,17 @@ export const Train: React.FC = () => {
                 </div>
             )} */}
 
-            <div className="bg-white p-2 sm:p-3 rounded-xl shadow-sm border border-gray-100 relative">
+            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-2xl shadow-black/40 relative">
                 {completed && (
                     <div className="absolute top-0 left-0 right-0 z-20 flex justify-center p-2">
-                        <div className="w-full max-w-2xl rounded-lg border border-green-200 bg-green-50 p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 shadow-lg">
-                            <div className="flex items-center gap-3 text-green-700">
-                                <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center shrink-0">
+                        <div className="w-full max-w-2xl rounded-lg border border-emerald-500/30 bg-emerald-900/40 p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 shadow-lg shadow-emerald-900/40">
+                            <div className="flex items-center gap-3 text-emerald-100">
+                                <div className="w-8 h-8 bg-emerald-800/70 text-emerald-200 rounded-full flex items-center justify-center shrink-0">
                                     <Trophy size={16} />
                                 </div>
                                 <div>
-                                    <div className="font-bold text-green-800 text-sm">Session Complete</div>
-                                    <div className="text-xs font-medium text-green-700/80">{message}</div>
+                                    <div className="font-semibold text-emerald-50 text-sm">Session Complete</div>
+                                    <div className="text-xs font-medium text-emerald-100/80">{message}</div>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -512,21 +512,21 @@ export const Train: React.FC = () => {
                                         setMessage(null);
                                         fetchSession();
                                     }}
-                                    className="text-xs font-medium text-blue-600 hover:text-blue-800 px-3 py-1.5 hover:bg-blue-50 rounded-md transition-colors"
+                                    className="text-xs font-medium text-indigo-200 hover:text-white px-3 py-1.5 hover:bg-indigo-500/20 rounded-md transition-colors"
                                 >
                                     Try again
                                 </button>
                                 {isReviewMode ? (
-                                    <button 
-                                        onClick={() => navigate('/openings')} 
-                                        className="inline-flex items-center gap-1 bg-blue-600 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-blue-700 transition shadow-sm"
+                                    <button
+                                        onClick={() => navigate('/openings')}
+                                        className="inline-flex items-center gap-1 bg-indigo-500 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-indigo-400 transition shadow-lg shadow-indigo-900/40"
                                     >
                                         Train another opening <ArrowRight size={12} />
                                     </button>
                                 ) : (
-                                    <button 
-                                        onClick={fetchSession} 
-                                        className="inline-flex items-center gap-1 bg-blue-600 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-blue-700 transition shadow-sm"
+                                    <button
+                                        onClick={fetchSession}
+                                        className="inline-flex items-center gap-1 bg-indigo-500 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-indigo-400 transition shadow-lg shadow-indigo-900/40"
                                     >
                                         Next <ArrowRight size={12} />
                                     </button>
@@ -536,11 +536,11 @@ export const Train: React.FC = () => {
                     </div>
                 )}
                 {!hasSpecificOpening && (
-                    <div className="mb-3 flex items-start gap-3">
+                    <div className="mb-3 flex items-start gap-3 bg-slate-900/60 border border-slate-800 rounded-xl p-3">
                         <input
                             type="checkbox"
                             id="use-repertoire-only"
-                            className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            className="mt-1 h-4 w-4 rounded border-slate-700 bg-slate-950 text-indigo-500 focus:ring-indigo-500"
                             checked={hasRepertoire && useRepertoireOnly}
                             disabled={!hasRepertoire}
                             onChange={(e) => {
@@ -554,11 +554,11 @@ export const Train: React.FC = () => {
                                 }
                             }}
                         />
-                        <label htmlFor="use-repertoire-only" className={clsx("flex flex-col text-sm", !hasRepertoire && "text-gray-400")}>
-                            <span className="font-semibold text-gray-800">Use my repertoire only</span>
-                            <span className="text-xs text-gray-500">If enabled, recall uses only your repertoire openings for this side.</span>
+                        <label htmlFor="use-repertoire-only" className={clsx("flex flex-col text-sm", !hasRepertoire && "text-slate-500")}> 
+                            <span className="font-semibold text-slate-100">Use my repertoire only</span>
+                            <span className="text-xs text-slate-400">If enabled, recall uses only your repertoire openings for this side.</span>
                             {!hasRepertoire && (
-                                <span className="text-[11px] text-gray-400 mt-1">Add openings to your repertoire to enable this.</span>
+                                <span className="text-[11px] text-slate-500 mt-1">Add openings to your repertoire to enable this.</span>
                             )}
                         </label>
                     </div>
