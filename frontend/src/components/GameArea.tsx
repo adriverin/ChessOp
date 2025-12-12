@@ -30,6 +30,8 @@ interface GameAreaProps {
     selectedLineId?: string;
     onSelectLine?: (id: string) => void;
     headerMode?: 'drill' | 'training';
+    hideLog?: boolean;
+    isOneMoveMode?: boolean;
 }
 
 export const GameArea: React.FC<GameAreaProps> = ({ 
@@ -38,20 +40,21 @@ export const GameArea: React.FC<GameAreaProps> = ({
     targetMoves, 
     targetNextMove, 
     onComplete, 
-    onMistake,
-    mode,
-    locked = false,
-    sessionTitle,
-    sessionType,
-    opening,
-    openingOptions,
-    onSelectOpening,
-    showInlineProgress = true,
-    onRemainingMovesChange,
-    lineOptions,
-    selectedLineId,
-    onSelectLine,
-    headerMode = 'training'
+    onMistake, 
+    mode, 
+    locked = false, 
+    sessionTitle, 
+    opening, 
+    openingOptions, 
+    onSelectOpening, 
+    showInlineProgress = true, 
+    onRemainingMovesChange, 
+    lineOptions, 
+    selectedLineId, 
+    onSelectLine, 
+    headerMode = 'training',
+    hideLog = false,
+    isOneMoveMode = false
 }) => {
     const [game, setGame] = useState(() => {
         try {
@@ -109,9 +112,6 @@ export const GameArea: React.FC<GameAreaProps> = ({
         if (activeMoveRef.current && logContainerRef.current) {
             const container = logContainerRef.current;
             const element = activeMoveRef.current;
-            
-            const containerRect = container.getBoundingClientRect();
-            const elementRect = element.getBoundingClientRect();
             
             // Only scroll if element is not fully visible or to center it
             const relativeTop = element.offsetTop - container.offsetTop;
@@ -295,6 +295,12 @@ export const GameArea: React.FC<GameAreaProps> = ({
                 setHasMistakeInLine(true);
                 playSound(errorSound);
                 onMistake(fenBeforeMove, playedSan, expectedMove);
+
+                if (isOneMoveMode) {
+                    // One Move Mode: Do not show wrong move view, do not snap back (wait for parent reset)
+                    // The parent component should immediately replace the session.
+                    return;
+                }
 
                 if (wrongMoveMode === 'stay') {
                     // Show wrong position and wait for user to revert
@@ -896,23 +902,25 @@ export const GameArea: React.FC<GameAreaProps> = ({
                     </div>
 
                     {/* Log */}
-                    <div className="flex flex-col flex-1 min-h-0 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                            <div className="flex items-center justify-between p-2 border-b border-gray-100 text-xs font-semibold text-gray-700 shrink-0 bg-gray-50/50">
-                            <span>Line Moves</span>
-                            {!logRevealed && (
-                                <button
-                                    onClick={() => {
-                                        setLogRevealed(true);
-                                        setHintsUsed(true);
-                                    }}
-                                    className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors flex items-center gap-1"
-                                >
-                                    <HelpCircle size={12} /> Reveal all
-                                </button>
-                            )}
+                    {!hideLog && (
+                        <div className="flex flex-col flex-1 min-h-0 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                                <div className="flex items-center justify-between p-2 border-b border-gray-100 text-xs font-semibold text-gray-700 shrink-0 bg-gray-50/50">
+                                <span>Line Moves</span>
+                                {!logRevealed && (
+                                    <button
+                                        onClick={() => {
+                                            setLogRevealed(true);
+                                            setHintsUsed(true);
+                                        }}
+                                        className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors flex items-center gap-1"
+                                    >
+                                        <HelpCircle size={12} /> Reveal all
+                                    </button>
+                                )}
+                            </div>
+                            {renderMoveLogContent()}
                         </div>
-                        {renderMoveLogContent()}
-                    </div>
+                    )}
                     
                     {/* Captured pieces */}
                     <div className="bg-white border border-gray-200 rounded-xl p-2 shadow-sm space-y-2 shrink-0">

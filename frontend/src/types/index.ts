@@ -162,10 +162,20 @@ export interface SubmitBlunderPayload {
     fen: string;
     wrong_move: string;
     correct_move: string;
-    mode?: 'opening_drill';
+    mode?: 'opening_drill' | 'one_move';
 }
 
-export type SubmitResultPayload = SubmitVariationPayload | SubmitMistakeFixedPayload | SubmitBlunderPayload;
+export interface SubmitOneMoveCompletePayload {
+    type: 'one_move_complete';
+    success: boolean;
+    mode?: 'one_move';
+}
+
+export type SubmitResultPayload =
+    | SubmitVariationPayload
+    | SubmitMistakeFixedPayload
+    | SubmitBlunderPayload
+    | SubmitOneMoveCompletePayload;
 
 export interface ThemeStat {
     name: string;

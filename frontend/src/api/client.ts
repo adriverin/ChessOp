@@ -8,7 +8,6 @@ import type {
     ThemeStatsResponse,
     OpeningDrillResponse,
     OpeningDrillProgressResponse,
-    RepertoireResponse,
 } from '../types';
 
 // Function to get CSRF token from cookies
@@ -51,6 +50,8 @@ export interface RecallFilters {
     opening_id?: string;
     use_repertoire_only?: boolean;
     side?: 'white' | 'black';
+    mode?: 'one_move' | 'review' | string;
+    t?: number | string;
 }
 
 export interface RepertoireOpening {
@@ -144,6 +145,12 @@ export const api = {
             }
             if (effectiveFilters.side) {
                 params.append('side', effectiveFilters.side);
+            }
+            if (effectiveFilters.mode) {
+                params.append('mode', String(effectiveFilters.mode));
+            }
+            if (effectiveFilters.t !== undefined && effectiveFilters.t !== null) {
+                params.append('t', String(effectiveFilters.t));
             }
         }
         

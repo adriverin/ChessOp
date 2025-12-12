@@ -72,6 +72,8 @@ def api_get_dashboard_data(request):
         'is_superuser': request.user.is_superuser,
         'is_staff': request.user.is_staff,
         'quests': quests,
+        'one_move_current_streak': profile.one_move_current_streak,
+        'one_move_best_streak': profile.one_move_best_streak,
         # Add Heatmap summary if needed (or fetch via separate endpoint)
     })
 
@@ -142,6 +144,41 @@ def _get_unlocked_opening_slugs(user):
                 unlocked.add(opening.slug)
 
     return unlocked
+
+
+def _get_unlocked_variation_ids(user):
+    """
+    Mirrors the Hard Lock gating used in api_get_openings.
+    Returns DB IDs of variations that are unlocked for free users.
+
+    Returns:
+      - None for premium users or non-HARD_LOCK strategies (meaning "no restriction")
+      - list[int] for HARD_LOCK free users
+    """
+    if not user.is_authenticated:
+        return []
+
+    if MonetizationManager.is_effective_premium(user):
+        return None
+
+    strategy = MonetizationManager.get_strategy()
+    if strategy != "HARD_LOCK":
+        return None
+
+    limit = 5
+    variations_count = 0
+    unlocked_ids = []
+
+    categories = OpeningCategory.objects.prefetch_related("openings__variations").all()
+    for category in categories:
+        for opening in category.openings.all():
+            for var in opening.variations.all():
+                if variations_count >= limit:
+                    return unlocked_ids
+                unlocked_ids.append(var.id)
+                variations_count += 1
+
+    return unlocked_ids
 
 
 # --- Opening Drill SRS Helpers (SM-2 inspired) ---
@@ -438,6 +475,8 @@ def api_get_recall_session(request):
     training_goals = request.GET.get('training_goals', '').split(',')
     themes = request.GET.get('themes', '').split(',')
     opening_slug = request.GET.get('opening_id')
+    mode = request.GET.get('mode')
+    requested_id = request.GET.get('id')
     opening = None
     if opening_slug:
         opening = get_object_or_404(Opening, slug=opening_slug)
@@ -460,26 +499,34 @@ def api_get_recall_session(request):
     themes = [t for t in themes if t]
 
     side_param = request.GET.get("side")
-    side_to_train = infer_side_from_opening(opening) if opening else UserRepertoireOpening.SIDE_WHITE
+    side_to_train = None
+    
     if side_param in [UserRepertoireOpening.SIDE_WHITE, UserRepertoireOpening.SIDE_BLACK]:
         side_to_train = side_param
+    elif opening:
+        side_to_train = infer_side_from_opening(opening)
+    else:
+        # Default to White only if NOT in one_move mode, to preserve legacy behavior for other modes
+        # In one_move mode, we want mixed sides if not specified
+        if mode != 'one_move':
+            side_to_train = UserRepertoireOpening.SIDE_WHITE
+
     repertoire_opening_ids = []
     if use_repertoire_only:
-        repertoire_opening_ids = list(
-            UserRepertoireOpening.objects.filter(
-                user=request.user,
-                side=side_to_train,
-                is_active=True,
-            ).values_list("opening_id", flat=True)
+        qs = UserRepertoireOpening.objects.filter(
+            user=request.user,
+            is_active=True,
         )
+        if side_to_train:
+            qs = qs.filter(side=side_to_train)
+            
+        repertoire_opening_ids = list(qs.values_list("opening_id", flat=True))
+        
         # If user explicitly requested repertoire-only but has none, return an error
         if not repertoire_opening_ids:
             return JsonResponse({'error': 'No repertoire openings for this side'}, status=404)
 
-    has_filters = bool(difficulties or training_goals or themes or opening or use_repertoire_only)
-
     # 0. Specific Variation Request (Overrides everything)
-    requested_id = request.GET.get('id')
     if requested_id:
         variation = get_object_or_404(Variation, slug=requested_id)
         if opening and variation.opening_id != opening.id:
@@ -502,6 +549,89 @@ def api_get_recall_session(request):
                 'name': variation.opening.name
             }
         })
+
+    # One Move Drill Mode: Strict randomization across openings/lines (bypass SRS/New/Blunders)
+    if mode == 'one_move':
+        unlocked_variation_ids = _get_unlocked_variation_ids(request.user)
+
+        def _pick_random_variation_for_opening(opening_obj):
+            qs = opening_obj.variations.all()
+            if unlocked_variation_ids is not None:
+                qs = qs.filter(id__in=unlocked_variation_ids)
+            variations = list(qs)
+            if not variations:
+                return None
+            return random.choice(variations)
+
+        # If a specific opening is explicitly provided, stay within it (specific-opening flow).
+        if opening:
+            if use_repertoire_only and repertoire_opening_ids and opening.id not in repertoire_opening_ids:
+                return JsonResponse({'error': 'Opening not in repertoire for this side'}, status=404)
+
+            variation = _pick_random_variation_for_opening(opening)
+            if not variation:
+                return JsonResponse({'error': 'No variations found for this opening'}, status=404)
+
+            return _return_variation(
+                variation,
+                'new_learn',
+                extra={
+                    'pool_size_openings': 1,
+                    'opening_id': opening.id,
+                    'opening_slug': opening.slug,
+                    'opening_name': opening.name,
+                    'variation_id': variation.slug,
+                    'variation_name': variation.name,
+                },
+            )
+
+        # Generic One Move Drill: pick an opening first, then a random variation from it.
+        eligible_openings = Opening.objects.all()
+        if unlocked_variation_ids is not None:
+            eligible_openings = eligible_openings.filter(variations__id__in=unlocked_variation_ids).distinct()
+
+        if use_repertoire_only and repertoire_opening_ids:
+            eligible_openings = eligible_openings.filter(id__in=repertoire_opening_ids)
+
+        if side_to_train == UserRepertoireOpening.SIDE_BLACK:
+            eligible_openings = eligible_openings.filter(tags__icontains="Black")
+        elif side_to_train == UserRepertoireOpening.SIDE_WHITE:
+            eligible_openings = eligible_openings.exclude(tags__icontains="Black")
+
+        eligible_ids = list(eligible_openings.values_list('id', flat=True).distinct())
+        if not eligible_ids:
+            return JsonResponse({'error': 'No eligible openings found'}, status=404)
+
+        pool_size_openings = len(eligible_ids)
+
+        # Avoid immediate repeat (unless pool size is 1)
+        last_opening_id = request.session.get('last_one_move_opening_id')
+        candidates = eligible_ids
+        if last_opening_id and pool_size_openings > 1 and last_opening_id in eligible_ids:
+            candidates = [oid for oid in eligible_ids if oid != last_opening_id] or eligible_ids
+
+        selected_opening_id = random.choice(candidates)
+        selected_opening = Opening.objects.get(id=selected_opening_id)
+        request.session['last_one_move_opening_id'] = selected_opening_id
+
+        variation = _pick_random_variation_for_opening(selected_opening)
+        if not variation:
+            return JsonResponse({'error': 'No variations found for selected opening'}, status=404)
+
+        return _return_variation(
+            variation,
+            'new_learn',
+            extra={
+                'pool_size_openings': pool_size_openings,
+                'opening_id': selected_opening.id,
+                'opening_slug': selected_opening.slug,
+                'opening_name': selected_opening.name,
+                'variation_id': variation.slug,
+                'variation_name': variation.name,
+            },
+        )
+
+    has_filters = bool(difficulties or training_goals or themes or opening or use_repertoire_only)
     
     # Helper to apply filters to a QuerySet (UserSRSProgress or Variation)
     def apply_filters(queryset, model_prefix='', repertoire_ids=None):
@@ -759,10 +889,10 @@ def api_get_opening_drill_progress(request):
         'progress': progress_items
     })
 
-def _return_variation(variation, type_label):
+def _return_variation(variation, type_label, extra=None):
     tags = variation.opening.get_tags_list()
     orientation = 'black' if 'Black' in tags else 'white'
-    return JsonResponse({
+    payload = {
         'type': type_label,
         'id': variation.slug,
         'name': variation.name,
@@ -775,7 +905,10 @@ def _return_variation(variation, type_label):
             'slug': variation.opening.slug,
             'name': variation.opening.name
         }
-    })
+    }
+    if extra:
+        payload.update(extra)
+    return JsonResponse(payload)
 
 def _return_mistake(mistake):
     fen_parts = mistake.fen.split(' ')
@@ -971,6 +1104,19 @@ def api_submit_result(request):
             msg = 'Mistake Resolved (with hint). Keep practicing!'
         
         return JsonResponse({'success': True, 'message': msg})
+
+    elif result_type == 'one_move_complete':
+        success = data.get('success', False)
+        if success:
+            profile.one_move_current_streak += 1
+            if profile.one_move_current_streak > profile.one_move_best_streak:
+                profile.one_move_best_streak = profile.one_move_current_streak
+            msg = f"Streak: {profile.one_move_current_streak}"
+        else:
+            profile.one_move_current_streak = 0
+            msg = "Streak reset"
+        profile.save()
+        return JsonResponse({'success': True, 'message': msg})
         
     elif result_type == 'blunder_made':
         # Frontend reports a mistake
@@ -998,6 +1144,9 @@ def api_submit_result(request):
                     was_success=False,
                     mode='opening_drill'
                 )
+            elif mode == 'one_move':
+                profile.one_move_current_streak = 0
+                profile.save()
             else:
                 srs = UserSRSProgress.objects.filter(profile=profile, variation=var).first()
                 if srs:

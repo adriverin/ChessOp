@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
-import { LayoutDashboard, BookOpen, BrainCircuit, User as UserIcon, LogOut } from 'lucide-react';
+import { LayoutDashboard, BookOpen, User as UserIcon, LogOut } from 'lucide-react';
 import clsx from 'clsx';
 
 export const Layout: React.FC = () => {
@@ -10,7 +10,6 @@ export const Layout: React.FC = () => {
 
     const navItems = [
         { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-        { name: 'Train', path: '/train', icon: BrainCircuit },
         { name: 'Openings', path: '/openings', icon: BookOpen },
         { name: 'Profile', path: '/profile', icon: UserIcon },
     ];

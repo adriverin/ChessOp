@@ -97,6 +97,10 @@ class UserProfile(models.Model):
     total_xp = models.IntegerField(default=0) # Renamed from xp to match request
     level = models.IntegerField(default=1)
     
+    # One Move Drill Streaks
+    one_move_current_streak = models.IntegerField(default=0)
+    one_move_best_streak = models.IntegerField(default=0)
+    
     # Stamina System (Optional based on config)
     daily_moves_remaining = models.IntegerField(default=20)
     last_stamina_reset = models.DateTimeField(default=timezone.now)

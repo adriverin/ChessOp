@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useUser } from '../context/UserContext';
-import { Link, useNavigate } from 'react-router-dom';
-import { Zap, ChevronRight, Lock, LogIn, Target, Star, Check } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Zap, ChevronRight, Lock, LogIn, Target, Star, Check, BookOpen } from 'lucide-react';
 import { api } from '../api/client';
 import type { Opening, RepertoireResponse } from '../types';
 
@@ -190,20 +190,23 @@ export const Dashboard: React.FC = () => {
 
                 {/* Quick Actions */}
                 <div className="space-y-4">
-                    <Link to="/openings" className="block group">
+                    <div onClick={() => navigate('/openings')} className="block group cursor-pointer">
                         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-md p-6 text-white transition-transform transform hover:-translate-y-1">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <h3 className="text-xl font-bold mb-1">Practice Openings</h3>
+                                    <h3 className="text-xl font-bold mb-1 flex items-center gap-2">
+                                        <BookOpen className="h-5 w-5" />
+                                        Practice Openings
+                                    </h3>
                                     <p className="text-blue-100">Browse your repertoire</p>
                                 </div>
                                 <ChevronRight className="w-8 h-8 opacity-50 group-hover:opacity-100 transition-opacity" />
                             </div>
                         </div>
-                    </Link>
+                    </div>
 
                     {/* Opening Drill Card */}
-                    <Link to="/drill" className="block group">
+                    <div onClick={() => navigate('/drill')} className="block group cursor-pointer">
                         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 transition-transform transform hover:-translate-y-1 hover:shadow-md">
                             <div className="flex justify-between items-center">
                                 <div>
@@ -217,9 +220,9 @@ export const Dashboard: React.FC = () => {
                                 <ChevronRight className="w-8 h-8 text-gray-300 group-hover:text-red-500 transition-colors" />
                             </div>
                         </div>
-                    </Link>
+                    </div>
 
-                    <Link to="/train" className="block group">
+                    <div onClick={() => navigate('/train?mode=one_move')} className="block group cursor-pointer">
                         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 transition-transform transform hover:-translate-y-1 hover:shadow-md">
                             <div className="flex justify-between items-center">
                                 <div>
@@ -227,11 +230,16 @@ export const Dashboard: React.FC = () => {
                                         <Zap className="text-blue-600" /> One Move Drill
                                     </h3>
                                     <p className="text-gray-500">Continue your daily streak</p>
+                                    {(user as any).one_move_best_streak !== undefined && (
+                                        <p className="text-xs font-semibold text-blue-600 mt-1">
+                                            Best Streak: {(user as any).one_move_best_streak}
+                                        </p>
+                                    )}
                                 </div>
                                 <ChevronRight className="w-8 h-8 text-gray-300 group-hover:text-blue-500 transition-colors" />
                             </div>
                         </div>
-                    </Link>
+                    </div>
 
                     {/* Premium Banner */}
                     {!user.effective_premium && (

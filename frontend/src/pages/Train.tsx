@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { RecallSessionResponse } from '../types';
 import { GameArea } from '../components/GameArea';
 import { useUser } from '../context/UserContext';
-import { Trophy, ArrowRight, Target } from 'lucide-react';
+import { Trophy, ArrowRight } from 'lucide-react';
 import clsx from 'clsx';
+import { Chess } from 'chess.js';
 
 export const Train: React.FC = () => {
     const { user, refreshUser } = useUser();
@@ -18,13 +19,36 @@ export const Train: React.FC = () => {
     const [openings, setOpenings] = useState<{ slug: string; name: string; variations: { id: string; name: string; label: string; locked?: boolean }[] }[]>([]);
     const [selectedOpening, setSelectedOpening] = useState<string | null>(null);
     const [selectedVariation, setSelectedVariation] = useState<string | null>(searchParams.get('id'));
-    const initialRepertoireOnly = searchParams.get('repertoire_only') === 'true';
-    const [useRepertoireOnly, setUseRepertoireOnly] = useState(initialRepertoireOnly);
+    
+    const ONE_MOVE_REPERTOIRE_ONLY_KEY = 'one_move_repertoire_only';
+    const didInitRepertoireOnlyRef = useRef(false);
+
+    // Repertoire-only checkbox (user-controlled; persisted)
+    const [useRepertoireOnly, setUseRepertoireOnly] = useState<boolean>(() => {
+        try {
+            const stored = localStorage.getItem(ONE_MOVE_REPERTOIRE_ONLY_KEY);
+            if (stored !== null) return stored === 'true';
+        } catch {
+            // ignore localStorage errors (private mode, etc.)
+        }
+        return searchParams.get('repertoire_only') === 'true';
+    });
+
+    // Persist changes
+    useEffect(() => {
+        try {
+            localStorage.setItem(ONE_MOVE_REPERTOIRE_ONLY_KEY, String(useRepertoireOnly));
+        } catch {
+            // ignore localStorage errors
+        }
+    }, [useRepertoireOnly]);
+
     const [hasRepertoire, setHasRepertoire] = useState(false);
     const sideParam = searchParams.get('side') as 'white' | 'black' | null;
     const openingFilter = searchParams.get('opening_id') || undefined;
     const hasSpecificOpening = Boolean(openingFilter);
     const isReviewMode = searchParams.get('mode') === 'review';
+    const isOneMoveMode = searchParams.get('mode') === 'one_move';
 
     // Load available openings and variations
     useEffect(() => {
@@ -79,8 +103,22 @@ export const Train: React.FC = () => {
             .then(data => {
                 const has = (data.white?.length ?? 0) + (data.black?.length ?? 0) > 0;
                 setHasRepertoire(has);
-                // Default to on if the user already has a repertoire
-                setUseRepertoireOnly(prev => prev || has);
+                
+                // Initialize the checkbox ONCE (only if user has no saved preference).
+                if (!didInitRepertoireOnlyRef.current) {
+                    let hasStored = false;
+                    try {
+                        hasStored = localStorage.getItem(ONE_MOVE_REPERTOIRE_ONLY_KEY) !== null;
+                    } catch {
+                        hasStored = false;
+                    }
+
+                    const hasUrlParam = searchParams.get('repertoire_only') !== null;
+                    if (!hasStored && !hasUrlParam) {
+                        setUseRepertoireOnly(has);
+                    }
+                    didInitRepertoireOnlyRef.current = true;
+                }
             })
             .catch(() => {
                 setHasRepertoire(false);
@@ -88,17 +126,19 @@ export const Train: React.FC = () => {
     }, [user]);
 
     const openingOptions = useMemo(() => openings.map(o => ({ slug: o.slug, name: o.name })), [openings]);
-    const currentOpening = openings.find(o => o.slug === (openingFilter || selectedOpening)) || openings.find(o => o.slug === selectedOpening) || openings[0];
+    // In One Move Drill (no openingFilter), do not default to openings[0].
+    // Only default if we are in a mode that implies browsing (but even then, maybe better not to).
+    // Let's rely on openingFilter or manual selection.
+    const currentOpening = openings.find(o => o.slug === (openingFilter || selectedOpening)) || openings.find(o => o.slug === selectedOpening);
     const lineOptions = currentOpening ? currentOpening.variations : [];
 
     useEffect(() => {
-        if (!selectedOpening && currentOpening) {
+        // Only auto-select if we have a filter but for some reason selectedOpening isn't set yet
+        if (openingFilter && !selectedOpening && currentOpening) {
             setSelectedOpening(currentOpening.slug);
         }
-        if (!selectedVariation && currentOpening && currentOpening.variations.length > 0) {
-            setSelectedVariation(currentOpening.variations[0].id);
-        }
-    }, [currentOpening, selectedOpening, selectedVariation]);
+        // Legacy: if we wanted to default to first opening, we'd do it here, but we disabled that for One Move Drill.
+    }, [currentOpening, selectedOpening, selectedVariation, openingFilter]);
 
     // If the URL opening_id changes, sync selection and clear old variation id
     useEffect(() => {
@@ -110,37 +150,84 @@ export const Train: React.FC = () => {
         }
     }, [openingFilter, searchParams]);
 
+    const fetchOneMoveSession = useCallback(async () => {
+        // Generic One Move Drill: do NOT send opening_id or variation id.
+        const filters = {
+            use_repertoire_only: useRepertoireOnly && hasRepertoire,
+            side: sideParam || undefined,
+            mode: 'one_move' as const,
+            t: Date.now(),
+        };
+        return await api.getRecallSession(undefined, filters);
+    }, [useRepertoireOnly, hasRepertoire, sideParam]);
+
+    const fetchSpecificOpeningSession = useCallback(async (openingId: string, variationId?: string) => {
+        // Specific opening flow (review / specific opening training / one-move-within-opening).
+        const difficulties = searchParams.get('difficulties')?.split(',').filter(Boolean);
+        const training_goals = searchParams.get('training_goals')?.split(',').filter(Boolean);
+        const themes = searchParams.get('themes')?.split(',').filter(Boolean);
+
+        const filters = {
+            difficulties,
+            training_goals,
+            themes,
+            use_repertoire_only: useRepertoireOnly && hasRepertoire,
+            side: sideParam || undefined,
+            opening_id: openingId,
+            mode: isOneMoveMode ? 'one_move' : undefined,
+            t: Date.now(),
+        };
+
+        return await api.getRecallSession(variationId, filters);
+    }, [searchParams, useRepertoireOnly, hasRepertoire, sideParam, isOneMoveMode]);
+
     const fetchSession = useCallback(async () => {
         setLoading(true);
         setCompleted(false);
         setMessage(null);
         try {
-            const variationId = selectedVariation || searchParams.get('id');
-            
+            // One Move Drill: randomize across openings unless explicitly in a specific-opening flow.
+            if (isOneMoveMode && !openingFilter) {
+                const data = await fetchOneMoveSession();
+                setSession(data);
+                return;
+            }
+
+            // Fix: For One Move Drill (specific-opening flow), ignore specific variation ID to ensure randomization
+            const variationId = isOneMoveMode ? undefined : (selectedVariation || searchParams.get('id') || undefined);
+
             // Extract filters from URL
             const difficulties = searchParams.get('difficulties')?.split(',').filter(Boolean);
             const training_goals = searchParams.get('training_goals')?.split(',').filter(Boolean);
             const themes = searchParams.get('themes')?.split(',').filter(Boolean);
-            
-            const filters = (difficulties || training_goals || themes || (useRepertoireOnly && hasRepertoire) || sideParam || openingFilter) ? {
+
+            // If we're training a specific opening, keep sending opening_id (explicit flow).
+            if (openingFilter) {
+                const data = await fetchSpecificOpeningSession(openingFilter, variationId);
+                setSession(data);
+                if (!selectedVariation && variationId) {
+                    setSelectedVariation(variationId);
+                }
+                return;
+            }
+
+            const filters = (difficulties || training_goals || themes || (useRepertoireOnly && hasRepertoire) || sideParam || isOneMoveMode) ? {
                 difficulties,
                 training_goals,
                 themes,
                 use_repertoire_only: useRepertoireOnly && hasRepertoire,
                 side: sideParam || undefined,
-                opening_id: openingFilter
-            } : undefined;
+                mode: isOneMoveMode ? 'one_move' : undefined,
+                t: Date.now() // Cache buster
+            } : { t: Date.now() };
 
-            const data = await api.getRecallSession(variationId || undefined, filters);
+            const data = await api.getRecallSession(variationId, filters);
             setSession(data);
-            // Infer opening from response if provided
-            if (!selectedOpening) {
-                if (openingFilter) {
-                    setSelectedOpening(openingFilter);
-                } else if ('opening' in data && (data as any).opening?.slug) {
-                    setSelectedOpening((data as any).opening.slug);
-                }
-            }
+            
+            // Only set selectedOpening if we are strictly filtering by it (which we handled via useEffect/initial state)
+            // or if we want to lock it. But for One Move Drill, we don't want to lock it.
+            // So we remove the auto-set logic here to keep One Move Drill "generic".
+            
             if (!selectedVariation && variationId) {
                 setSelectedVariation(variationId);
             }
@@ -156,7 +243,17 @@ export const Train: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [searchParams, selectedVariation, selectedOpening, useRepertoireOnly, hasRepertoire, sideParam, openingFilter]);
+    }, [
+        searchParams,
+        selectedVariation,
+        useRepertoireOnly,
+        hasRepertoire,
+        sideParam,
+        openingFilter,
+        isOneMoveMode,
+        fetchOneMoveSession,
+        fetchSpecificOpeningSession,
+    ]);
 
     useEffect(() => {
         fetchSession();
@@ -190,6 +287,24 @@ export const Train: React.FC = () => {
 
     const handleComplete = async (success: boolean, hintUsed: boolean) => {
         if (!session) return;
+        
+        // One Move Drill: Immediate next session
+        if (isOneMoveMode) {
+            try {
+                await api.submitResult({
+                    type: 'one_move_complete',
+                    success: success && !hintUsed,
+                    mode: 'one_move'
+                });
+                refreshUser();
+                // Fetch next session immediately
+                fetchSession();
+            } catch (err) {
+                console.error(err);
+            }
+            return;
+        }
+
         setCompleted(true);
         
         try {
@@ -226,6 +341,39 @@ export const Train: React.FC = () => {
         if (!session) return;
         if (session.type === 'mistake') return; // Don't double count mistakes in mistake mode
 
+        // One Move Drill: Handle mistake and next
+        if (isOneMoveMode) {
+            try {
+                // Log mistake
+                await api.submitResult({
+                    type: 'blunder_made',
+                    id: (session as any).id,
+                    fen,
+                    wrong_move: wrongMove,
+                    correct_move: correctMove,
+                    mode: 'one_move'
+                });
+                
+                // Submit result to reset streak
+                await api.submitResult({
+                    type: 'one_move_complete',
+                    success: false,
+                    mode: 'one_move'
+                });
+                refreshUser();
+                
+                // Fetch next session immediately (after a short delay to see feedback if desired, or let GameArea handle delay)
+                // GameArea usually handles feedback delay. But here we want a new session.
+                // Let's give it a moment.
+                // setTimeout(() => {
+                    fetchSession();
+                // }, 1000); 
+            } catch (err) {
+                console.error(err);
+            }
+            return;
+        }
+
         // Only report blunders for SRS/Learn modes
         try {
             await api.submitResult({
@@ -255,6 +403,52 @@ export const Train: React.FC = () => {
         );
     }
 
+    const oneMoveSession = useMemo(() => {
+        if (!isOneMoveMode || !session || session.type === 'mistake' || !session.moves) return null;
+        
+        try {
+            const game = new Chess();
+            const candidateMoves: { fen: string; move: string; moveIndex: number }[] = [];
+            
+            // Replay game to find all user moves
+            session.moves.forEach((move, idx) => {
+                const turn = game.turn(); // 'w' or 'b'
+                const userColor = session.orientation === 'white' ? 'w' : 'b';
+                const fenBefore = game.fen();
+                
+                if (turn === userColor) {
+                    candidateMoves.push({
+                        fen: fenBefore,
+                        move: move.san,
+                        moveIndex: idx
+                    });
+                }
+                game.move(move.san);
+            });
+            
+            if (candidateMoves.length === 0) return null;
+            
+            // Pick a random move to test
+            // In a real SRS system, we might pick the specific move that is "due".
+            // For now, random selection from the line is a good "drill".
+            const selected = candidateMoves[Math.floor(Math.random() * candidateMoves.length)];
+            
+            return {
+                ...session,
+                type: 'mistake' as const, // Treat as single-move puzzle
+                fen: selected.fen,
+                correct_move: selected.move,
+                variation_name: session.name,
+                // We keep the opening metadata
+            };
+        } catch (e) {
+            console.error("Error generating one-move puzzle", e);
+            return null;
+        }
+    }, [session, isOneMoveMode]);
+
+    const activeSession = isOneMoveMode && oneMoveSession ? oneMoveSession : session;
+
     if (loading) return <div className="flex justify-center items-center h-64">Loading session...</div>;
     
     if (!session) {
@@ -274,8 +468,8 @@ export const Train: React.FC = () => {
 
     return (
         <div className="w-full max-w-6xl mx-auto">
-            {/* Session Metadata Banner */}
-            {!completed && !hasSpecificOpening && (session.difficulty || session.training_goal || (session.themes && session.themes.length > 0)) && (
+            {/* Session Metadata Banner - Hidden in Train Mode for now */}
+            {/* {!completed && !hasSpecificOpening && !isOneMoveMode && (session.difficulty || session.training_goal || (session.themes && session.themes.length > 0)) && (
                 <div className="mb-4 flex flex-wrap items-center gap-2 animate-in fade-in slide-in-from-top-1">
                     {session.difficulty && (
                         <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full font-medium capitalize border border-gray-200">
@@ -293,7 +487,7 @@ export const Train: React.FC = () => {
                         </span>
                     ))}
                 </div>
-            )}
+            )} */}
 
             <div className="bg-white p-2 sm:p-3 rounded-xl shadow-sm border border-gray-100 relative">
                 {completed && (
@@ -346,7 +540,16 @@ export const Train: React.FC = () => {
                             className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                             checked={hasRepertoire && useRepertoireOnly}
                             disabled={!hasRepertoire}
-                            onChange={(e) => setUseRepertoireOnly(e.target.checked)}
+                            onChange={(e) => {
+                                const next = e.target.checked;
+                                didInitRepertoireOnlyRef.current = true;
+                                setUseRepertoireOnly(next);
+                                try {
+                                    localStorage.setItem(ONE_MOVE_REPERTOIRE_ONLY_KEY, String(next));
+                                } catch {
+                                    // ignore localStorage errors
+                                }
+                            }}
                         />
                         <label htmlFor="use-repertoire-only" className={clsx("flex flex-col text-sm", !hasRepertoire && "text-gray-400")}>
                             <span className="font-semibold text-gray-800">Use my repertoire only</span>
@@ -358,20 +561,22 @@ export const Train: React.FC = () => {
                     </div>
                 )}
                 <GameArea
-                    mode={session.type === 'mistake' ? 'mistake' : 'sequence'}
-                    sessionTitle={session.type === 'mistake' ? session.variation_name : session.name}
-                    sessionType={session.type}
-                    initialFen={session.type === 'mistake' ? session.fen : undefined}
-                    targetNextMove={session.type === 'mistake' ? session.correct_move : undefined}
-                    targetMoves={session.type !== 'mistake' ? session.moves : undefined}
-                    orientation={session.orientation}
+                    mode={activeSession?.type === 'mistake' ? 'mistake' : 'sequence'}
+                    sessionTitle={activeSession?.type === 'mistake' ? (activeSession as any).variation_name : activeSession?.name}
+                    sessionType={activeSession?.type}
+                    initialFen={activeSession?.type === 'mistake' ? (activeSession as any).fen : undefined}
+                    targetNextMove={activeSession?.type === 'mistake' ? (activeSession as any).correct_move : undefined}
+                    targetMoves={activeSession?.type !== 'mistake' ? (activeSession as any).moves : undefined}
+                    orientation={activeSession?.orientation}
                     onComplete={handleComplete}
                     onMistake={handleMistake}
                     locked={completed}
                     opening={
-                        currentOpening
-                            ? { slug: currentOpening.slug, name: currentOpening.name }
-                            : undefined
+                        (isOneMoveMode && session && 'opening' in session && session.opening) 
+                            ? { slug: session.opening.slug, name: session.opening.name }
+                            : (currentOpening
+                                ? { slug: currentOpening.slug, name: currentOpening.name }
+                                : (session && 'opening' in session && session.opening ? { slug: session.opening.slug, name: session.opening.name } : undefined))
                     }
                     openingOptions={openingOptions}
                     onSelectOpening={handleSelectOpening}
@@ -379,6 +584,8 @@ export const Train: React.FC = () => {
                     selectedLineId={selectedVariation || undefined}
                     onSelectLine={handleSelectLine}
                     headerMode="training"
+                    hideLog={isOneMoveMode}
+                    isOneMoveMode={isOneMoveMode}
                 />
             </div>
         </div>
