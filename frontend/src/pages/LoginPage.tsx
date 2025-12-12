@@ -8,7 +8,11 @@ export const LoginPage = () => {
     const location = useLocation();
     
     // Fallback to home if no state
-    const from = location.state?.from?.pathname || '/';
+    const fromState = location.state?.from;
+    const from =
+        (fromState?.pathname || '/') +
+        (fromState?.search || '') +
+        (fromState?.hash || '');
     
     const [identifier, setIdentifier] = useState('');
     const [password, setPassword] = useState('');

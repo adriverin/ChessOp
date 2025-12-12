@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactElement } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { UserProvider, useUser } from './context/UserContext';
 import { Layout } from './components/Layout';
@@ -7,11 +7,13 @@ import { Train } from './pages/Train';
 import { OpeningDrill } from './pages/OpeningDrill';
 import { Openings } from './pages/Openings';
 import { Profile } from './pages/Profile';
+import { Pricing } from './pages/Pricing';
+import { Subscription } from './pages/Subscription';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { Modal } from './components/Modal';
 
-function RequireAuth({ children }: { children: JSX.Element }) {
+function RequireAuth({ children }: { children: ReactElement }) {
     const { user, loading } = useUser();
     const location = useLocation();
     const navigate = useNavigate();
@@ -85,9 +87,16 @@ function AppContent() {
                             <Profile />
                         </RequireAuth>
                     } />
+                    
+                    <Route path="subscription" element={
+                        <RequireAuth>
+                            <Subscription />
+                        </RequireAuth>
+                    } />
 
                     {/* Free Tier / Optional Auth */}
                     <Route path="openings" element={<Openings />} />
+                    <Route path="pricing" element={<Pricing />} />
                     
                     {/* Train/Drill: accessible, but saving requires auth. 
                         If they hit a 401/403 inside, component should handle it or they just can't save. 

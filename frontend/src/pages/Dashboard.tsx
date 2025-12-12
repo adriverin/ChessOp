@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Zap, ChevronRight, Lock, LogIn, Target, Star, Check, BookOpen } from 'lucide-react';
 import { api } from '../api/client';
 import type { Opening, RepertoireResponse } from '../types';
+import { useUpgradeNavigation } from '../hooks/useUpgradeNavigation';
 
 export const Dashboard: React.FC = () => {
     const { user, loading } = useUser();
@@ -12,6 +13,7 @@ export const Dashboard: React.FC = () => {
     const [repertoireLoading, setRepertoireLoading] = useState(true);
     const [repertoireFilter, setRepertoireFilter] = useState<'all' | 'white' | 'black'>('all');
     const navigate = useNavigate();
+    const { goToPricing } = useUpgradeNavigation();
 
     useEffect(() => {
         if (!user?.is_authenticated) {
@@ -251,7 +253,11 @@ export const Dashboard: React.FC = () => {
                             <p className="text-sm text-purple-600 mb-3">
                                 Unlock unlimited variations and detailed analytics.
                             </p>
-                            <button className="text-sm font-bold text-purple-700 hover:text-purple-900 underline">
+                            <button
+                                type="button"
+                                onClick={goToPricing}
+                                className="text-sm font-bold text-purple-700 hover:text-purple-900 underline"
+                            >
                                 Upgrade now
                             </button>
                         </div>

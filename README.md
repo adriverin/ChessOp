@@ -73,3 +73,25 @@ To play from your iPhone or another device on the same Wi-Fi network:
 4.  **Connect**:
     *   On your iPhone, make sure you are on the **same Wi-Fi**.
     *   Open Safari/Chrome and go to `http://192.168.1.5:5173` (replace with your actual IP).
+
+## Payment / Stripe Setup (Local Dev)
+
+1.  **Stripe Account**: Create a [Stripe](https://stripe.com) account and enable Test Mode.
+2.  **Environment Variables**:
+    *   Recommended: copy `env.example` to `.env` in the project root (Django will load it automatically for local dev).
+    *   Or set the following variables in your shell (e.g. `export STRIPE_SECRET_KEY=...`):
+        *   `STRIPE_SECRET_KEY`: `sk_test_...`
+        *   `STRIPE_WEBHOOK_SECRET`: `whsec_...` (from Step 4)
+        *   `STRIPE_PRICE_ID_MONTHLY`: `price_...` (Create a monthly product in Stripe Dashboard)
+        *   `STRIPE_PRICE_ID_YEARLY`: `price_...` (Create a yearly product in Stripe Dashboard)
+3.  **Products**:
+    *   Create two products in Stripe: "Monthly Plan" and "Yearly Plan".
+    *   Copy their Price IDs (start with `price_`).
+4.  **Webhooks**:
+    *   Install Stripe CLI.
+    *   Run: `stripe listen --forward-to localhost:8000/api/billing/webhook/`
+    *   Copy the "Signing secret" (starts with `whsec_`) into `STRIPE_WEBHOOK_SECRET`.
+5.  **Customer Portal**:
+    *   Enable the Customer Portal in Stripe Settings.
+    *   Set the default return URL to `http://localhost:5173/profile`.
+

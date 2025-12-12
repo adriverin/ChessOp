@@ -16,6 +16,11 @@ export interface DashboardResponse {
     is_superuser?: boolean;
     is_staff?: boolean;
     quests?: Quest[];
+    subscription?: {
+        status: string | null;
+        currentPeriodEnd: string | null;
+        planInterval: string | null;
+    };
 }
 
 export interface Move {

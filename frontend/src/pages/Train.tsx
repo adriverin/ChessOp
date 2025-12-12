@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { RecallSessionResponse } from '../types';
 import { GameArea } from '../components/GameArea';
@@ -12,7 +12,6 @@ export const Train: React.FC = () => {
     const { user, refreshUser } = useUser();
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
-    const location = useLocation();
     const [session, setSession] = useState<RecallSessionResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [completed, setCompleted] = useState(false);

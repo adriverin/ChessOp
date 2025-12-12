@@ -6,11 +6,17 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST, require_http_methods
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils import timezone
+from datetime import datetime
 from django.db.models import Q, Sum, Count, Case, When, IntegerField
 from django.core.cache import cache
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+import stripe
 import random
 import json
 import hashlib
+import logging
+from .billing import compute_is_premium
 
 from .models import (
     OpeningCategory,
@@ -29,6 +35,8 @@ from .models import (
 )
 from .monetization import MonetizationManager, stamina_required
 from .drill_badges import get_opening_drill_badges
+
+logger = logging.getLogger(__name__)
 
 @ensure_csrf_cookie
 def dashboard(request):
@@ -73,6 +81,11 @@ def api_get_dashboard_data(request):
         'level': profile.level,
         'is_premium': profile.is_premium,
         'effective_premium': MonetizationManager.is_effective_premium(request.user),
+        'subscription': {
+            'status': profile.subscription_status,
+            'currentPeriodEnd': profile.current_period_end.isoformat() if profile.current_period_end else None,
+            'planInterval': profile.plan_interval
+        },
         'is_superuser': request.user.is_superuser,
         'is_staff': request.user.is_staff,
         'quests': quests,
@@ -1396,9 +1409,191 @@ def api_logout(request):
 @require_http_methods(["GET"])
 def api_me(request):
     if request.user.is_authenticated:
+        profile = request.user.profile
         return JsonResponse({
             'id': request.user.id,
             'email': request.user.email,
-            'isAuthenticated': True
+            'isAuthenticated': True,
+            'isPremium': profile.is_premium,
+            'subscription': {
+                'status': profile.subscription_status,
+                'currentPeriodEnd': profile.current_period_end.isoformat() if profile.current_period_end else None,
+                'planInterval': profile.plan_interval
+            }
         })
     return JsonResponse({'isAuthenticated': False}, status=401)
+
+
+# --- Billing Endpoints ---
+
+@require_POST
+@login_required
+def create_checkout_session(request):
+    try:
+        data = json.loads(request.body)
+        plan = data.get('plan') # 'monthly' or 'yearly'
+    except:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    profile = request.user.profile
+    if profile.is_premium and profile.subscription_status in ("active", "trialing"):
+        return JsonResponse({'error': 'Already subscribed'}, status=400)
+
+    if plan not in ("monthly", "yearly"):
+        return JsonResponse({'error': 'Invalid plan'}, status=400)
+
+    if not settings.STRIPE_SECRET_KEY:
+        logger.error("Stripe secret key missing (STRIPE_SECRET_KEY)")
+        return JsonResponse(
+            {'error': 'BILLING_NOT_CONFIGURED', 'detail': 'Missing STRIPE_SECRET_KEY'},
+            status=500
+        )
+
+    if plan == "monthly":
+        price_id = settings.STRIPE_PRICE_ID_MONTHLY
+        if not price_id:
+            logger.error("Stripe monthly price missing (STRIPE_PRICE_ID_MONTHLY)")
+            return JsonResponse(
+                {'error': 'PRICE_NOT_CONFIGURED', 'detail': 'Missing STRIPE_PRICE_ID_MONTHLY'},
+                status=500
+            )
+    else:
+        price_id = settings.STRIPE_PRICE_ID_YEARLY
+        if not price_id:
+            logger.error("Stripe yearly price missing (STRIPE_PRICE_ID_YEARLY)")
+            return JsonResponse(
+                {'error': 'PRICE_NOT_CONFIGURED', 'detail': 'Missing STRIPE_PRICE_ID_YEARLY'},
+                status=500
+            )
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+
+    try:
+        # Get or create customer
+        customer_id = profile.stripe_customer_id
+        if not customer_id:
+            customer = stripe.Customer.create(
+                email=request.user.email,
+                metadata={'user_id': request.user.id}
+            )
+            customer_id = customer.id
+            profile.stripe_customer_id = customer_id
+            profile.save()
+
+        session = stripe.checkout.Session.create(
+            customer=customer_id,
+            mode='subscription',
+            payment_method_types=['card'],
+            line_items=[{'price': price_id, 'quantity': 1}],
+            subscription_data={
+                'trial_period_days': 7,
+                'metadata': {'user_id': request.user.id, 'plan': plan}
+            },
+            client_reference_id=str(request.user.id),
+            success_url=settings.STRIPE_CHECKOUT_SUCCESS_URL,
+            cancel_url=settings.STRIPE_CHECKOUT_CANCEL_URL,
+            allow_promotion_codes=True,
+        )
+        return JsonResponse({'url': session.url})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@require_POST
+@login_required
+def create_portal_session(request):
+    profile = request.user.profile
+    if not profile.stripe_customer_id:
+        return JsonResponse({'error': 'No billing account found'}, status=400)
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+    try:
+        session = stripe.billing_portal.Session.create(
+            customer=profile.stripe_customer_id,
+            return_url=settings.STRIPE_CUSTOMER_PORTAL_RETURN_URL
+        )
+        return JsonResponse({'url': session.url})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def stripe_webhook(request):
+    payload = request.body
+    sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
+    
+    if not settings.STRIPE_WEBHOOK_SECRET:
+         return JsonResponse({'error': 'Webhook secret not set'}, status=500)
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
+        )
+    except ValueError:
+        return JsonResponse({'error': 'Invalid payload'}, status=400)
+    except stripe.error.SignatureVerificationError:
+        return JsonResponse({'error': 'Invalid signature'}, status=400)
+
+    # Handle the event
+    if event['type'] in ('checkout.session.completed', 'customer.subscription.created', 
+                         'customer.subscription.updated', 'customer.subscription.deleted'):
+        
+        session = event['data']['object']
+        
+        # Try to find user profile
+        customer_id = session.get('customer')
+        profile = None
+        
+        if customer_id:
+            from .models import UserProfile
+            profile = UserProfile.objects.filter(stripe_customer_id=customer_id).first()
+        
+        if not profile and event['type'] == 'checkout.session.completed':
+             # Fallback to client_reference_id
+             user_id = session.get('client_reference_id')
+             if user_id:
+                 try:
+                    profile = UserProfile.objects.get(user_id=user_id)
+                    # Link customer id if not present
+                    if not profile.stripe_customer_id and customer_id:
+                        profile.stripe_customer_id = customer_id
+                        profile.save()
+                 except:
+                     pass
+
+        if profile:
+            # If it's a subscription event, we get the subscription object directly
+            # If it's checkout session, we need to fetch subscription or it might be in 'subscription' field
+            subscription_id = session.get('subscription')
+            
+            # For checkout completed, 'subscription' is an ID. For subscription events, object is subscription.
+            if event['type'].startswith('customer.subscription.'):
+                sub = session # it is the subscription object
+                subscription_id = sub.get('id')
+            else:
+                # Checkout session completed
+                # We can update basic info, but usually subscription.created/updated follows immediately
+                if subscription_id:
+                    stripe.api_key = settings.STRIPE_SECRET_KEY
+                    sub = stripe.Subscription.retrieve(subscription_id)
+                else:
+                    sub = None
+
+            if sub:
+                profile.stripe_subscription_id = sub.id
+                profile.subscription_status = sub.status
+                profile.current_period_end = datetime.fromtimestamp(sub.current_period_end)
+                
+                # Plan interval
+                if sub.get('items') and sub['items'].data:
+                    profile.plan_interval = sub['items'].data[0].price.recurring.interval
+
+                if sub.get('trial_end'):
+                    profile.trial_ends_at = datetime.fromtimestamp(sub.trial_end)
+                
+                profile.is_premium = compute_is_premium(sub.status, profile.current_period_end)
+                profile.save()
+
+    return JsonResponse({'status': 'success'})
+

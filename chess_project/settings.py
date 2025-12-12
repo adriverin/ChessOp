@@ -10,10 +10,25 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env (local dev)
+load_dotenv(BASE_DIR / ".env")
+
+# Stripe
+STRIPE_SECRET_KEY = os.environ.get('STRIPE_SECRET_KEY', '')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+STRIPE_PRICE_ID_MONTHLY = os.environ.get('STRIPE_PRICE_ID_MONTHLY', '')
+STRIPE_PRICE_ID_YEARLY = os.environ.get('STRIPE_PRICE_ID_YEARLY', '')
+STRIPE_CUSTOMER_PORTAL_RETURN_URL = os.environ.get('STRIPE_CUSTOMER_PORTAL_RETURN_URL', 'http://localhost:5173/profile')
+STRIPE_CHECKOUT_SUCCESS_URL = os.environ.get('STRIPE_CHECKOUT_SUCCESS_URL', 'http://localhost:5173/profile?upgraded=1')
+STRIPE_CHECKOUT_CANCEL_URL = os.environ.get('STRIPE_CHECKOUT_CANCEL_URL', 'http://localhost:5173/pricing?canceled=1')
+
 
 
 # Quick-start development settings - unsuitable for production

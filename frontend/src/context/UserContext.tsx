@@ -18,6 +18,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [loading, setLoading] = useState(true);
 
     const refreshUser = async () => {
+        setLoading(true);
         try {
             // Check session via dashboard or explicit 'me'
             // Using dashboard ensures we get all user data
@@ -25,7 +26,12 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             setUser(data);
         } catch (error) {
             console.error("Failed to fetch user data", error);
-            setUser(null);
+            // Avoid treating transient network errors as logged-out.
+            // Only clear local user state if server explicitly says we're unauthorized.
+            const status = (error as any)?.response?.status;
+            if (status === 401 || status === 403) {
+                setUser(null);
+            }
         } finally {
             setLoading(false);
         }

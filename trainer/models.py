@@ -101,6 +101,14 @@ class UserProfile(models.Model):
     one_move_current_streak = models.IntegerField(default=0)
     one_move_best_streak = models.IntegerField(default=0)
     
+    # Billing / Stripe
+    stripe_customer_id = models.CharField(max_length=255, null=True, blank=True)
+    stripe_subscription_id = models.CharField(max_length=255, null=True, blank=True)
+    subscription_status = models.CharField(max_length=50, null=True, blank=True)
+    current_period_end = models.DateTimeField(null=True, blank=True)
+    plan_interval = models.CharField(max_length=10, null=True, blank=True)
+    trial_ends_at = models.DateTimeField(null=True, blank=True)
+
     # Stamina System (Optional based on config)
     daily_moves_remaining = models.IntegerField(default=20)
     last_stamina_reset = models.DateTimeField(default=timezone.now)

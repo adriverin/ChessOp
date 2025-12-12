@@ -21,4 +21,9 @@ urlpatterns = [
     path('api/opening-drill/openings/', views.api_get_opening_drill_openings, name='api_get_opening_drill_openings'),
     path('api/opening-drill/progress/', views.api_get_opening_drill_progress, name='api_get_opening_drill_progress'),
     path('api/opening-drill/stats/', views.api_get_opening_drill_stats, name='api_get_opening_drill_stats'),
+    
+    # Billing
+    path('api/billing/create-checkout-session/', views.create_checkout_session, name='create_checkout_session'),
+    path('api/billing/create-portal-session/', views.create_portal_session, name='create_portal_session'),
+    path('api/billing/webhook/', views.stripe_webhook, name='stripe_webhook'),
 ]

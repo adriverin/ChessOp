@@ -220,5 +220,15 @@ export const api = {
     me: async () => {
         const { data } = await client.get('/auth/me/');
         return data;
+    },
+
+    // Billing
+    createCheckoutSession: async (plan: 'monthly' | 'yearly') => {
+        const { data } = await client.post<{ url: string }>('/billing/create-checkout-session/', { plan });
+        return data;
+    },
+    createPortalSession: async () => {
+        const { data } = await client.post<{ url: string }>('/billing/create-portal-session/', {});
+        return data;
     }
 };

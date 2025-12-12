@@ -1,12 +1,17 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
+import { useUpgradeNavigation } from '../hooks/useUpgradeNavigation';
 import { LayoutDashboard, BookOpen, User as UserIcon, LogOut } from 'lucide-react';
 import clsx from 'clsx';
 
 export const Layout: React.FC = () => {
-    const { user, logout } = useUser();
+    const { user, loading, logout } = useUser();
     const location = useLocation();
+
+    const { goToPricing } = useUpgradeNavigation();
+    const isAuthenticated = !!user?.is_authenticated;
+    const isPremium = !!user?.effective_premium || !!user?.is_premium;
 
     const navItems = [
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -45,6 +50,24 @@ export const Layout: React.FC = () => {
                     </nav>
 
                     <div className="flex items-center gap-3">
+                        {/* Upgrade / Subscription CTA */}
+                        {!loading && isAuthenticated && isPremium && (
+                            <Link
+                                to="/subscription"
+                                className="bg-gray-100 text-gray-900 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-gray-200 transition-colors mr-2 hidden sm:block"
+                            >
+                                Manage
+                            </Link>
+                        )}
+                        {!loading && isAuthenticated && !isPremium && (
+                            <button
+                                type="button"
+                                onClick={goToPricing}
+                                className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm hover:shadow-md transition-all mr-2 hidden sm:block"
+                            >
+                                Upgrade
+                            </button>
+                        )}
                         {user?.is_authenticated ? (
                             <div className="flex items-center gap-4">
                                 <div className="flex flex-col items-end">
