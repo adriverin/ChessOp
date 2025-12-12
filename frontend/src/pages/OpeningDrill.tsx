@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import type { OpeningDrillOpening, OpeningDrillStats, OpeningDrillBadge } from '../api/client';
 import type { OpeningDrillResponse } from '../types';
@@ -11,6 +11,8 @@ import { clsx } from 'clsx';
 export const OpeningDrill: React.FC = () => {
     const { user, refreshUser } = useUser();
     const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const location = useLocation();
     
     // State for Openings List
     const [availableOpenings, setAvailableOpenings] = useState<OpeningDrillOpening[]>([]);
@@ -157,12 +159,12 @@ export const OpeningDrill: React.FC = () => {
             <div className="text-center py-20">
                 <h2 className="text-2xl font-bold text-gray-800 mb-4">Training Locked</h2>
                 <p className="text-gray-500 mb-6">Please log in to access training modes.</p>
-                <a 
-                    href="/admin/login/?next=/drill" 
+                <button 
+                    onClick={() => navigate('/login', { state: { backgroundLocation: location } })}
                     className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
                 >
                     Log In
-                </a>
+                </button>
             </div>
         );
     }

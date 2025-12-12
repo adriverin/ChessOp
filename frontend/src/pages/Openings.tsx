@@ -280,9 +280,17 @@ const OpeningCard: React.FC<{
 
     return (
         <div className={`bg-white rounded-lg shadow-sm border transition-all ${isExpanded ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200 hover:border-blue-200'}`}>
-            <button 
+            <div 
+                role="button"
+                tabIndex={0}
                 onClick={onToggle}
-                className="w-full text-left p-4"
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onToggle();
+                    }
+                }}
+                className="w-full text-left p-4 cursor-pointer outline-none focus:ring-2 focus:ring-blue-200 rounded-lg"
             >
                 <div className="flex justify-between items-start mb-3">
                     <div>
@@ -328,7 +336,7 @@ const OpeningCard: React.FC<{
                         />
                     </div>
                 </div>
-            </button>
+            </div>
 
             {isExpanded && (
                 <div className="border-t border-gray-100 bg-gray-50 p-2 rounded-b-lg space-y-1">

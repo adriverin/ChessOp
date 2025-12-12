@@ -5,11 +5,11 @@ import { LayoutDashboard, BookOpen, User as UserIcon, LogOut } from 'lucide-reac
 import clsx from 'clsx';
 
 export const Layout: React.FC = () => {
-    const { user } = useUser();
+    const { user, logout } = useUser();
     const location = useLocation();
 
     const navItems = [
-        { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+        { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
         { name: 'Openings', path: '/openings', icon: BookOpen },
         { name: 'Profile', path: '/profile', icon: UserIcon },
     ];
@@ -51,18 +51,22 @@ export const Layout: React.FC = () => {
                                     <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Level {user.level}</span>
                                     <span className="text-sm font-semibold text-blue-600">{user.xp} XP</span>
                                 </div>
-                                <a 
-                                    href="/admin/logout/?next=/" 
+                                <button 
+                                    onClick={() => logout()}
                                     className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
                                     title="Log Out"
                                 >
                                     <LogOut className="w-5 h-5" />
-                                </a>
+                                </button>
                             </div>
                         ) : (
-                            <a href="/admin/login/?next=/" className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors">
+                            <Link 
+                                to="/login" 
+                                state={{ backgroundLocation: location }}
+                                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+                            >
                                 Log In
-                            </a>
+                            </Link>
                         )}
                     </div>
                 </div>

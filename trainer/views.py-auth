@@ -1,0 +1,113 @@
+
+# --- Auth Endpoints ---
+
+@require_POST
+def api_signup(request):
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '')
+    confirm_password = data.get('confirmPassword', '')
+
+    if not email:
+        return JsonResponse({'error': 'Email is required'}, status=400)
+    if not password or len(password) < 10:
+        return JsonResponse({'error': 'Password must be at least 10 characters'}, status=400)
+    if password != confirm_password:
+        return JsonResponse({'error': 'Passwords do not match'}, status=400)
+
+    # Check email uniqueness
+    if User.objects.filter(email=email).exists():
+        return JsonResponse({'error': 'Email already in use'}, status=400)
+
+    # Create User
+    # Strategy: username = email prefix + random suffix to ensure uniqueness
+    username_prefix = email.split('@')[0][:20]
+    username_suffix = str(random.randint(1000, 9999))
+    username = f"{username_prefix}_{username_suffix}"
+    
+    # Ensure username is unique (simplified loop)
+    while User.objects.filter(username=username).exists():
+        username_suffix = str(random.randint(1000, 9999))
+        username = f"{username_prefix}_{username_suffix}"
+
+    try:
+        user = User.objects.create_user(username=username, email=email, password=password)
+        # UserProfile is created via signal
+        
+        # Log the user in
+        login(request, user)
+        
+        return JsonResponse({
+            'id': user.id,
+            'email': user.email,
+            'isAuthenticated': True
+        })
+    except Exception as e:
+        return JsonResponse({'error': 'Signup failed. Please try again.'}, status=500)
+
+@require_POST
+def api_login(request):
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    email = data.get('email', '').strip().lower()
+    password = data.get('password', '')
+
+    if not email or not password:
+        return JsonResponse({'error': 'Email and password are required'}, status=400)
+
+    # Rate limiting
+    ip = request.META.get('REMOTE_ADDR')
+    # Hash email to avoid storing PII in cache keys if possible, or just use as is for dev
+    # Using simple hash for cache key safety
+    email_hash = hashlib.md5(email.encode()).hexdigest()
+    cache_key = f"login_attempts:{ip}:{email_hash}"
+    attempts = cache.get(cache_key, 0)
+
+    if attempts >= 10:
+        return JsonResponse({'error': 'Too many attempts, try again later.'}, status=429)
+
+    # Authenticate by Email
+    # Django default authenticate expects username. We need to find the user by email first.
+    user_obj = User.objects.filter(email=email).first()
+    
+    user = None
+    if user_obj:
+        user = authenticate(request, username=user_obj.username, password=password)
+
+    if user is not None:
+        login(request, user)
+        # Reset rate limit
+        cache.delete(cache_key)
+        return JsonResponse({
+            'id': user.id,
+            'email': user.email,
+            'isAuthenticated': True
+        })
+    else:
+        # Increment rate limit
+        cache.set(cache_key, attempts + 1, timeout=600) # 10 minutes
+        return JsonResponse({'error': 'Invalid email or password'}, status=400)
+
+@require_POST
+def api_logout(request):
+    if request.user.is_authenticated:
+        logout(request)
+    return JsonResponse({'ok': True})
+
+@require_http_methods(["GET"])
+def api_me(request):
+    if request.user.is_authenticated:
+        return JsonResponse({
+            'id': request.user.id,
+            'email': request.user.email,
+            'isAuthenticated': True
+        })
+    return JsonResponse({'isAuthenticated': False}, status=401)
+

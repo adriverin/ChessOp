@@ -117,8 +117,10 @@ def _get_unlocked_opening_slugs(user):
     Mirrors the Hard Lock gating used in api_get_openings.
     Returns slugs of openings with at least one unlocked variation.
     """
-    # Allow anonymous users (Free Tier Guest)
-    if user.is_authenticated and MonetizationManager.is_effective_premium(user):
+    if not user.is_authenticated:
+        return set()
+
+    if MonetizationManager.is_effective_premium(user):
         return set(Opening.objects.values_list("slug", flat=True))
 
     strategy = MonetizationManager.get_strategy()
@@ -155,9 +157,12 @@ def _get_unlocked_variation_ids(user):
 
     Returns:
       - None for premium users or non-HARD_LOCK strategies (meaning "no restriction")
-      - list[int] for HARD_LOCK free users (authenticated or guest)
+      - list[int] for HARD_LOCK free users
     """
-    if user.is_authenticated and MonetizationManager.is_effective_premium(user):
+    if not user.is_authenticated:
+        return []
+
+    if MonetizationManager.is_effective_premium(user):
         return None
 
     strategy = MonetizationManager.get_strategy()
@@ -456,6 +461,7 @@ def api_toggle_repertoire(request):
     return JsonResponse(_serialize_repertoire(user))
 
 
+@login_required
 @stamina_required
 def api_get_recall_session(request):
     """
@@ -465,12 +471,7 @@ def api_get_recall_session(request):
     3. SRS Due (UserSRSProgress) - Filtered by params
     4. New Random Variations - Filtered by params
     """
-    profile = None
-    if request.user.is_authenticated:
-        try:
-            profile = request.user.profile
-        except:
-            pass
+    profile = request.user.profile
     
     # Parse Filter Params
     # Expected format: ?difficulties=beginner,elite&training_goals=tactics&themes=IQP,pawn_storm
@@ -496,10 +497,6 @@ def api_get_recall_session(request):
     if qp_flag and qp_flag.lower() in ("1", "true", "yes", "on"):
         use_repertoire_only = True
 
-    # Guest users cannot use repertoire
-    if not profile:
-        use_repertoire_only = False
-
     # Clean up empty strings
     difficulties = [d for d in difficulties if d]
     training_goals = [g for g in training_goals if g]
@@ -519,7 +516,7 @@ def api_get_recall_session(request):
             side_to_train = UserRepertoireOpening.SIDE_WHITE
 
     repertoire_opening_ids = []
-    if use_repertoire_only and profile:
+    if use_repertoire_only:
         qs = UserRepertoireOpening.objects.filter(
             user=request.user,
             is_active=True,
@@ -536,12 +533,6 @@ def api_get_recall_session(request):
     # 0. Specific Variation Request (Overrides everything)
     if requested_id:
         variation = get_object_or_404(Variation, slug=requested_id)
-        
-        # Check if locked for guest/free user
-        unlocked_ids = _get_unlocked_variation_ids(request.user)
-        if unlocked_ids is not None and variation.id not in unlocked_ids:
-             return JsonResponse({'error': 'Variation locked for free tier'}, status=403)
-
         if opening and variation.opening_id != opening.id:
             return JsonResponse({'message': 'Variation not in requested opening'}, status=404)
         if use_repertoire_only and repertoire_opening_ids and variation.opening_id not in repertoire_opening_ids:
@@ -684,73 +675,62 @@ def api_get_recall_session(request):
 
     # 1. Blunders (Skip if specific filters are requested, as blunders might not match)
     # However, if the blunder's variation matches the filters, we should show it.
-    if profile:
-        if not has_filters:
-            # Standard logic: prioritize blunders
-            blunders = UserMistake.objects.filter(profile=profile, resolved=False)
-            if opening:
-                blunders = blunders.filter(variation__opening=opening)
-            if blunders.exists():
-                mistake = blunders.first()
-                return _return_mistake(mistake)
-        else:
-            # Filtered logic: Only show blunders that match criteria
-            blunders = UserMistake.objects.filter(profile=profile, resolved=False)
-            # This requires joining on variation to filter
-            blunders = apply_filters(
-                blunders,
-                model_prefix='variation',
-                repertoire_ids=repertoire_opening_ids if use_repertoire_only else None,
-            )
-            
-            # Apply theme filter in Python
-            if themes and blunders.exists():
-                blunders_list = list(blunders)
-                blunders_list = filter_by_themes(blunders_list, is_variation_objects=False) # UserMistake has variation relation
-                if blunders_list:
-                    return _return_mistake(blunders_list[0])
-            elif blunders.exists():
-                 return _return_mistake(blunders.first())
+    if not has_filters:
+        # Standard logic: prioritize blunders
+        blunders = UserMistake.objects.filter(profile=profile, resolved=False)
+        if opening:
+            blunders = blunders.filter(variation__opening=opening)
+        if blunders.exists():
+            mistake = blunders.first()
+            return _return_mistake(mistake)
+    else:
+        # Filtered logic: Only show blunders that match criteria
+        blunders = UserMistake.objects.filter(profile=profile, resolved=False)
+        # This requires joining on variation to filter
+        blunders = apply_filters(
+            blunders,
+            model_prefix='variation',
+            repertoire_ids=repertoire_opening_ids if use_repertoire_only else None,
+        )
+        
+        # Apply theme filter in Python
+        if themes and blunders.exists():
+            blunders_list = list(blunders)
+            blunders_list = filter_by_themes(blunders_list, is_variation_objects=False) # UserMistake has variation relation
+            if blunders_list:
+                return _return_mistake(blunders_list[0])
+        elif blunders.exists():
+             return _return_mistake(blunders.first())
 
     # 2. SRS Due
-    if profile:
-        now = timezone.now()
-        due_srs = UserSRSProgress.objects.filter(profile=profile, next_review_date__lte=now).order_by('next_review_date')
+    now = timezone.now()
+    due_srs = UserSRSProgress.objects.filter(profile=profile, next_review_date__lte=now).order_by('next_review_date')
+    
+    if has_filters:
+        due_srs = apply_filters(
+            due_srs,
+            model_prefix='variation',
+            repertoire_ids=repertoire_opening_ids if use_repertoire_only else None,
+        )
         
-        if has_filters:
-            due_srs = apply_filters(
-                due_srs,
-                model_prefix='variation',
-                repertoire_ids=repertoire_opening_ids if use_repertoire_only else None,
-            )
-            
-        # Apply theme filter in Python
-        if themes and due_srs.exists():
-            due_srs_list = list(due_srs)
-            due_srs_list = filter_by_themes(due_srs_list, is_variation_objects=False) # UserSRSProgress has variation relation
-            if due_srs_list:
-                return _return_variation(due_srs_list[0].variation, 'srs_review')
-        elif due_srs.exists():
-            srs_item = due_srs.first()
-            return _return_variation(srs_item.variation, 'srs_review')
+    # Apply theme filter in Python
+    if themes and due_srs.exists():
+        due_srs_list = list(due_srs)
+        due_srs_list = filter_by_themes(due_srs_list, is_variation_objects=False) # UserSRSProgress has variation relation
+        if due_srs_list:
+            return _return_variation(due_srs_list[0].variation, 'srs_review')
+    elif due_srs.exists():
+        srs_item = due_srs.first()
+        return _return_variation(srs_item.variation, 'srs_review')
 
     # 3. New Random (if not locked)
-    known_ids = []
-    if profile:
-        known_ids_qs = UserSRSProgress.objects.filter(profile=profile)
-        if opening:
-            known_ids_qs = known_ids_qs.filter(variation__opening=opening)
-        if use_repertoire_only and repertoire_opening_ids:
-            known_ids_qs = known_ids_qs.filter(variation__opening_id__in=repertoire_opening_ids)
-        known_ids = known_ids_qs.values_list('variation_id', flat=True)
-
+    known_ids_qs = UserSRSProgress.objects.filter(profile=profile)
+    if opening:
+        known_ids_qs = known_ids_qs.filter(variation__opening=opening)
+    if use_repertoire_only and repertoire_opening_ids:
+        known_ids_qs = known_ids_qs.filter(variation__opening_id__in=repertoire_opening_ids)
+    known_ids = known_ids_qs.values_list('variation_id', flat=True)
     available = Variation.objects.exclude(id__in=known_ids)
-    
-    # Enforce Free Tier Locking
-    unlocked_ids = _get_unlocked_variation_ids(request.user)
-    if unlocked_ids is not None:
-        available = available.filter(id__in=unlocked_ids)
-
     if opening:
         available = available.filter(opening=opening)
     
@@ -785,10 +765,6 @@ def api_get_recall_session(request):
     # even if they've already learned it or it's not due.
     if has_filters:
         fallback_candidates = Variation.objects.all()
-        # Enforce Free Tier Locking on Fallback too
-        if unlocked_ids is not None:
-            fallback_candidates = fallback_candidates.filter(id__in=unlocked_ids)
-            
         if opening:
             fallback_candidates = fallback_candidates.filter(opening=opening)
         fallback_candidates = apply_filters(
@@ -1022,6 +998,7 @@ def api_get_theme_stats(request):
 
 
 @require_POST
+@login_required
 def api_submit_result(request):
     """
     Handles completion of a session (Standard or Recall).
@@ -1032,10 +1009,6 @@ def api_submit_result(request):
     except:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
         
-    # Guest user handling: Just return success, don't save anything.
-    if not request.user.is_authenticated:
-        return JsonResponse({'success': True, 'message': 'Practice complete (Guest)'})
-
     profile = request.user.profile
     result_type = data.get('type') # 'variation_complete', 'mistake_fixed', 'move_played'
     mode = data.get('mode')  # 'opening_drill' | None
@@ -1283,122 +1256,3 @@ def api_get_opening_drill_stats(request):
         "badges": badges
     })
 
-
-# --- Auth Endpoints ---
-
-@require_POST
-def api_signup(request):
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
-
-    email = data.get('email', '').strip().lower()
-    password = data.get('password', '')
-    confirm_password = data.get('confirmPassword', '')
-
-    if not email:
-        return JsonResponse({'error': 'Email is required'}, status=400)
-    if not password or len(password) < 10:
-        return JsonResponse({'error': 'Password must be at least 10 characters'}, status=400)
-    if password != confirm_password:
-        return JsonResponse({'error': 'Passwords do not match'}, status=400)
-
-    # Check email uniqueness
-    if User.objects.filter(email=email).exists():
-        return JsonResponse({'error': 'Email already in use'}, status=400)
-
-    # Create User
-    # Strategy: username = email prefix + random suffix to ensure uniqueness
-    username_prefix = email.split('@')[0][:20]
-    username_suffix = str(random.randint(1000, 9999))
-    username = f"{username_prefix}_{username_suffix}"
-    
-    # Ensure username is unique (simplified loop)
-    while User.objects.filter(username=username).exists():
-        username_suffix = str(random.randint(1000, 9999))
-        username = f"{username_prefix}_{username_suffix}"
-
-    try:
-        user = User.objects.create_user(username=username, email=email, password=password)
-        # UserProfile is created via signal
-        
-        # Log the user in
-        login(request, user)
-        
-        return JsonResponse({
-            'id': user.id,
-            'email': user.email,
-            'isAuthenticated': True
-        })
-    except Exception as e:
-        return JsonResponse({'error': 'Signup failed. Please try again.'}, status=500)
-
-@require_POST
-def api_login(request):
-    try:
-        data = json.loads(request.body)
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
-
-    # Accept "identifier" (email or username)
-    identifier = data.get('identifier', '').strip()
-    # Fallback to email if identifier is missing
-    if not identifier:
-        identifier = data.get('email', '').strip()
-        
-    password = data.get('password', '')
-
-    if not identifier or not password:
-        return JsonResponse({'error': 'Email/Username and password are required'}, status=400)
-
-    # Rate limiting
-    ip = request.META.get('REMOTE_ADDR')
-    # Hash identifier to avoid storing PII
-    identifier_hash = hashlib.md5(identifier.lower().encode()).hexdigest()
-    cache_key = f"login_attempts:{ip}:{identifier_hash}"
-    attempts = cache.get(cache_key, 0)
-
-    if attempts >= 10:
-        return JsonResponse({'error': 'Too many attempts, try again later.'}, status=429)
-
-    # Determine if identifier is email or username
-    user_obj = None
-    if '@' in identifier:
-        user_obj = User.objects.filter(email__iexact=identifier).first()
-    else:
-        user_obj = User.objects.filter(username__iexact=identifier).first()
-    
-    user = None
-    if user_obj:
-        user = authenticate(request, username=user_obj.username, password=password)
-
-    if user is not None:
-        login(request, user)
-        # Reset rate limit
-        cache.delete(cache_key)
-        return JsonResponse({
-            'id': user.id,
-            'email': user.email,
-            'isAuthenticated': True
-        })
-    else:
-        # Increment rate limit
-        cache.set(cache_key, attempts + 1, timeout=600) # 10 minutes
-        return JsonResponse({'error': 'Invalid email/username or password'}, status=400)
-
-@require_POST
-def api_logout(request):
-    if request.user.is_authenticated:
-        logout(request)
-    return JsonResponse({'ok': True})
-
-@require_http_methods(["GET"])
-def api_me(request):
-    if request.user.is_authenticated:
-        return JsonResponse({
-            'id': request.user.id,
-            'email': request.user.email,
-            'isAuthenticated': True
-        })
-    return JsonResponse({'isAuthenticated': False}, status=401)

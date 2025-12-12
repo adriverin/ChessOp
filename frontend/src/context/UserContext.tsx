@@ -6,6 +6,9 @@ interface UserContextType {
     user: DashboardResponse | null;
     loading: boolean;
     refreshUser: () => Promise<void>;
+    login: (payload: any) => Promise<void>;
+    signup: (payload: any) => Promise<void>;
+    logout: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -16,13 +19,32 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const refreshUser = async () => {
         try {
+            // Check session via dashboard or explicit 'me'
+            // Using dashboard ensures we get all user data
             const data = await api.getDashboard();
             setUser(data);
         } catch (error) {
             console.error("Failed to fetch user data", error);
+            setUser(null);
         } finally {
             setLoading(false);
         }
+    };
+
+    const login = async (payload: any) => {
+        await api.login(payload);
+        await refreshUser();
+    };
+
+    const signup = async (payload: any) => {
+        await api.signup(payload);
+        await refreshUser();
+    };
+
+    const logout = async () => {
+        await api.logout();
+        setUser(null); // Clear locally
+        await refreshUser(); // Confirm with server
     };
 
     useEffect(() => {
@@ -30,7 +52,7 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, []);
 
     return (
-        <UserContext.Provider value={{ user, loading, refreshUser }}>
+        <UserContext.Provider value={{ user, loading, refreshUser, login, signup, logout }}>
             {children}
         </UserContext.Provider>
     );

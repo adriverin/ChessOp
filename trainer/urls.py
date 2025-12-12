@@ -3,6 +3,13 @@ from . import views
 
 urlpatterns = [
     path('', views.dashboard, name='dashboard'),
+    
+    # Auth
+    path('api/auth/signup/', views.api_signup, name='api_signup'),
+    path('api/auth/login/', views.api_login, name='api_login'),
+    path('api/auth/logout/', views.api_logout, name='api_logout'),
+    path('api/auth/me/', views.api_me, name='api_me'),
+
     path('api/dashboard/', views.api_get_dashboard_data, name='api_get_dashboard_data'),
     path('api/openings/', views.api_get_openings, name='api_get_openings'),
     path('api/repertoire/', views.api_get_repertoire, name='api_get_repertoire'),

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import type { RecallSessionResponse } from '../types';
 import { GameArea } from '../components/GameArea';
@@ -12,6 +12,7 @@ export const Train: React.FC = () => {
     const { user, refreshUser } = useUser();
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const [session, setSession] = useState<RecallSessionResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [completed, setCompleted] = useState(false);
@@ -234,7 +235,14 @@ export const Train: React.FC = () => {
         } catch (err: any) {
             console.error("Failed to fetch session", err);
             if (err.response?.status === 403) {
-                setMessage("You are out of stamina for today! Come back tomorrow.");
+                const msg = err.response?.data?.error || err.response?.data?.message;
+                if (msg && (msg.includes("stamina") || msg.includes("limit"))) {
+                    setMessage("You are out of stamina for today! Come back tomorrow.");
+                } else if (msg && (msg.includes("locked") || msg.includes("premium"))) {
+                     setMessage("This variation is premium-only. Log in or upgrade to access.");
+                } else {
+                    setMessage("Access denied. Please check your account status.");
+                }
             } else if (err.response?.status === 404) {
                 setMessage("No variations match your specific filters.");
             } else {
@@ -288,15 +296,19 @@ export const Train: React.FC = () => {
     const handleComplete = async (success: boolean, hintUsed: boolean) => {
         if (!session) return;
         
+        const isGuest = !user || !user.is_authenticated;
+
         // One Move Drill: Immediate next session
         if (isOneMoveMode) {
             try {
+                // For guests, we still call submit to trigger "next" logic if needed, 
+                // but backend won't save. Frontend can just fetch next.
                 await api.submitResult({
                     type: 'one_move_complete',
                     success: success && !hintUsed,
                     mode: 'one_move'
                 });
-                refreshUser();
+                if (!isGuest) refreshUser();
                 // Fetch next session immediately
                 fetchSession();
             } catch (err) {
@@ -315,7 +327,9 @@ export const Train: React.FC = () => {
                     hint_used: hintUsed
                 });
                 if (hintUsed) {
-                    setMessage("Mistake corrected (with hint). Keep practicing!");
+                    setMessage("Mistake corrected (with hint).");
+                } else if (isGuest) {
+                    setMessage("Mistake corrected!");
                 } else {
                     setMessage("Mistake corrected! +10 XP");
                 }
@@ -326,12 +340,14 @@ export const Train: React.FC = () => {
                     hint_used: hintUsed
                 });
                 if (hintUsed) {
-                    setMessage("Line completed (with hint). Keep practicing!");
+                    setMessage("Line completed (with hint).");
+                } else if (isGuest) {
+                    setMessage("Variation completed! (Log in to save progress)");
                 } else {
                     setMessage("Variation mastered! +20 XP");
                 }
             }
-            refreshUser(); // Update global stats
+            if (!isGuest) refreshUser(); // Update global stats
         } catch (err) {
             console.error(err);
         }
@@ -340,6 +356,8 @@ export const Train: React.FC = () => {
     const handleMistake = async (fen: string, wrongMove: string, correctMove: string) => {
         if (!session) return;
         if (session.type === 'mistake') return; // Don't double count mistakes in mistake mode
+
+        const isGuest = !user || !user.is_authenticated;
 
         // One Move Drill: Handle mistake and next
         if (isOneMoveMode) {
@@ -360,11 +378,9 @@ export const Train: React.FC = () => {
                     success: false,
                     mode: 'one_move'
                 });
-                refreshUser();
+                if (!isGuest) refreshUser();
                 
-                // Fetch next session immediately (after a short delay to see feedback if desired, or let GameArea handle delay)
-                // GameArea usually handles feedback delay. But here we want a new session.
-                // Let's give it a moment.
+                // Fetch next session immediately
                 // setTimeout(() => {
                     fetchSession();
                 // }, 1000); 
@@ -388,20 +404,8 @@ export const Train: React.FC = () => {
         }
     };
 
-    if (!user || !user.is_authenticated) {
-        return (
-            <div className="text-center py-20">
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">Training Locked</h2>
-                <p className="text-gray-500 mb-6">Please log in to access training modes.</p>
-                <a 
-                    href="http://127.0.0.1:8000/admin/login/?next=/train" 
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
-                >
-                    Log In
-                </a>
-            </div>
-        );
-    }
+    // Blocking check removed to allow Guest Training
+    // if (!user || !user.is_authenticated) { ... }
 
     const oneMoveSession = useMemo(() => {
         if (!isOneMoveMode || !session || session.type === 'mistake' || !session.moves) return null;

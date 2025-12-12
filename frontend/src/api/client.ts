@@ -202,5 +202,23 @@ export const api = {
     getOpeningDrillStats: async (openingId: string | number) => {
         const { data } = await client.get<OpeningDrillStatsResponse>("/opening-drill/stats/", { params: { opening_id: openingId } });
         return data;
+    },
+    
+    // Auth
+    signup: async (payload: any) => {
+        const { data } = await client.post('/auth/signup/', payload);
+        return data;
+    },
+    login: async (payload: { identifier?: string, email?: string, password: string }) => {
+        const { data } = await client.post('/auth/login/', payload);
+        return data;
+    },
+    logout: async () => {
+        const { data } = await client.post('/auth/logout/');
+        return data;
+    },
+    me: async () => {
+        const { data } = await client.get('/auth/me/');
+        return data;
     }
 };

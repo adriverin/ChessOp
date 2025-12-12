@@ -70,8 +70,9 @@ def stamina_required(view_func):
     @wraps(view_func)
     def _wrapped_view(request, *args, **kwargs):
         if MonetizationManager.get_strategy() == 'STAMINA':
+            # Allow unauthenticated users (guest mode) - they don't consume stamina because they don't save progress
             if not request.user.is_authenticated:
-                 return JsonResponse({'error': 'Login required'}, status=403)
+                return view_func(request, *args, **kwargs)
             
             if not MonetizationManager.check_permission(request.user, 'PLAY_MOVE'):
                  return JsonResponse({'error': 'Out of stamina'}, status=403)
