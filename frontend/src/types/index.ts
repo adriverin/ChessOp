@@ -20,6 +20,9 @@ export interface DashboardResponse {
         status: string | null;
         currentPeriodEnd: string | null;
         planInterval: string | null;
+        cancelAtPeriodEnd?: boolean;
+        trialEndsAt?: string | null;
+        canceledAt?: string | null;
     };
 }
 

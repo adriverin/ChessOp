@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_POST, require_http_methods
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils import timezone
-from datetime import datetime
+from datetime import datetime, timezone as dt_timezone
 from django.db.models import Q, Sum, Count, Case, When, IntegerField
 from django.core.cache import cache
 from django.views.decorators.csrf import csrf_exempt
@@ -16,7 +16,8 @@ import random
 import json
 import hashlib
 import logging
-from .billing import compute_is_premium
+from functools import wraps
+from .billing import compute_is_premium, compute_effective_status
 
 from .models import (
     OpeningCategory,
@@ -37,6 +38,28 @@ from .monetization import MonetizationManager, stamina_required
 from .drill_badges import get_opening_drill_badges
 
 logger = logging.getLogger(__name__)
+
+
+def premium_required_response():
+    return JsonResponse(
+        {"error": "PREMIUM_REQUIRED", "detail": "This feature requires Premium."},
+        status=403,
+    )
+
+
+def require_premium(view_func):
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({"error": "Authentication required"}, status=401)
+
+        profile = getattr(request.user, "profile", None)
+        if not profile or not profile.is_premium:
+            return premium_required_response()
+
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped_view
 
 @ensure_csrf_cookie
 def dashboard(request):
@@ -82,9 +105,16 @@ def api_get_dashboard_data(request):
         'is_premium': profile.is_premium,
         'effective_premium': MonetizationManager.is_effective_premium(request.user),
         'subscription': {
-            'status': profile.subscription_status,
+            'status': compute_effective_status(
+                profile.subscription_status,
+                profile.current_period_end,
+                cancel_at_period_end=profile.cancel_at_period_end,
+            ),
             'currentPeriodEnd': profile.current_period_end.isoformat() if profile.current_period_end else None,
-            'planInterval': profile.plan_interval
+            'planInterval': profile.plan_interval,
+            'cancelAtPeriodEnd': profile.cancel_at_period_end,
+            'trialEndsAt': profile.trial_ends_at.isoformat() if profile.trial_ends_at else None,
+            'canceledAt': profile.canceled_at.isoformat() if profile.canceled_at else None,
         },
         'is_superuser': request.user.is_superuser,
         'is_staff': request.user.is_staff,
@@ -443,10 +473,7 @@ def api_toggle_repertoire(request):
     if not MonetizationManager.is_effective_premium(user):
         unlocked_slugs = _get_unlocked_opening_slugs(user)
         if opening.slug not in unlocked_slugs:
-            return JsonResponse(
-                {'error': 'Opening not unlocked for free users'},
-                status=403
-            )
+            return premium_required_response()
 
     if active:
         repertoire_entry, _ = UserRepertoireOpening.objects.get_or_create(
@@ -553,7 +580,7 @@ def api_get_recall_session(request):
         # Check if locked for guest/free user
         unlocked_ids = _get_unlocked_variation_ids(request.user)
         if unlocked_ids is not None and variation.id not in unlocked_ids:
-             return JsonResponse({'error': 'Variation locked for free tier'}, status=403)
+            return premium_required_response()
 
         if opening and variation.opening_id != opening.id:
             return JsonResponse({'message': 'Variation not in requested opening'}, status=404)
@@ -830,7 +857,7 @@ def api_get_recall_session(request):
         
     return JsonResponse({'message': 'No content available matching your criteria'}, status=404)
 
-@login_required
+@require_premium
 @stamina_required
 def api_get_opening_drill_session(request):
     """
@@ -873,7 +900,7 @@ def api_get_opening_drill_session(request):
         'srs': _drill_srs_payload(srs)
     })
 
-@login_required
+@require_premium
 def api_get_opening_drill_openings(request):
     """
     Returns list of openings with drill unlock status.
@@ -893,7 +920,7 @@ def api_get_opening_drill_openings(request):
     return JsonResponse({'openings': results})
 
 
-@login_required
+@require_premium
 def api_get_opening_drill_progress(request):
     """
     Returns SRS progress for all variations of an opening (names hidden).
@@ -1204,6 +1231,7 @@ def api_submit_result(request):
     return JsonResponse({'error': 'Unknown result type'}, status=400)
 
 @login_required
+@require_premium
 def api_get_opening_drill_stats(request):
     """
     Returns stats and badges for a specific opening in Drill Mode.
@@ -1416,9 +1444,16 @@ def api_me(request):
             'isAuthenticated': True,
             'isPremium': profile.is_premium,
             'subscription': {
-                'status': profile.subscription_status,
+                'status': compute_effective_status(
+                    profile.subscription_status,
+                    profile.current_period_end,
+                    cancel_at_period_end=profile.cancel_at_period_end,
+                ),
                 'currentPeriodEnd': profile.current_period_end.isoformat() if profile.current_period_end else None,
-                'planInterval': profile.plan_interval
+                'planInterval': profile.plan_interval,
+                'cancelAtPeriodEnd': profile.cancel_at_period_end,
+                'trialEndsAt': profile.trial_ends_at.isoformat() if profile.trial_ends_at else None,
+                'canceledAt': profile.canceled_at.isoformat() if profile.canceled_at else None,
             }
         })
     return JsonResponse({'isAuthenticated': False}, status=401)
@@ -1524,21 +1559,55 @@ def stripe_webhook(request):
     sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
     
     if not settings.STRIPE_WEBHOOK_SECRET:
-         return JsonResponse({'error': 'Webhook secret not set'}, status=500)
+        logger.warning("Stripe webhook secret not configured")
+        return JsonResponse({'error': 'Webhook secret not set'}, status=500)
 
     try:
         event = stripe.Webhook.construct_event(
             payload, sig_header, settings.STRIPE_WEBHOOK_SECRET
         )
     except ValueError:
+        logger.warning("Stripe webhook received invalid payload")
         return JsonResponse({'error': 'Invalid payload'}, status=400)
     except stripe.error.SignatureVerificationError:
+        logger.warning("Stripe webhook signature verification failed")
         return JsonResponse({'error': 'Invalid signature'}, status=400)
 
     # Handle the event
-    if event['type'] in ('checkout.session.completed', 'customer.subscription.created', 
+    def _update_profile_from_subscription(profile, subscription_obj):
+        if not subscription_obj:
+            return
+
+        status = subscription_obj.get('status')
+        period_end_ts = subscription_obj.get('current_period_end')
+        trial_end_ts = subscription_obj.get('trial_end')
+        cancel_at_period_end = subscription_obj.get('cancel_at_period_end', False)
+        canceled_at_ts = subscription_obj.get('canceled_at')
+
+        profile.stripe_subscription_id = subscription_obj.get('id')
+        profile.subscription_status = status
+        profile.cancel_at_period_end = bool(cancel_at_period_end)
+
+        if period_end_ts:
+            profile.current_period_end = datetime.fromtimestamp(period_end_ts, tz=dt_timezone.utc)
+        if canceled_at_ts:
+            profile.canceled_at = datetime.fromtimestamp(canceled_at_ts, tz=dt_timezone.utc)
+        if trial_end_ts:
+            profile.trial_ends_at = datetime.fromtimestamp(trial_end_ts, tz=dt_timezone.utc)
+
+        if subscription_obj.get('items') and subscription_obj['items'].data:
+            profile.plan_interval = subscription_obj['items'].data[0].price.recurring.interval
+
+        profile.is_premium = compute_is_premium(
+            profile.subscription_status,
+            profile.current_period_end,
+            cancel_at_period_end=profile.cancel_at_period_end,
+        )
+        profile.save()
+
+    if event['type'] in ('checkout.session.completed', 'customer.subscription.created',
                          'customer.subscription.updated', 'customer.subscription.deleted'):
-        
+
         session = event['data']['object']
         
         # Try to find user profile
@@ -1550,23 +1619,23 @@ def stripe_webhook(request):
             profile = UserProfile.objects.filter(stripe_customer_id=customer_id).first()
         
         if not profile and event['type'] == 'checkout.session.completed':
-             # Fallback to client_reference_id
-             user_id = session.get('client_reference_id')
-             if user_id:
-                 try:
+            # Fallback to client_reference_id
+            user_id = session.get('client_reference_id')
+            if user_id:
+                try:
                     profile = UserProfile.objects.get(user_id=user_id)
                     # Link customer id if not present
                     if not profile.stripe_customer_id and customer_id:
                         profile.stripe_customer_id = customer_id
                         profile.save()
-                 except:
-                     pass
+                except Exception:
+                    logger.warning("Stripe webhook could not find profile for user_id=%s", user_id)
 
         if profile:
             # If it's a subscription event, we get the subscription object directly
             # If it's checkout session, we need to fetch subscription or it might be in 'subscription' field
             subscription_id = session.get('subscription')
-            
+
             # For checkout completed, 'subscription' is an ID. For subscription events, object is subscription.
             if event['type'].startswith('customer.subscription.'):
                 sub = session # it is the subscription object
@@ -1581,19 +1650,13 @@ def stripe_webhook(request):
                     sub = None
 
             if sub:
-                profile.stripe_subscription_id = sub.id
-                profile.subscription_status = sub.status
-                profile.current_period_end = datetime.fromtimestamp(sub.current_period_end)
-                
-                # Plan interval
-                if sub.get('items') and sub['items'].data:
-                    profile.plan_interval = sub['items'].data[0].price.recurring.interval
-
-                if sub.get('trial_end'):
-                    profile.trial_ends_at = datetime.fromtimestamp(sub.trial_end)
-                
-                profile.is_premium = compute_is_premium(sub.status, profile.current_period_end)
-                profile.save()
+                _update_profile_from_subscription(profile, sub)
+        else:
+            logger.warning(
+                "Stripe webhook profile not found for customer=%s subscription=%s",
+                customer_id,
+                session.get('id'),
+            )
 
     return JsonResponse({'status': 'success'})
 
