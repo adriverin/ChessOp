@@ -536,10 +536,10 @@ export const GameArea: React.FC<GameAreaProps> = ({
     }, [capturedWhite, capturedBlack]);
 
     const renderCaptured = (list: string[], label: string, pieceColor: 'w' | 'b', aheadBy?: number) => (
-        <div className="flex items-center gap-2 text-xs text-gray-700">
-            <span className="font-semibold min-w-[80px]">{label}:</span>
+        <div className="flex items-center gap-2 text-xs text-slate-300">
+            <span className="font-semibold min-w-[80px] text-slate-200">{label}:</span>
             <div className="flex gap-1 flex-wrap items-center">
-                {list.length === 0 && <span className="text-gray-400 italic">None</span>}
+                {list.length === 0 && <span className="text-slate-500 italic">None</span>}
                 {list.map((p, idx) => (
                     <img
                         key={idx}
@@ -550,7 +550,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                 ))}
             </div>
             {aheadBy && aheadBy > 0 && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600 font-semibold border border-emerald-100">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 font-semibold border border-emerald-400/30">
                     +{aheadBy}
                 </span>
             )}
@@ -574,19 +574,19 @@ export const GameArea: React.FC<GameAreaProps> = ({
                         ref={isCurrent ? activeMoveRef : null}
                         className={clsx(
                             "flex items-start gap-2 px-2 py-1 rounded border transition-colors",
-                            isCurrent ? "bg-blue-50 border-blue-200 ring-1 ring-blue-100" : "border-transparent",
-                            !isCurrent && isBlackMove ? "bg-gray-100" : (!isCurrent && "bg-white"),
+                            isCurrent ? "bg-indigo-500/15 border-indigo-400/30 ring-1 ring-indigo-500/30" : "border-slate-800",
+                            !isCurrent && isBlackMove ? "bg-slate-900/60" : (!isCurrent && "bg-slate-900/40"),
                             shouldBlur ? "opacity-50" : ""
                         )}
                     >
-                        <span className="text-[10px] text-gray-400 font-mono w-5 text-right pt-0.5">{idx + 1}.</span>
+                        <span className="text-[10px] text-slate-500 font-mono w-5 text-right pt-0.5">{idx + 1}.</span>
                         
                         <div className="flex flex-col w-full">
                             <div className="flex items-center gap-2">
                                 <span className={clsx(
                                     "font-bold text-sm",
-                                    shouldBlur ? "blur-md select-none text-transparent bg-gray-300 rounded w-6 h-4 inline-block" : (
-                                        isBlackMove ? "text-gray-900" : "text-blue-900"
+                                    shouldBlur ? "blur-md select-none text-transparent bg-slate-700 rounded w-6 h-4 inline-block" : (
+                                        isBlackMove ? "text-slate-100" : "text-indigo-100"
                                     )
                                 )}>
                                     {shouldBlur ? "???" : mv.san}
@@ -594,14 +594,14 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                 {!shouldBlur && (
                                     <span className={clsx(
                                         "text-[9px] px-1 py-0.5 rounded-full font-bold tracking-wide uppercase",
-                                        isBlackMove ? "bg-gray-800 text-gray-100" : "bg-gray-200 text-gray-700 border border-gray-300"
+                                        isBlackMove ? "bg-slate-800 text-slate-100" : "bg-slate-700 text-slate-100 border border-slate-600"
                                     )}>
                                         {isBlackMove ? "Black" : "White"}
                                     </span>
                                 )}
                             </div>
                             <span className={clsx(
-                                "text-[10px] text-gray-600 mt-0.5",
+                                "text-[10px] text-slate-400 mt-0.5",
                                 shouldBlur ? "blur-sm select-none opacity-40" : ""
                             )}>
                                 {mv.desc}
@@ -666,13 +666,13 @@ export const GameArea: React.FC<GameAreaProps> = ({
             <div className="flex flex-col w-full max-w-2xl gap-2">
                 {showInlineProgress && (
                     <div className="w-full shrink-0">
-                        <div className="flex justify-between text-xs text-gray-600 mb-1 font-medium">
+                        <div className="flex justify-between text-xs text-slate-400 mb-1 font-medium">
                             <span>Progress</span>
                             <span>{totalUserMoves === 0 ? '0 moves to play' : `${remainingMoves} moves remaining`}</span>
                         </div>
-                        <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
-                            <div 
-                                className="h-full bg-blue-500 transition-all duration-500 ease-out"
+                        <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-gradient-to-r from-indigo-500 to-indigo-300 transition-all duration-500 ease-out"
                                 style={{ width: `${progressPercent}%` }}
                             />
                         </div>
@@ -680,10 +680,10 @@ export const GameArea: React.FC<GameAreaProps> = ({
                 )}
 
                 {/* Board Container */}
-                <div className="w-full aspect-square rounded overflow-hidden relative bg-gray-200">
-                    <div 
-                        ref={containerRef} 
-                        className="w-full h-full block" 
+                <div className="w-full aspect-square rounded-2xl overflow-hidden relative bg-slate-900/70 border border-slate-800">
+                    <div
+                        ref={containerRef}
+                        className="w-full h-full block"
                     />
                     
                     {/* Wrong Move Indicator Overlay */}
@@ -700,37 +700,37 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                     height: '12.5%',
                                 }}
                             >
-                                <div className="absolute top-0 right-0 w-3 h-3 bg-red-600 rounded-full shadow-sm ring-1 ring-white m-1" />
+                                <div className="absolute top-0 right-0 w-3 h-3 bg-rose-500 rounded-full shadow-sm ring-1 ring-white/70 m-1" />
                             </div>
                         );
                     })()}
                 </div>
 
                 {/* Status Bar */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 flex items-center justify-between w-full shrink-0">
+                <div className="bg-slate-900/80 rounded-xl shadow-lg border border-slate-800 p-2 flex items-center justify-between w-full shrink-0">
                     <div className="flex items-center gap-3">
-                        {feedback === 'correct' && <span className="text-green-600 font-bold flex items-center gap-1.5 text-sm"><CheckCircle size={18}/> Correct!</span>}
-                        {feedback === 'wrong' && <span className="text-red-600 font-bold flex items-center gap-1.5 text-sm"><XCircle size={18}/> Incorrect</span>}
-                        {!feedback && <span className="text-gray-500 italic text-sm font-medium">Make your move...</span>}
+                        {feedback === 'correct' && <span className="text-emerald-300 font-bold flex items-center gap-1.5 text-sm"><CheckCircle size={18}/> Correct!</span>}
+                        {feedback === 'wrong' && <span className="text-rose-300 font-bold flex items-center gap-1.5 text-sm"><XCircle size={18}/> Incorrect</span>}
+                        {!feedback && <span className="text-slate-400 italic text-sm font-medium">Make your move...</span>}
                         {wrongMoveView && wrongMoveMode === 'stay' && (
-                            <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded font-semibold">Wrong move</span>
+                            <span className="px-2 py-0.5 bg-rose-500/20 text-rose-200 text-xs rounded font-semibold border border-rose-400/30">Wrong move</span>
                         )}
                     </div>
-                    
+
                     <div className="flex gap-2">
-                        <button 
+                        <button
                             onClick={() => {
                                 const mv = mode === 'mistake' ? targetNextMove : targetMoves?.[moveIndex]?.san;
                                 setHint(mv || "No move available");
                                 setHintsUsed(true);
                             }}
                             disabled={locked}
-                            className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 disabled:opacity-50 transition-colors"
+                            className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 disabled:opacity-50 transition-colors"
                             title="Hint"
                         >
                             <HelpCircle size={18} />
                         </button>
-                        <button 
+                        <button
                             onClick={() => {
                                 // Reset Logic
                                     const safeChess = (fen?: string) => {
@@ -785,17 +785,17 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                 }
                             }}
                             disabled={locked}
-                            className="p-2 hover:bg-gray-100 rounded-lg text-gray-500 disabled:opacity-50 transition-colors"
+                            className="p-2 hover:bg-slate-800 rounded-lg text-slate-300 disabled:opacity-50 transition-colors"
                             title="Reset Position"
                         >
                             <RotateCcw size={18} />
                         </button>
                         
-                        <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+                        <div className="flex items-center rounded-lg border border-slate-800 bg-slate-900/80 p-0.5">
                             <button
                                 onClick={() => jumpTo(moveIndex - 1)}
                                 disabled={moveIndex <= 0}
-                                className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-white rounded-md disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                                className="p-1.5 text-slate-400 hover:text-indigo-200 hover:bg-slate-800 rounded-md disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                                 title="Step Back"
                             >
                                 <ChevronLeft size={16} />
@@ -803,7 +803,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                             <button
                                 onClick={() => jumpTo(moveIndex + 1)}
                                 disabled={moveIndex >= maxPlayedIndex}
-                                className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-white rounded-md disabled:opacity-30 disabled:hover:bg-transparent transition-all"
+                                className="p-1.5 text-slate-400 hover:text-indigo-200 hover:bg-slate-800 rounded-md disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                                 title="Step Forward"
                             >
                                 <ChevronRight size={16} />
@@ -812,7 +812,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                     </div>
                 </div>
 
-                {hint && <div className="text-sm text-blue-700 bg-blue-50 px-4 py-2 rounded-lg border border-blue-100 text-center font-medium">Hint: {hint}</div>}
+                {hint && <div className="text-sm text-indigo-100 bg-indigo-500/20 px-4 py-2 rounded-lg border border-indigo-500/30 text-center font-medium">Hint: {hint}</div>}
             </div>
 
             {/* Right Column: Sidebar */}
@@ -821,8 +821,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
                 <div className="flex flex-col gap-2 lg:absolute lg:inset-0">
                     
                     {/* Session Info (Moved from Header) */}
-                    <div className="bg-white p-2 rounded-xl border border-gray-200 shadow-sm shrink-0 relative">
-                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wide mb-1">
+                    <div className="bg-slate-900/70 p-2 rounded-xl border border-slate-800 shadow-lg shrink-0 relative">
+                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-100 text-[10px] font-bold uppercase tracking-wide mb-1">
                             <Brain size={12} />
                             {headerMode === 'drill' ? "Spaced Repetition Training" : "Opening Training"}
                         </div>
@@ -835,13 +835,13 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                                 setOpeningPickerOpen(prev => !prev);
                                                 setLinePickerOpen(false);
                                             }}
-                                            className="text-sm font-bold text-gray-900 leading-snug hover:text-blue-700 transition-colors"
+                                            className="text-sm font-semibold text-slate-100 leading-snug hover:text-indigo-200 transition-colors"
                                             title="Switch opening"
                                         >
                                             {opening.name}
                                         </button>
                                         {openingPickerOpen && (
-                                            <div className="absolute right-0 z-20 mt-1 w-56 max-h-56 overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg p-1">
+                                            <div className="absolute right-0 z-20 mt-1 w-56 max-h-56 overflow-auto bg-slate-900 border border-slate-800 rounded-lg shadow-xl p-1">
                                                 {openingOptions.map(opt => (
                                                     <button
                                                         key={opt.slug}
@@ -851,7 +851,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                                                 onSelectOpening(opt.slug);
                                                             }
                                                         }}
-                                                        className="w-full text-left px-2 py-1.5 rounded-md text-sm hover:bg-blue-50 transition-colors"
+                                                        className="w-full text-left px-2 py-1.5 rounded-md text-sm text-slate-100 hover:bg-indigo-500/10 transition-colors"
                                                     >
                                                         {opt.name}
                                                     </button>
@@ -860,7 +860,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                         )}
                                     </div>
                                 ) : (
-                                    <h3 className="text-sm font-bold text-gray-900 leading-snug">
+                                    <h3 className="text-sm font-semibold text-slate-100 leading-snug">
                                         {sessionTitle}
                                     </h3>
                                 )}
@@ -872,13 +872,13 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                                 setLinePickerOpen(prev => !prev);
                                                 setOpeningPickerOpen(false);
                                             }}
-                                            className="text-xs font-semibold text-gray-700 leading-snug hover:text-blue-700 transition-colors"
+                                            className="text-xs font-semibold text-slate-200 leading-snug hover:text-indigo-200 transition-colors"
                                             title="Switch line"
                                         >
                                             {lineOptions.find(l => l.id === selectedLineId)?.label || lineOptions[0].label}
                                         </button>
                                         {linePickerOpen && (
-                                            <div className="absolute right-0 z-20 mt-1 w-56 max-h-56 overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg p-1">
+                                            <div className="absolute right-0 z-20 mt-1 w-56 max-h-56 overflow-auto bg-slate-900 border border-slate-800 rounded-lg shadow-xl p-1">
                                                 {lineOptions.map(opt => (
                                                     <button
                                                         key={opt.id}
@@ -888,7 +888,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                                                 onSelectLine(opt.id);
                                                             }
                                                         }}
-                                                        className="w-full text-left px-2 py-1.5 rounded-md text-sm hover:bg-blue-50 transition-colors"
+                                                        className="w-full text-left px-2 py-1.5 rounded-md text-sm text-slate-100 hover:bg-indigo-500/10 transition-colors"
                                                     >
                                                         {opt.label}
                                                     </button>
@@ -903,8 +903,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
 
                     {/* Log */}
                     {!hideLog && (
-                        <div className="flex flex-col flex-1 min-h-0 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                                <div className="flex items-center justify-between p-2 border-b border-gray-100 text-xs font-semibold text-gray-700 shrink-0 bg-gray-50/50">
+                        <div className="flex flex-col flex-1 min-h-0 bg-slate-900/70 border border-slate-800 rounded-xl shadow-lg overflow-hidden">
+                                <div className="flex items-center justify-between p-2 border-b border-slate-800 text-xs font-semibold text-slate-200 shrink-0 bg-slate-900/80">
                                 <span>Line Moves</span>
                                 {!logRevealed && (
                                     <button
@@ -912,7 +912,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                             setLogRevealed(true);
                                             setHintsUsed(true);
                                         }}
-                                        className="text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 py-0.5 rounded transition-colors flex items-center gap-1"
+                                        className="text-xs text-indigo-200 hover:text-white hover:bg-indigo-500/15 px-2 py-0.5 rounded transition-colors flex items-center gap-1"
                                     >
                                         <HelpCircle size={12} /> Reveal all
                                     </button>
@@ -923,15 +923,15 @@ export const GameArea: React.FC<GameAreaProps> = ({
                     )}
                     
                     {/* Captured pieces */}
-                    <div className="bg-white border border-gray-200 rounded-xl p-2 shadow-sm space-y-2 shrink-0">
-                        <div className="text-xs font-semibold text-gray-700 uppercase tracking-wider opacity-75">Captured</div>
+                    <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-2 shadow-lg space-y-2 shrink-0">
+                        <div className="text-xs font-semibold text-slate-300 uppercase tracking-wider opacity-75">Captured</div>
                         {renderCaptured(capturedWhite, "White", 'b', materialDiff > 0 ? materialDiff : undefined)}
                         {renderCaptured(capturedBlack, "Black", 'w', materialDiff < 0 ? Math.abs(materialDiff) : undefined)}
                     </div>
 
                     {/* Practice Mode (Moved to Bottom) */}
-                    <div className="bg-gray-50 p-2 rounded-xl border border-gray-200 shrink-0">
-                        <div className="flex items-center justify-between text-xs text-gray-600">
+                    <div className="bg-slate-900/60 p-2 rounded-xl border border-slate-800 shrink-0">
+                        <div className="flex items-center justify-between text-xs text-slate-400">
                             <span className="font-semibold">Practice Mode</span>
                             <select
                                 value={wrongMoveMode}
@@ -942,7 +942,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                         localStorage.setItem('wrongMoveMode', val);
                                     }
                                 }}
-                                className="bg-white border border-gray-300 rounded px-2 py-1 text-xs cursor-pointer hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                                className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs cursor-pointer hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 text-slate-100"
                             >
                                 <option value="snap">Snap back</option>
                                 <option value="stay">Wait to Revert</option>

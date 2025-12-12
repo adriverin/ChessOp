@@ -20,27 +20,27 @@ export const Layout: React.FC = () => {
     ];
 
     return (
-        <div className="min-h-screen bg-gray-100 text-gray-900 flex flex-col">
+        <div className="min-h-screen bg-transparent text-slate-100 flex flex-col">
             {/* Header */}
-            <header className="bg-white shadow-sm sticky top-0 z-10">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                    <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-                        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+            <header className="sticky top-0 z-20 backdrop-blur-xl bg-slate-900/80 border-b border-slate-800/80">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-6">
+                    <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition">
+                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 via-indigo-400 to-cyan-500 flex items-center justify-center text-slate-50 font-black shadow-lg shadow-indigo-900/30">
                             CT
                         </div>
-                        <span className="font-bold text-xl hidden sm:block">Chess Trainer</span>
+                        <span className="font-semibold text-lg tracking-tight hidden sm:block">Chess Trainer</span>
                     </Link>
 
-                    <nav className="flex gap-1 sm:gap-4">
+                    <nav className="flex items-center gap-1 sm:gap-2 text-sm">
                         {navItems.map((item) => (
                             <Link
                                 key={item.path}
                                 to={item.path}
                                 className={clsx(
-                                    "flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                                    'flex items-center gap-2 px-3 py-2 rounded-full transition-all border border-transparent',
                                     location.pathname === item.path
-                                        ? "bg-blue-50 text-blue-700"
-                                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                                        ? 'bg-indigo-500/20 text-indigo-100 border-indigo-500/40 shadow-inner'
+                                        : 'text-slate-300 hover:text-white hover:bg-slate-800/70'
                                 )}
                             >
                                 <item.icon className="w-4 h-4" />
@@ -54,7 +54,7 @@ export const Layout: React.FC = () => {
                         {!loading && isAuthenticated && isPremium && (
                             <Link
                                 to="/subscription"
-                                className="bg-gray-100 text-gray-900 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-gray-200 transition-colors mr-2 hidden sm:block"
+                                className="px-3 py-2 rounded-full text-xs sm:text-sm font-semibold text-slate-100 bg-slate-800/70 hover:bg-slate-700/80 border border-slate-700/70 transition"
                             >
                                 Manage
                             </Link>
@@ -63,30 +63,30 @@ export const Layout: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={goToPricing}
-                                className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm hover:shadow-md transition-all mr-2 hidden sm:block"
+                                className="hidden sm:inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold bg-gradient-to-r from-indigo-500 to-indigo-400 text-white shadow-lg shadow-indigo-900/30 hover:shadow-indigo-900/40 transition"
                             >
                                 Upgrade
                             </button>
                         )}
                         {user?.is_authenticated ? (
-                            <div className="flex items-center gap-4">
-                                <div className="flex flex-col items-end">
-                                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Level {user.level}</span>
-                                    <span className="text-sm font-semibold text-blue-600">{user.xp} XP</span>
+                            <div className="flex items-center gap-3">
+                                <div className="flex flex-col items-end leading-tight">
+                                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.14em]">Level {user.level}</span>
+                                    <span className="text-sm font-semibold text-indigo-300">{user.xp} XP</span>
                                 </div>
-                                <button 
+                                <button
                                     onClick={() => logout()}
-                                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                    className="p-2 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-full transition"
                                     title="Log Out"
                                 >
                                     <LogOut className="w-5 h-5" />
                                 </button>
                             </div>
                         ) : (
-                            <Link 
-                                to="/login" 
+                            <Link
+                                to="/login"
                                 state={{ backgroundLocation: location }}
-                                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors"
+                                className="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold bg-indigo-500 text-white hover:bg-indigo-400 transition"
                             >
                                 Log In
                             </Link>
@@ -96,7 +96,7 @@ export const Layout: React.FC = () => {
             </header>
 
             {/* Main Content */}
-            <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-2">
+            <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 <Outlet />
             </main>
         </div>
