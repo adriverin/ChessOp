@@ -245,7 +245,7 @@ export const Openings: React.FC = () => {
             ) : (
                 Object.entries(filteredData || {}).map(([category, openings]) => (
                     <section key={category} className="space-y-4">
-                        <h2 className="text-lg font-semibold text-slate-200 border-b border-slate-800 pb-2">{category}</h2>
+                        <h2 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2 dark:text-slate-100 dark:border-slate-800">{category}</h2>
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                             {openings.map(opening => (
                                 <OpeningCard
@@ -279,7 +279,7 @@ const OpeningCard: React.FC<{
     };
 
     return (
-        <div className={`rounded-2xl border transition-all shadow-xl shadow-black/30 ${isExpanded ? 'border-indigo-500/40 ring-1 ring-indigo-500/40 bg-slate-900/80' : 'border-slate-800 bg-slate-900/70 hover:border-indigo-500/30'}`}>
+        <div className={`rounded-2xl border transition-all shadow-xl shadow-black/30 hover:-translate-y-0.5 hover:shadow-2xl focus-within:border-indigo-400/50 focus-within:shadow-indigo-900/30 duration-200 ${isExpanded ? 'border-indigo-500/40 ring-1 ring-indigo-500/40 bg-slate-900/80' : 'border-slate-200 bg-white/90 hover:border-indigo-500/30 dark:border-slate-800 dark:bg-slate-900/70'}`}>
             <div
                 role="button"
                 tabIndex={0}
@@ -290,14 +290,25 @@ const OpeningCard: React.FC<{
                         onToggle();
                     }
                 }}
-                className="w-full text-left p-4 cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500/40 rounded-2xl"
+                className="w-full text-left p-4 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 rounded-2xl"
             >
                 <div className="flex justify-between items-start mb-3">
                     <div>
-                        <h3 className="font-semibold text-white">{opening.name}</h3>
+                        <h3 className={clsx(
+                            "font-semibold",
+                            isExpanded ? "text-white" : "text-slate-900 dark:text-white"
+                        )}>{opening.name}</h3>
                         <div className="flex flex-wrap gap-1 mt-2">
                             {opening.tags.map(tag => (
-                                <span key={tag} className="px-2 py-0.5 bg-slate-800 text-slate-300 text-xs rounded-full border border-slate-700">
+                                <span
+                                    key={tag}
+                                    className={clsx(
+                                        "px-2 py-0.5 text-xs rounded-full border",
+                                        isExpanded
+                                            ? "bg-slate-800 text-slate-300 border-slate-700"
+                                            : "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
+                                    )}
+                                >
                                     {tag}
                                 </span>
                             ))}
@@ -307,10 +318,10 @@ const OpeningCard: React.FC<{
                         <button
                             onClick={handleRepertoireClick}
                             className={clsx(
-                                "p-2 rounded-full border transition-colors",
+                                "p-2 rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/70",
                                 inRepertoire
-                                    ? "bg-amber-400/20 border-amber-300/30 text-amber-200"
-                                    : "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700"
+                                    ? "bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200/70 dark:bg-amber-400/20 dark:text-amber-200 dark:border-amber-300/30"
+                                    : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-700"
                             )}
                             title={inRepertoire ? "In my repertoire" : "Add to my repertoire"}
                         >
@@ -325,11 +336,11 @@ const OpeningCard: React.FC<{
 
                 {/* Progress Bar */}
                 <div className="w-full mt-2">
-                    <div className="flex justify-between text-xs text-slate-400 mb-1">
+                    <div className="flex justify-between text-xs text-slate-600 mb-1 dark:text-slate-400">
                         <span>Mastery</span>
                         <span>{progress.completed}/{progress.total} lines ({progress.percentage}%)</span>
                     </div>
-                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden dark:bg-slate-800">
                         <div
                             className="h-full bg-gradient-to-r from-indigo-500 to-indigo-300 transition-all duration-500"
                             style={{ width: `${progress.percentage}%` }}
