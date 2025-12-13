@@ -131,6 +131,19 @@ export const Train: React.FC = () => {
     // Let's rely on openingFilter or manual selection.
     const currentOpening = openings.find(o => o.slug === (openingFilter || selectedOpening)) || openings.find(o => o.slug === selectedOpening);
     const lineOptions = currentOpening ? currentOpening.variations : [];
+    const displayedLineOptions = useMemo(() => {
+        if (isOneMoveMode && session && session.type !== 'mistake') {
+            return [{ id: session.id, label: session.name }];
+        }
+        return lineOptions;
+    }, [isOneMoveMode, session, lineOptions]);
+
+    const displayedSelectedLineId = useMemo(() => {
+        if (isOneMoveMode && session && session.type !== 'mistake') {
+            return session.id;
+        }
+        return selectedVariation || undefined;
+    }, [isOneMoveMode, session, selectedVariation]);
 
     useEffect(() => {
         // Only auto-select if we have a filter but for some reason selectedOpening isn't set yet
@@ -492,17 +505,17 @@ export const Train: React.FC = () => {
                 </div>
             )} */}
 
-            <div className="bg-slate-900/70 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-2xl shadow-black/40 relative">
+            <div className="bg-white/85 border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-lg shadow-slate-200/60 relative dark:bg-slate-900/70 dark:border-slate-800 dark:shadow-2xl dark:shadow-black/40 transition-colors duration-200">
                 {completed && (
                     <div className="absolute top-0 left-0 right-0 z-20 flex justify-center p-2">
-                        <div className="w-full max-w-2xl rounded-lg border border-emerald-500/30 bg-emerald-900/40 p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 shadow-lg shadow-emerald-900/40">
-                            <div className="flex items-center gap-3 text-emerald-100">
-                                <div className="w-8 h-8 bg-emerald-800/70 text-emerald-200 rounded-full flex items-center justify-center shrink-0">
+                        <div className="w-full max-w-2xl rounded-lg border border-emerald-400/60 bg-emerald-100/95 p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 shadow-lg shadow-emerald-200/70 dark:bg-emerald-900/85 dark:border-emerald-500/60 dark:shadow-emerald-900/50">
+                            <div className="flex items-center gap-3 text-emerald-800 dark:text-emerald-100">
+                                <div className="w-8 h-8 bg-emerald-200 text-emerald-800 rounded-full flex items-center justify-center shrink-0 shadow-inner shadow-emerald-300/60 dark:bg-emerald-800/90 dark:text-emerald-100">
                                     <Trophy size={16} />
                                 </div>
                                 <div>
-                                    <div className="font-semibold text-emerald-50 text-sm">Session Complete</div>
-                                    <div className="text-xs font-medium text-emerald-100/80">{message}</div>
+                                    <div className="font-semibold text-emerald-900 text-sm dark:text-emerald-50">Session Complete</div>
+                                    <div className="text-xs font-medium text-emerald-800/90 dark:text-emerald-100/90">{message}</div>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
@@ -512,7 +525,7 @@ export const Train: React.FC = () => {
                                         setMessage(null);
                                         fetchSession();
                                     }}
-                                    className="text-xs font-medium text-indigo-200 hover:text-white px-3 py-1.5 hover:bg-indigo-500/20 rounded-md transition-colors"
+                                    className="text-xs font-medium text-indigo-700 hover:text-indigo-900 px-3 py-1.5 hover:bg-indigo-100 rounded-md transition-colors dark:text-indigo-200 dark:hover:text-white dark:hover:bg-indigo-500/20"
                                 >
                                     Try again
                                 </button>
@@ -583,8 +596,8 @@ export const Train: React.FC = () => {
                     }
                     openingOptions={openingOptions}
                     onSelectOpening={handleSelectOpening}
-                    lineOptions={lineOptions.map(l => ({ id: l.id, label: l.label }))}
-                    selectedLineId={selectedVariation || undefined}
+                    lineOptions={displayedLineOptions.map(l => ({ id: l.id, label: l.label }))}
+                    selectedLineId={displayedSelectedLineId}
                     onSelectLine={handleSelectLine}
                     headerMode="training"
                     hideLog={isOneMoveMode}

@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactElement } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { UserProvider, useUser } from './context/UserContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { Train } from './pages/Train';
@@ -127,11 +128,13 @@ function AppContent() {
 
 function App() {
   return (
-    <UserProvider>
-      <Router>
-        <AppContent />
-      </Router>
-    </UserProvider>
+    <ThemeProvider>
+      <UserProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </UserProvider>
+    </ThemeProvider>
   );
 }
 
