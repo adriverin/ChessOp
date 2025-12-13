@@ -74,6 +74,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
     const [hasMistakeInLine, setHasMistakeInLine] = useState(false);
     const [wrongMoveView, setWrongMoveView] = useState<{ fen: string; lastMove?: [string, string] } | null>(null);
     const [maxPlayedIndex, setMaxPlayedIndex] = useState(0);
+    const [isMovesExpanded, setIsMovesExpanded] = useState(false);
     const [wrongMoveMode, setWrongMoveMode] = useState<'snap' | 'stay'>(() => {
         const saved = typeof window !== 'undefined' ? localStorage.getItem('wrongMoveMode') : null;
         return saved === 'stay' ? 'stay' : 'snap';
@@ -353,6 +354,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
         setHasMistakeInLine(false);
         setWrongMoveView(null);
         setLogRevealed(false);
+        setIsMovesExpanded(false);
 
         if (mode === 'sequence' && targetMoves && targetMoves.length > 0) {
             let currentGame = newGame;
@@ -435,6 +437,12 @@ export const GameArea: React.FC<GameAreaProps> = ({
         return moveIndex >= targetMoves.length || (moveIndex === targetMoves.length - 1 && feedback === 'correct');
     }, [mode, targetMoves, moveIndex, feedback]);
 
+    const statusLabel = useMemo(() => {
+        if (locked || isLineCompleted) return "Line complete";
+        if (logRevealed) return "Review mode";
+        return "Your move";
+    }, [locked, isLineCompleted, logRevealed]);
+
     // Play success sound on completion
     useEffect(() => {
         if (isLineCompleted) {
@@ -472,6 +480,12 @@ export const GameArea: React.FC<GameAreaProps> = ({
         const pct = (Math.min(userMovesCompleted, totalUserMoves) / totalUserMoves) * 100;
         return isLineCompleted ? 100 : pct;
     }, [totalUserMoves, userMovesCompleted, isLineCompleted]);
+
+    useEffect(() => {
+        if (logRevealed) {
+            setIsMovesExpanded(true);
+        }
+    }, [logRevealed]);
 
     useEffect(() => {
         if (onRemainingMovesChange) {
@@ -565,20 +579,40 @@ export const GameArea: React.FC<GameAreaProps> = ({
         </div>
     );
 
+    const visibleMoves = useMemo(() => {
+        if (!targetMoves) return [] as { move: APIMove; originalIndex: number }[];
+
+        const total = targetMoves.length;
+        if (isMovesExpanded || logRevealed) {
+            return targetMoves.map((mv, idx) => ({ move: mv, originalIndex: idx }));
+        }
+
+        const end = Math.min(moveIndex + 1, total);
+        const maxVisible = 5;
+        const start = Math.max(0, end - maxVisible);
+
+        return targetMoves.slice(start, end).map((mv, offset) => ({ move: mv, originalIndex: start + offset }));
+    }, [targetMoves, isMovesExpanded, logRevealed, moveIndex]);
+
+    const hasHiddenMoves = useMemo(() => {
+        if (!targetMoves) return false;
+        return visibleMoves.length < targetMoves.length;
+    }, [targetMoves, visibleMoves]);
+
     const renderMoveLogContent = () => (
         <div
             ref={logContainerRef}
             className="flex-1 min-h-0 overflow-auto space-y-1 text-xs pr-1 p-2"
         >
-            {targetMoves && targetMoves.map((mv, idx) => {
-                const isCurrent = idx === moveIndex;
-                const isPast = idx < moveIndex;
+            {visibleMoves.map(({ move: mv, originalIndex }) => {
+                const isCurrent = originalIndex === moveIndex;
+                const isPast = originalIndex < moveIndex;
                 const shouldBlur = !logRevealed && !isPast;
-                const isBlackMove = idx % 2 === 1;
-                
+                const isBlackMove = originalIndex % 2 === 1;
+
                 return (
-                    <div 
-                        key={idx}
+                    <div
+                        key={originalIndex}
                         ref={isCurrent ? activeMoveRef : null}
                         className={clsx(
                             "flex items-start gap-2 px-2 py-1 rounded border transition-colors",
@@ -591,7 +625,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                             shouldBlur ? "opacity-50" : ""
                         )}
                     >
-                        <span className="text-[11px] text-slate-500 font-mono w-5 text-right pt-0.5 dark:text-slate-400">{idx + 1}.</span>
+                        <span className="text-[11px] text-slate-500 font-mono w-5 text-right pt-0.5 dark:text-slate-400">{originalIndex + 1}.</span>
 
                         <div className="flex flex-col w-full">
                             <div className="flex items-center gap-2">
@@ -624,6 +658,11 @@ export const GameArea: React.FC<GameAreaProps> = ({
                     </div>
                 );
             })}
+            {!logRevealed && hasHiddenMoves && (
+                <div className="text-[10px] text-slate-400 text-center pt-1 border-t border-slate-100 dark:border-white/5 dark:text-slate-500">
+                    Showing recent moves. Reveal all to view the full line.
+                </div>
+            )}
         </div>
     );
 
@@ -692,6 +731,12 @@ export const GameArea: React.FC<GameAreaProps> = ({
                         </div>
                     </div>
                 )}
+
+                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-200/80 text-slate-700 font-semibold uppercase tracking-wide dark:bg-white/10 dark:text-slate-100">
+                        {statusLabel}
+                    </span>
+                </div>
 
                 {/* Board Container */}
                 <div className="w-full aspect-square rounded-2xl overflow-hidden relative bg-slate-100 border border-slate-200 dark:bg-slate-900/70 dark:border-slate-800 transition-colors duration-200">
@@ -762,6 +807,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                 setHasMistakeInLine(false);
                                 setWrongMoveView(null);
                                 setLogRevealed(false);
+                                setIsMovesExpanded(false);
                                 
                                     if (mode === 'sequence' && targetMoves && targetMoves.length > 0) {
                                     let currentGame = newGame;
@@ -925,6 +971,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                         onClick={() => {
                                             setLogRevealed(true);
                                             setHintsUsed(true);
+                                            setIsMovesExpanded(true);
                                         }}
                                         className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 font-semibold transition-colors duration-150 hover:bg-indigo-100 hover:text-indigo-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/80 cursor-pointer dark:border-indigo-400/40 dark:bg-indigo-500/15 dark:text-indigo-100 dark:hover:bg-indigo-500/25 dark:hover:text-white"
                                     >

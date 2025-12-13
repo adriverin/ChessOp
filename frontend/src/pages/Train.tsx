@@ -3,13 +3,14 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import type { RecallSessionResponse } from '../types';
 import { GameArea } from '../components/GameArea';
+import { GuestModeBanner } from '../components/GuestModeBanner';
 import { useUser } from '../context/UserContext';
 import { Trophy, ArrowRight } from 'lucide-react';
 import clsx from 'clsx';
 import { Chess } from 'chess.js';
 
 export const Train: React.FC = () => {
-    const { user, refreshUser } = useUser();
+    const { user, refreshUser, loading: userLoading } = useUser();
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const [session, setSession] = useState<RecallSessionResponse | null>(null);
@@ -19,8 +20,9 @@ export const Train: React.FC = () => {
     const [openings, setOpenings] = useState<{ slug: string; name: string; variations: { id: string; name: string; label: string; locked?: boolean }[] }[]>([]);
     const [selectedOpening, setSelectedOpening] = useState<string | null>(null);
     const [selectedVariation, setSelectedVariation] = useState<string | null>(searchParams.get('id'));
-    
+
     const ONE_MOVE_REPERTOIRE_ONLY_KEY = 'one_move_repertoire_only';
+    const PREMIUM_LOCK_MESSAGE_KEY = 'premium_line_locked';
     const didInitRepertoireOnlyRef = useRef(false);
 
     // Repertoire-only checkbox (user-controlled; persisted)
@@ -251,7 +253,7 @@ export const Train: React.FC = () => {
                 if (msg && (msg.includes("stamina") || msg.includes("limit"))) {
                     setMessage("You are out of stamina for today! Come back tomorrow.");
                 } else if (msg && (msg.includes("locked") || msg.includes("premium"))) {
-                     setMessage("This variation is premium-only. Log in or upgrade to access.");
+                     setMessage(PREMIUM_LOCK_MESSAGE_KEY);
                 } else {
                     setMessage("Access denied. Please check your account status.");
                 }
@@ -467,17 +469,33 @@ export const Train: React.FC = () => {
 
     if (loading) return <div className="flex justify-center items-center h-64 text-slate-300">Loading session...</div>;
     
+    const isPremiumLockedMessage = message === PREMIUM_LOCK_MESSAGE_KEY;
+
     if (!session) {
         return (
             <div className="text-center py-20">
-                <h2 className="text-3xl font-semibold text-slate-900 dark:text-white mb-3">{message || "All caught up!"}</h2>
-                <p className="text-slate-600 dark:text-slate-400 mb-8">Try adjusting your filters or come back later.</p>
-                <button
-                    onClick={fetchSession}
-                    className="bg-indigo-500 text-white px-6 py-2 rounded-full hover:bg-indigo-400 transition shadow-lg shadow-indigo-900/30"
-                >
-                    Check Again
-                </button>
+                <h2 className="text-3xl font-semibold text-slate-900 dark:text-white mb-3">{isPremiumLockedMessage ? "This line is Premium" : (message || "All caught up!")}</h2>
+                <p className="text-slate-600 dark:text-slate-400 mb-8">
+                    {isPremiumLockedMessage
+                        ? "Premium unlocks all lines, making training and drills far more effective."
+                        : "Try adjusting your filters or come back later."}
+                </p>
+                <div className="flex items-center justify-center gap-3 flex-wrap">
+                    <button
+                        onClick={fetchSession}
+                        className="bg-indigo-500 text-white px-6 py-2 rounded-full hover:bg-indigo-400 transition shadow-lg shadow-indigo-900/30"
+                    >
+                        Check Again
+                    </button>
+                    {isPremiumLockedMessage && (
+                        <button
+                            onClick={() => navigate('/pricing')}
+                            className="px-5 py-2 rounded-full border border-indigo-200 text-indigo-800 bg-indigo-50 hover:bg-indigo-100 font-semibold shadow-sm transition-colors dark:border-indigo-500/40 dark:text-indigo-100 dark:bg-indigo-500/15 dark:hover:bg-indigo-500/25"
+                        >
+                            Start free trial
+                        </button>
+                    )}
+                </div>
             </div>
         );
     }
@@ -513,6 +531,7 @@ export const Train: React.FC = () => {
 
     return (
         <div className="w-full max-w-6xl mx-auto space-y-4">
+            <GuestModeBanner isAuthenticated={!!user?.is_authenticated} isLoading={userLoading} />
             {/* Session Metadata Banner - Hidden in Train Mode for now */}
             {/* {!completed && !hasSpecificOpening && !isOneMoveMode && (session.difficulty || session.training_goal || (session.themes && session.themes.length > 0)) && (
                 <div className="mb-4 flex flex-wrap items-center gap-2 animate-in fade-in slide-in-from-top-1">
