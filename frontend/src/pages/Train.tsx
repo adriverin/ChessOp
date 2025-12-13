@@ -530,10 +530,13 @@ export const Train: React.FC = () => {
     ) : null;
 
     return (
-        <div className="w-full max-w-6xl mx-auto h-[calc(100vh-7.5rem)] flex flex-col">
+        <div
+            className="w-full max-w-6xl mx-auto flex flex-col overflow-hidden"
+            style={{ height: 'calc(100dvh - 6.5rem)' }} // 100dvh - (Header ~3.5rem + Padding ~3rem)
+        >
             <GuestModeBanner isAuthenticated={!!user?.is_authenticated} isLoading={userLoading} />
 
-            <div className="flex-1 min-h-0 bg-white/85 border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-lg shadow-slate-200/60 relative dark:bg-slate-900/70 dark:border-slate-800 dark:shadow-2xl dark:shadow-black/40 transition-colors duration-200 flex flex-col">
+            <div className="flex-1 min-h-0 bg-white/85 border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-lg shadow-slate-200/60 relative dark:bg-slate-900/70 dark:border-slate-800 dark:shadow-2xl dark:shadow-black/40 transition-colors duration-200 flex flex-col overflow-hidden">
                 {completed && (
                     <div className="absolute top-0 left-0 right-0 z-20 flex justify-center p-2">
                         <div className="w-full max-w-2xl rounded-lg border border-emerald-400/60 bg-emerald-100/95 p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 shadow-lg shadow-emerald-200/70 dark:bg-emerald-900/85 dark:border-emerald-500/60 dark:shadow-emerald-900/50">
@@ -604,6 +607,7 @@ export const Train: React.FC = () => {
                         hideLog={isOneMoveMode}
                         isOneMoveMode={isOneMoveMode}
                         sidebarFooter={repertoireOnlyControl}
+                        fitToViewport={true}
                     />
                 </div>
             </div>

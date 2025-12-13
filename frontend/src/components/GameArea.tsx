@@ -33,6 +33,7 @@ interface GameAreaProps {
     hideLog?: boolean;
     isOneMoveMode?: boolean;
     sidebarFooter?: React.ReactNode;
+    fitToViewport?: boolean;
 }
 
 export const GameArea: React.FC<GameAreaProps> = ({
@@ -56,7 +57,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
     headerMode = 'training',
     hideLog = false,
     isOneMoveMode = false,
-    sidebarFooter
+    sidebarFooter,
+    fitToViewport = false
 }) => {
     const [game, setGame] = useState(() => {
         try {
@@ -721,7 +723,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
     const [boardSize, setBoardSize] = useState<number>(0);
 
     useEffect(() => {
-        if (!boardWrapperRef.current) return;
+        if (!fitToViewport || !boardWrapperRef.current) return;
 
         const resizeObserver = new ResizeObserver((entries) => {
             for (const entry of entries) {
@@ -734,13 +736,13 @@ export const GameArea: React.FC<GameAreaProps> = ({
 
         resizeObserver.observe(boardWrapperRef.current);
         return () => resizeObserver.disconnect();
-    }, []);
+    }, [fitToViewport]);
 
     return (
-        <div className="flex flex-col lg:flex-row gap-4 justify-center items-stretch w-full h-full">
+        <div className={clsx("flex flex-col lg:flex-row gap-4 justify-center items-stretch w-full", fitToViewport ? "h-full" : "")}>
 
             {/* Left Column: Board + Progress + Status */}
-            <div className="flex flex-col w-full max-w-2xl gap-2 min-h-0 flex-1">
+            <div className={clsx("flex flex-col w-full max-w-2xl gap-2", fitToViewport ? "min-h-0 flex-1" : "")}>
                 {showInlineProgress && (
                     <div className="w-full shrink-0">
                         <div className="flex justify-between text-xs text-slate-400 mb-1 font-medium">
@@ -762,21 +764,49 @@ export const GameArea: React.FC<GameAreaProps> = ({
                     </span>
                 </div>
 
-                {/* Board Container Wrapper - Flex grow to fill available space */}
-                <div
-                    ref={boardWrapperRef}
-                    className="flex-1 min-h-0 w-full relative flex items-center justify-center"
-                >
-                    {/* Actual Board - Sized via JS */}
+                {/* Board Container Wrapper */}
+                {fitToViewport ? (
                     <div
-                        className="rounded-2xl overflow-hidden relative bg-slate-100 border border-slate-200 dark:bg-slate-900/70 dark:border-slate-800 transition-colors duration-200 shadow-md"
-                        style={{ width: boardSize, height: boardSize }}
+                        ref={boardWrapperRef}
+                        className="flex-1 min-h-0 w-full relative flex items-center justify-center"
                     >
+                        {/* Actual Board - Sized via JS */}
+                        <div
+                            className="rounded-2xl overflow-hidden relative bg-slate-100 border border-slate-200 dark:bg-slate-900/70 dark:border-slate-800 transition-colors duration-200 shadow-md"
+                            style={{ width: boardSize, height: boardSize }}
+                        >
+                            <div
+                                ref={containerRef}
+                                className="w-full h-full block"
+                            />
+
+                            {/* Wrong Move Indicator Overlay */}
+                            {wrongMoveView && wrongMoveMode === 'stay' && wrongMoveView.lastMove && (() => {
+                                const targetSquare = wrongMoveView.lastMove[1];
+                                const { x, y } = getSquareCoords(targetSquare, orientation);
+                                return (
+                                    <div
+                                        className="absolute pointer-events-none z-10"
+                                        style={{
+                                            left: `${x * 12.5}%`,
+                                            top: `${y * 12.5}%`,
+                                            width: '12.5%',
+                                            height: '12.5%',
+                                        }}
+                                    >
+                                        <div className="absolute top-0 right-0 w-3 h-3 bg-rose-500 rounded-full shadow-sm ring-1 ring-white/70 m-1" />
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                ) : (
+                    /* Default / Drill Mode: Standard aspect-ratio sizing */
+                    <div className="w-full aspect-square rounded-2xl overflow-hidden relative bg-slate-100 border border-slate-200 dark:bg-slate-900/70 dark:border-slate-800 transition-colors duration-200">
                         <div
                             ref={containerRef}
                             className="w-full h-full block"
                         />
-
                         {/* Wrong Move Indicator Overlay */}
                         {wrongMoveView && wrongMoveMode === 'stay' && wrongMoveView.lastMove && (() => {
                             const targetSquare = wrongMoveView.lastMove[1];
@@ -796,7 +826,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                             );
                         })()}
                     </div>
-                </div>
+                )}
 
                 {/* Status Bar */}
                 <div className="bg-white rounded-xl shadow-md border border-slate-200 p-2 flex items-center justify-between w-full shrink-0 dark:bg-slate-900/80 dark:border-slate-800 dark:shadow-lg transition-colors duration-200">
