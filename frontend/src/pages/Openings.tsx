@@ -4,8 +4,11 @@ import { api } from '../api/client';
 import type { OpeningsResponse, Opening, Variation, RepertoireResponse } from '../types';
 import { Lock, ChevronDown, ChevronUp, Book, Check, PlayCircle, Filter, X, Star } from 'lucide-react';
 import clsx from 'clsx';
+import { useUser } from '../context/UserContext';
+import { GuestModeBanner } from '../components/GuestModeBanner';
 
 export const Openings: React.FC = () => {
+    const { user, loading: userLoading } = useUser();
     const [data, setData] = useState<OpeningsResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [expandedOpening, setExpandedOpening] = useState<string | null>(null);
@@ -132,6 +135,7 @@ export const Openings: React.FC = () => {
 
     return (
         <div className="space-y-8">
+            <GuestModeBanner isAuthenticated={!!user?.is_authenticated} isLoading={userLoading} />
             <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">Opening Repertoire</h1>
@@ -391,7 +395,7 @@ const VariationItem: React.FC<{ variation: Variation; openingSlug: string }> = (
                 <div
                     className={clsx("flex items-center gap-2 flex-1", !variation.locked && "cursor-pointer")}
                     onClick={handleTrain}
-                    title={variation.locked ? "Locked" : "Click to Train"}
+                    title={variation.locked ? "This line is Premium" : "Click to Train"}
                 >
                     {variation.completed ? (
                         <Check className="w-4 h-4 text-emerald-400" />
@@ -439,7 +443,25 @@ const VariationItem: React.FC<{ variation: Variation; openingSlug: string }> = (
                         <ChevronDown className={clsx("w-4 h-4 text-slate-400 transition-transform", showMoves && "rotate-180")} />
                     )}
                 </div>
-            </div>
+                </div>
+
+            {variation.locked && (
+                <div className="mt-2 px-3 py-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-50 flex items-start justify-between gap-3">
+                    <div className="space-y-1">
+                        <div className="text-sm font-semibold text-indigo-50">This line is Premium</div>
+                        <p className="text-xs text-indigo-100/90 leading-snug">Premium unlocks all lines, making training and drills far more effective.</p>
+                    </div>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            navigate('/pricing');
+                        }}
+                        className="self-center text-xs font-semibold text-indigo-900 bg-white text-center px-3 py-1 rounded-full shadow-sm hover:bg-indigo-50 transition-colors"
+                    >
+                        Start free trial
+                    </button>
+                </div>
+            )}
 
             {showMoves && !variation.locked && (
                 <div className="pl-8 pr-2 py-2 text-xs text-slate-200 bg-slate-900/60 rounded-b-lg mb-2 border-l-2 border-indigo-500/30 ml-2">
