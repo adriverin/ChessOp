@@ -192,8 +192,14 @@ export const Dashboard: React.FC = () => {
 
                 {/* Quick Actions */}
                 <div className="space-y-4">
-                    <div onClick={() => navigate('/openings')} className="block group cursor-pointer">
-                        <div className="rounded-2xl p-6 bg-gradient-to-r from-indigo-600/80 via-indigo-500/70 to-slate-900/80 border border-indigo-500/30 text-white shadow-xl shadow-indigo-900/40 transition-transform transform group-hover:-translate-y-1 group-hover:shadow-2xl">
+                    <div
+                        onClick={() => navigate('/openings')}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/openings'); } }}
+                        role="button"
+                        tabIndex={0}
+                        className="block group cursor-pointer outline-none"
+                    >
+                        <div className="rounded-2xl p-6 bg-gradient-to-r from-indigo-600/80 via-indigo-500/70 to-slate-900/80 border border-indigo-500/30 text-white shadow-xl shadow-indigo-900/40 transition-transform transform group-hover:-translate-y-1 group-hover:shadow-2xl focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950">
                             <div className="flex justify-between items-center">
                                 <div>
                                     <h3 className="text-xl font-semibold mb-1 flex items-center gap-2">
@@ -208,8 +214,14 @@ export const Dashboard: React.FC = () => {
                     </div>
 
                     {/* Opening Drill Card */}
-                    <div onClick={() => navigate('/drill')} className="block group cursor-pointer">
-                        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 transition transform group-hover:-translate-y-1 group-hover:border-indigo-500/40 group-hover:shadow-xl group-hover:shadow-indigo-900/40">
+                    <div
+                        onClick={() => navigate('/drill')}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/drill'); } }}
+                        role="button"
+                        tabIndex={0}
+                        className="block group cursor-pointer outline-none"
+                    >
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 transition transform group-hover:-translate-y-1 group-hover:border-indigo-500/40 group-hover:shadow-xl group-hover:shadow-indigo-900/40 focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950">
                             <div className="flex justify-between items-center">
                                 <div>
                                     <h3 className="text-xl font-semibold text-white mb-1 flex items-center gap-2">
@@ -224,8 +236,14 @@ export const Dashboard: React.FC = () => {
                         </div>
                     </div>
 
-                    <div onClick={() => navigate('/train?mode=one_move')} className="block group cursor-pointer">
-                        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 transition transform group-hover:-translate-y-1 group-hover:border-indigo-500/40 group-hover:shadow-xl group-hover:shadow-indigo-900/40">
+                    <div
+                        onClick={() => navigate('/train?mode=one_move')}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate('/train?mode=one_move'); } }}
+                        role="button"
+                        tabIndex={0}
+                        className="block group cursor-pointer outline-none"
+                    >
+                        <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 transition transform group-hover:-translate-y-1 group-hover:border-indigo-500/40 group-hover:shadow-xl group-hover:shadow-indigo-900/40 focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950">
                             <div className="flex justify-between items-center">
                                 <div>
                                     <h3 className="text-xl font-semibold text-white mb-1 flex items-center gap-2">

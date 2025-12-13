@@ -545,17 +545,13 @@ export const GameArea: React.FC<GameAreaProps> = ({
                 {list.map((p, idx) => (
                     <span
                         key={idx}
-                        className={clsx(
-                            "inline-flex items-center justify-center rounded",
-                            pieceColor === 'b' ? "bg-slate-100/90 p-0.5 ring-1 ring-slate-200 shadow-sm dark:bg-slate-800/80 dark:ring-slate-700" : ""
-                        )}
+                        className="inline-flex items-center justify-center rounded"
                     >
                         <img
                             src={PIECE_IMAGES[pieceColor + p.toLowerCase()] || ''}
                             alt={p}
                             className={clsx(
-                                "w-6 h-6 select-none",
-                                pieceColor === 'b' ? "drop-shadow-[0_0_6px_rgba(255,255,255,0.35)]" : ""
+                                "w-6 h-6 select-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)] dark:drop-shadow-[0_1px_6px_rgba(0,0,0,0.4)]"
                             )}
                         />
                     </span>
@@ -590,8 +586,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                 ? "bg-indigo-100 text-slate-900 border-indigo-200 ring-1 ring-indigo-200 dark:bg-indigo-500/15 dark:text-slate-100 dark:border-indigo-400/30 dark:ring-indigo-500/30"
                                 : "border-slate-200 dark:border-slate-800",
                             !isCurrent && isBlackMove
-                                ? "bg-slate-200 text-slate-900 dark:bg-slate-800/80 dark:text-slate-100"
-                                : (!isCurrent && "bg-slate-50 text-slate-800 dark:bg-slate-900/40 dark:text-slate-100"),
+                                ? "bg-slate-200/90 text-slate-900 dark:bg-slate-800/80 dark:text-slate-100"
+                                : (!isCurrent && "bg-indigo-50/70 text-slate-800 dark:bg-slate-900/50 dark:text-slate-100"),
                             shouldBlur ? "opacity-50" : ""
                         )}
                     >
@@ -930,7 +926,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                             setLogRevealed(true);
                                             setHintsUsed(true);
                                         }}
-                                        className="text-xs text-indigo-700 hover:text-indigo-900 hover:bg-indigo-100 px-2 py-0.5 rounded transition-colors flex items-center gap-1 dark:text-indigo-200 dark:hover:text-white dark:hover:bg-indigo-500/15"
+                                        className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 font-semibold transition-colors duration-150 hover:bg-indigo-100 hover:text-indigo-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/80 cursor-pointer dark:border-indigo-400/40 dark:bg-indigo-500/15 dark:text-indigo-100 dark:hover:bg-indigo-500/25 dark:hover:text-white"
                                     >
                                         <HelpCircle size={12} /> Reveal all
                                     </button>
@@ -941,7 +937,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                     )}
                     
                     {/* Captured pieces */}
-                    <div className="bg-white/80 border border-slate-200 rounded-xl p-2 shadow-md space-y-2 shrink-0 dark:bg-slate-900/70 dark:border-slate-800 dark:shadow-lg transition-colors duration-200">
+                    <div className="bg-slate-50/95 border border-slate-200 rounded-xl p-2 shadow-md space-y-2 shrink-0 dark:bg-slate-900/75 dark:border-slate-800 dark:shadow-lg transition-colors duration-200">
                         <div className="text-xs font-semibold text-slate-600 uppercase tracking-wider opacity-80 dark:text-slate-300">Captured</div>
                         {renderCaptured(capturedWhite, "White", 'b', materialDiff > 0 ? materialDiff : undefined)}
                         {renderCaptured(capturedBlack, "Black", 'w', materialDiff < 0 ? Math.abs(materialDiff) : undefined)}
