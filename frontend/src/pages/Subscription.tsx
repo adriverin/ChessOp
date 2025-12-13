@@ -106,7 +106,7 @@ export const Subscription: React.FC = () => {
 
     if (!user || !user.is_authenticated) {
         // Redirect to login or show message (RequireAuth wrapper should handle this usually)
-        return <div className="text-white p-6">Please log in.</div>;
+        return <div className="p-6 text-slate-900 dark:text-white">Please log in.</div>;
     }
 
     const handleManage = async () => {
@@ -124,7 +124,7 @@ export const Subscription: React.FC = () => {
     };
 
     return (
-        <div className="max-w-2xl mx-auto p-6 text-white">
+        <div className="max-w-2xl mx-auto p-6 text-slate-900 dark:text-slate-100">
             <h1 className="text-3xl font-bold mb-6">Subscription</h1>
             
             {isUpgraded && (
@@ -151,7 +151,7 @@ export const Subscription: React.FC = () => {
                 </div>
             )}
 
-            <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
+            <div className="bg-gray-800 p-6 rounded-lg border border-gray-700 text-slate-100">
                 <div className="mb-6">
                     <h2 className="text-xl font-semibold mb-2">Status</h2>
                     <div className="text-lg font-semibold text-white">{statusLabel}</div>

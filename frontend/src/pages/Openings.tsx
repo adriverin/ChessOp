@@ -134,8 +134,8 @@ export const Openings: React.FC = () => {
         <div className="space-y-8">
             <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-semibold text-white">Opening Repertoire</h1>
-                    <p className="text-slate-400">Explore and learn specific lines.</p>
+                    <h1 className="text-3xl font-semibold text-slate-900 dark:text-white">Opening Repertoire</h1>
+                    <p className="text-slate-600 dark:text-slate-400">Explore and learn specific lines.</p>
                 </div>
                 <button
                     onClick={() => setShowFilters(!showFilters)}

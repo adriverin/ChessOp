@@ -67,8 +67,8 @@ export const Dashboard: React.FC = () => {
                 <div className="bg-indigo-500/10 border border-indigo-500/30 p-4 rounded-2xl mb-6 shadow-lg shadow-indigo-900/30">
                     <Zap className="w-12 h-12 text-indigo-300" />
                 </div>
-                <h2 className="text-3xl font-semibold text-white mb-3">Welcome to Chess Trainer</h2>
-                <p className="text-lg text-slate-400 mb-8 max-w-xl">
+                <h2 className="text-3xl font-semibold text-slate-900 dark:text-white mb-3">Welcome to Chess Trainer</h2>
+                <p className="text-lg text-slate-600 dark:text-slate-400 mb-8 max-w-xl">
                     Master openings, fix your blunders, and track your progress with spaced repetition.
                 </p>
                 <a

@@ -85,7 +85,7 @@ export const Pricing: React.FC = () => {
     if (loading) return <div className="flex justify-center p-10">Loading...</div>;
 
     return (
-        <div className="max-w-4xl mx-auto p-6 text-slate-100">
+        <div className="max-w-4xl mx-auto p-6 text-slate-900 dark:text-slate-100">
             <h1 className="text-3xl font-semibold mb-6 text-center">Upgrade to Premium</h1>
 
             {isCanceled && (
@@ -102,8 +102,8 @@ export const Pricing: React.FC = () => {
 
             <div className="grid md:grid-cols-2 gap-6">
                 {/* Monthly */}
-                <div className="bg-slate-900/70 p-8 rounded-2xl border border-slate-800 flex flex-col items-center shadow-2xl shadow-black/40">
-                    <h2 className="text-2xl font-semibold mb-2">Monthly</h2>
+                <div className="bg-slate-900/70 p-8 rounded-2xl border border-slate-800 flex flex-col items-center shadow-2xl shadow-black/40 text-slate-100">
+                    <h2 className="text-2xl font-semibold mb-2 text-slate-100">Monthly</h2>
                     <p className="text-4xl font-bold mb-4 text-white">$4.99<span className="text-base font-normal text-slate-400">/mo</span></p>
                     <p className="text-emerald-200 mb-6 font-semibold">7-day free trial</p>
                     <ul className="text-slate-300 space-y-2 mb-8 text-center">
@@ -121,11 +121,11 @@ export const Pricing: React.FC = () => {
                 </div>
 
                 {/* Yearly */}
-                <div className="bg-slate-900/70 p-8 rounded-2xl border border-slate-800 flex flex-col items-center relative overflow-hidden shadow-2xl shadow-black/40">
+                <div className="bg-slate-900/70 p-8 rounded-2xl border border-slate-800 flex flex-col items-center relative overflow-hidden shadow-2xl shadow-black/40 text-slate-100">
                     <div className="absolute top-0 right-0 bg-emerald-500 text-xs px-3 py-1 rounded-bl-xl text-white font-semibold">
                         Best Value
                     </div>
-                    <h2 className="text-2xl font-semibold mb-2">Yearly</h2>
+                    <h2 className="text-2xl font-semibold mb-2 text-slate-100">Yearly</h2>
                     <p className="text-4xl font-bold mb-4 text-white">$34.99<span className="text-base font-normal text-slate-400">/yr</span></p>
                     <p className="text-emerald-200 mb-6 font-semibold">7-day free trial</p>
                     <ul className="text-slate-300 space-y-2 mb-8 text-center">

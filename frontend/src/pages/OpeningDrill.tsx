@@ -178,8 +178,8 @@ export const OpeningDrill: React.FC = () => {
     if (!user || !user.is_authenticated) {
         return (
             <div className="text-center py-20">
-                <h2 className="text-3xl font-semibold text-white mb-4">Training Locked</h2>
-                <p className="text-slate-400 mb-6">Please log in to access training modes.</p>
+                <h2 className="text-3xl font-semibold text-slate-900 dark:text-white mb-4">Training Locked</h2>
+                <p className="text-slate-600 dark:text-slate-400 mb-6">Please log in to access training modes.</p>
                 <button
                     onClick={() => navigate('/login', { state: { backgroundLocation: location } })}
                     className="bg-indigo-500 text-white px-6 py-2 rounded-full hover:bg-indigo-400 transition shadow-lg shadow-indigo-900/40"
@@ -200,8 +200,8 @@ export const OpeningDrill: React.FC = () => {
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-rose-500/15 text-rose-200 rounded-full mb-4 border border-rose-400/30">
                         <Target size={32} />
                     </div>
-                    <h1 className="text-3xl font-semibold text-white mb-3">Opening Drill</h1>
-                    <p className="text-slate-400 max-w-lg mx-auto">
+                    <h1 className="text-3xl font-semibold text-slate-900 dark:text-white mb-3">Opening Drill</h1>
+                    <p className="text-slate-600 dark:text-slate-400 max-w-lg mx-auto">
                         Test your mastery. Select an opening to practice randomized variations without hints.
                         You must complete all lines in standard training to unlock drilling.
                     </p>

@@ -470,8 +470,8 @@ export const Train: React.FC = () => {
     if (!session) {
         return (
             <div className="text-center py-20">
-                <h2 className="text-3xl font-semibold text-white mb-3">{message || "All caught up!"}</h2>
-                <p className="text-slate-400 mb-8">Try adjusting your filters or come back later.</p>
+                <h2 className="text-3xl font-semibold text-slate-900 dark:text-white mb-3">{message || "All caught up!"}</h2>
+                <p className="text-slate-600 dark:text-slate-400 mb-8">Try adjusting your filters or come back later.</p>
                 <button
                     onClick={fetchSession}
                     className="bg-indigo-500 text-white px-6 py-2 rounded-full hover:bg-indigo-400 transition shadow-lg shadow-indigo-900/30"
@@ -481,6 +481,35 @@ export const Train: React.FC = () => {
             </div>
         );
     }
+
+    const repertoireOnlyControl = !hasSpecificOpening ? (
+        <div className="flex items-start gap-3 bg-white/85 border border-slate-200 rounded-xl p-3 shadow-sm dark:bg-slate-900/60 dark:border-slate-800">
+            <input
+                type="checkbox"
+                id="use-repertoire-only"
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-indigo-500"
+                checked={hasRepertoire && useRepertoireOnly}
+                disabled={!hasRepertoire}
+                onChange={(e) => {
+                    const next = e.target.checked;
+                    didInitRepertoireOnlyRef.current = true;
+                    setUseRepertoireOnly(next);
+                    try {
+                        localStorage.setItem(ONE_MOVE_REPERTOIRE_ONLY_KEY, String(next));
+                    } catch {
+                        // ignore localStorage errors
+                    }
+                }}
+            />
+            <label htmlFor="use-repertoire-only" className={clsx("flex flex-col text-sm", !hasRepertoire && "text-slate-500")}> 
+                <span className="font-semibold text-slate-900 dark:text-slate-100">Use my repertoire only</span>
+                <span className="text-xs text-slate-600 dark:text-slate-400">If enabled, recall uses only your repertoire openings for this side.</span>
+                {!hasRepertoire && (
+                    <span className="text-[11px] text-slate-500 mt-1">Add openings to your repertoire to enable this.</span>
+                )}
+            </label>
+        </div>
+    ) : null;
 
     return (
         <div className="w-full max-w-6xl mx-auto space-y-4">
@@ -548,34 +577,6 @@ export const Train: React.FC = () => {
                         </div>
                     </div>
                 )}
-                {!hasSpecificOpening && (
-                    <div className="mb-3 flex items-start gap-3 bg-slate-900/60 border border-slate-800 rounded-xl p-3">
-                        <input
-                            type="checkbox"
-                            id="use-repertoire-only"
-                            className="mt-1 h-4 w-4 rounded border-slate-700 bg-slate-950 text-indigo-500 focus:ring-indigo-500"
-                            checked={hasRepertoire && useRepertoireOnly}
-                            disabled={!hasRepertoire}
-                            onChange={(e) => {
-                                const next = e.target.checked;
-                                didInitRepertoireOnlyRef.current = true;
-                                setUseRepertoireOnly(next);
-                                try {
-                                    localStorage.setItem(ONE_MOVE_REPERTOIRE_ONLY_KEY, String(next));
-                                } catch {
-                                    // ignore localStorage errors
-                                }
-                            }}
-                        />
-                        <label htmlFor="use-repertoire-only" className={clsx("flex flex-col text-sm", !hasRepertoire && "text-slate-500")}> 
-                            <span className="font-semibold text-slate-100">Use my repertoire only</span>
-                            <span className="text-xs text-slate-400">If enabled, recall uses only your repertoire openings for this side.</span>
-                            {!hasRepertoire && (
-                                <span className="text-[11px] text-slate-500 mt-1">Add openings to your repertoire to enable this.</span>
-                            )}
-                        </label>
-                    </div>
-                )}
                 <GameArea
                     mode={activeSession?.type === 'mistake' ? 'mistake' : 'sequence'}
                     sessionTitle={activeSession?.type === 'mistake' ? (activeSession as any).variation_name : activeSession?.name}
@@ -602,6 +603,7 @@ export const Train: React.FC = () => {
                     headerMode="training"
                     hideLog={isOneMoveMode}
                     isOneMoveMode={isOneMoveMode}
+                    sidebarFooter={repertoireOnlyControl}
                 />
             </div>
         </div>
