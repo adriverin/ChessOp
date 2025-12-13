@@ -134,7 +134,7 @@ export const Openings: React.FC = () => {
         <div className="space-y-8">
             <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-semibold text-slate-900 dark:text-white">Opening Repertoire</h1>
+                    <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">Opening Repertoire</h1>
                     <p className="text-slate-600 dark:text-slate-400">Explore and learn specific lines.</p>
                 </div>
                 <button
@@ -245,7 +245,7 @@ export const Openings: React.FC = () => {
             ) : (
                 Object.entries(filteredData || {}).map(([category, openings]) => (
                     <section key={category} className="space-y-4">
-                        <h2 className="text-lg font-semibold text-slate-900 border-b border-slate-200 pb-2 dark:text-slate-100 dark:border-slate-800">{category}</h2>
+                        <h2 className="text-lg font-semibold text-slate-800 border-b border-slate-200 pb-2 dark:text-slate-200 dark:border-slate-800">{category}</h2>
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                             {openings.map(opening => (
                                 <OpeningCard

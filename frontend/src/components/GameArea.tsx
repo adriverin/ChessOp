@@ -551,7 +551,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                             src={PIECE_IMAGES[pieceColor + p.toLowerCase()] || ''}
                             alt={p}
                             className={clsx(
-                                "w-6 h-6 select-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)] dark:drop-shadow-[0_1px_6px_rgba(0,0,0,0.4)]"
+                                "w-6 h-6 select-none drop-shadow-sm drop-shadow-[0_1px_4px_rgba(0,0,0,0.25)] dark:drop-shadow-[0_1px_6px_rgba(0,0,0,0.4)]"
                             )}
                         />
                     </span>
@@ -584,10 +584,10 @@ export const GameArea: React.FC<GameAreaProps> = ({
                             "flex items-start gap-2 px-2 py-1 rounded border transition-colors",
                             isCurrent
                                 ? "bg-indigo-100 text-slate-900 border-indigo-200 ring-1 ring-indigo-200 dark:bg-indigo-500/15 dark:text-slate-100 dark:border-indigo-400/30 dark:ring-indigo-500/30"
-                                : "border-slate-200 dark:border-slate-800",
+                                : "border-slate-200 ring-1 ring-white/5 dark:border-white/10",
                             !isCurrent && isBlackMove
-                                ? "bg-slate-200/90 text-slate-900 dark:bg-slate-800/80 dark:text-slate-100"
-                                : (!isCurrent && "bg-indigo-50/70 text-slate-800 dark:bg-slate-900/50 dark:text-slate-100"),
+                                ? "bg-slate-200/80 text-slate-900 dark:bg-white/6 dark:text-slate-100"
+                                : (!isCurrent && "bg-indigo-50/90 text-slate-800 dark:bg-white/12 dark:text-slate-100"),
                             shouldBlur ? "opacity-50" : ""
                         )}
                     >
@@ -937,7 +937,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                     )}
                     
                     {/* Captured pieces */}
-                    <div className="bg-slate-50/95 border border-slate-200 rounded-xl p-2 shadow-md space-y-2 shrink-0 dark:bg-slate-900/75 dark:border-slate-800 dark:shadow-lg transition-colors duration-200">
+                    <div className="bg-slate-50/95 border border-slate-200 rounded-xl p-2 shadow-md space-y-2 shrink-0 dark:bg-white/10 dark:border-white/10 dark:ring-1 dark:ring-white/10 dark:shadow-lg transition-colors duration-200">
                         <div className="text-xs font-semibold text-slate-600 uppercase tracking-wider opacity-80 dark:text-slate-300">Captured</div>
                         {renderCaptured(capturedWhite, "White", 'b', materialDiff > 0 ? materialDiff : undefined)}
                         {renderCaptured(capturedBlack, "Black", 'w', materialDiff < 0 ? Math.abs(materialDiff) : undefined)}
