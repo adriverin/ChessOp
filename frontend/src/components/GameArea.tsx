@@ -32,6 +32,7 @@ interface GameAreaProps {
     headerMode?: 'drill' | 'training';
     hideLog?: boolean;
     isOneMoveMode?: boolean;
+    sidebarFooter?: React.ReactNode;
 }
 
 export const GameArea: React.FC<GameAreaProps> = ({ 
@@ -51,10 +52,11 @@ export const GameArea: React.FC<GameAreaProps> = ({
     onRemainingMovesChange, 
     lineOptions, 
     selectedLineId, 
-    onSelectLine, 
+    onSelectLine,
     headerMode = 'training',
     hideLog = false,
-    isOneMoveMode = false
+    isOneMoveMode = false,
+    sidebarFooter
 }) => {
     const [game, setGame] = useState(() => {
         try {
@@ -541,15 +543,22 @@ export const GameArea: React.FC<GameAreaProps> = ({
             <div className="flex gap-1 flex-wrap items-center">
                 {list.length === 0 && <span className="text-slate-400 italic dark:text-slate-500">None</span>}
                 {list.map((p, idx) => (
-                    <img
+                    <span
                         key={idx}
-                        src={PIECE_IMAGES[pieceColor + p.toLowerCase()] || ''}
-                        alt={p}
                         className={clsx(
-                            "w-6 h-6 select-none",
-                            pieceColor === 'b' ? "drop-shadow-[0_0_6px_rgba(255,255,255,0.35)]" : ""
+                            "inline-flex items-center justify-center rounded",
+                            pieceColor === 'b' ? "bg-slate-100/90 p-0.5 ring-1 ring-slate-200 shadow-sm dark:bg-slate-800/80 dark:ring-slate-700" : ""
                         )}
-                    />
+                    >
+                        <img
+                            src={PIECE_IMAGES[pieceColor + p.toLowerCase()] || ''}
+                            alt={p}
+                            className={clsx(
+                                "w-6 h-6 select-none",
+                                pieceColor === 'b' ? "drop-shadow-[0_0_6px_rgba(255,255,255,0.35)]" : ""
+                            )}
+                        />
+                    </span>
                 ))}
             </div>
             {aheadBy && aheadBy > 0 && (
@@ -581,8 +590,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                 ? "bg-indigo-100 text-slate-900 border-indigo-200 ring-1 ring-indigo-200 dark:bg-indigo-500/15 dark:text-slate-100 dark:border-indigo-400/30 dark:ring-indigo-500/30"
                                 : "border-slate-200 dark:border-slate-800",
                             !isCurrent && isBlackMove
-                                ? "bg-slate-100 text-slate-900 dark:bg-slate-900/60 dark:text-slate-100"
-                                : (!isCurrent && "bg-slate-50 text-slate-900 dark:bg-slate-900/40 dark:text-slate-100"),
+                                ? "bg-slate-200 text-slate-900 dark:bg-slate-800/80 dark:text-slate-100"
+                                : (!isCurrent && "bg-slate-50 text-slate-800 dark:bg-slate-900/40 dark:text-slate-100"),
                             shouldBlur ? "opacity-50" : ""
                         )}
                     >
@@ -593,7 +602,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                 <span className={clsx(
                                     "font-bold text-sm",
                                     shouldBlur ? "blur-md select-none text-transparent bg-slate-700 rounded w-6 h-4 inline-block" : (
-                                        isBlackMove ? "text-slate-800 dark:text-slate-100" : "text-indigo-700 dark:text-indigo-100"
+                                        isBlackMove ? "text-slate-800 dark:text-slate-100" : "text-indigo-800 dark:text-indigo-100"
                                     )
                                 )}>
                                     {shouldBlur ? "???" : mv.san}
@@ -958,6 +967,11 @@ export const GameArea: React.FC<GameAreaProps> = ({
                             </select>
                         </div>
                     </div>
+                    {sidebarFooter && (
+                        <div className="mt-1">
+                            {sidebarFooter}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
