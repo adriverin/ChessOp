@@ -105,7 +105,7 @@ export const Train: React.FC = () => {
             .then(data => {
                 const has = (data.white?.length ?? 0) + (data.black?.length ?? 0) > 0;
                 setHasRepertoire(has);
-                
+
                 // Initialize the checkbox ONCE (only if user has no saved preference).
                 if (!didInitRepertoireOnlyRef.current) {
                     let hasStored = false;
@@ -238,11 +238,11 @@ export const Train: React.FC = () => {
 
             const data = await api.getRecallSession(variationId, filters);
             setSession(data);
-            
+
             // Only set selectedOpening if we are strictly filtering by it (which we handled via useEffect/initial state)
             // or if we want to lock it. But for One Move Drill, we don't want to lock it.
             // So we remove the auto-set logic here to keep One Move Drill "generic".
-            
+
             if (!selectedVariation && variationId) {
                 setSelectedVariation(variationId);
             }
@@ -253,7 +253,7 @@ export const Train: React.FC = () => {
                 if (msg && (msg.includes("stamina") || msg.includes("limit"))) {
                     setMessage("You are out of stamina for today! Come back tomorrow.");
                 } else if (msg && (msg.includes("locked") || msg.includes("premium"))) {
-                     setMessage(PREMIUM_LOCK_MESSAGE_KEY);
+                    setMessage(PREMIUM_LOCK_MESSAGE_KEY);
                 } else {
                     setMessage("Access denied. Please check your account status.");
                 }
@@ -309,7 +309,7 @@ export const Train: React.FC = () => {
 
     const handleComplete = async (success: boolean, hintUsed: boolean) => {
         if (!session) return;
-        
+
         const isGuest = !user || !user.is_authenticated;
 
         // One Move Drill: Immediate next session
@@ -332,7 +332,7 @@ export const Train: React.FC = () => {
         }
 
         setCompleted(true);
-        
+
         try {
             if (session.type === 'mistake') {
                 await api.submitResult({
@@ -385,7 +385,7 @@ export const Train: React.FC = () => {
                     correct_move: correctMove,
                     mode: 'one_move'
                 });
-                
+
                 // Submit result to reset streak
                 await api.submitResult({
                     type: 'one_move_complete',
@@ -393,10 +393,10 @@ export const Train: React.FC = () => {
                     mode: 'one_move'
                 });
                 if (!isGuest) refreshUser();
-                
+
                 // Fetch next session immediately
                 // setTimeout(() => {
-                    fetchSession();
+                fetchSession();
                 // }, 1000); 
             } catch (err) {
                 console.error(err);
@@ -423,17 +423,17 @@ export const Train: React.FC = () => {
 
     const oneMoveSession = useMemo(() => {
         if (!isOneMoveMode || !session || session.type === 'mistake' || !session.moves) return null;
-        
+
         try {
             const game = new Chess();
             const candidateMoves: { fen: string; move: string; moveIndex: number }[] = [];
-            
+
             // Replay game to find all user moves
             session.moves.forEach((move, idx) => {
                 const turn = game.turn(); // 'w' or 'b'
                 const userColor = session.orientation === 'white' ? 'w' : 'b';
                 const fenBefore = game.fen();
-                
+
                 if (turn === userColor) {
                     candidateMoves.push({
                         fen: fenBefore,
@@ -443,14 +443,14 @@ export const Train: React.FC = () => {
                 }
                 game.move(move.san);
             });
-            
+
             if (candidateMoves.length === 0) return null;
-            
+
             // Pick a random move to test
             // In a real SRS system, we might pick the specific move that is "due".
             // For now, random selection from the line is a good "drill".
             const selected = candidateMoves[Math.floor(Math.random() * candidateMoves.length)];
-            
+
             return {
                 ...session,
                 type: 'mistake' as const, // Treat as single-move puzzle
@@ -468,7 +468,7 @@ export const Train: React.FC = () => {
     const activeSession = isOneMoveMode && oneMoveSession ? oneMoveSession : session;
 
     if (loading) return <div className="flex justify-center items-center h-64 text-slate-300">Loading session...</div>;
-    
+
     const isPremiumLockedMessage = message === PREMIUM_LOCK_MESSAGE_KEY;
 
     if (!session) {
@@ -519,7 +519,7 @@ export const Train: React.FC = () => {
                     }
                 }}
             />
-            <label htmlFor="use-repertoire-only" className={clsx("flex flex-col text-sm", !hasRepertoire && "text-slate-500")}> 
+            <label htmlFor="use-repertoire-only" className={clsx("flex flex-col text-sm", !hasRepertoire && "text-slate-500")}>
                 <span className="font-semibold text-slate-900 dark:text-slate-100">Use my repertoire only</span>
                 <span className="text-xs text-slate-600 dark:text-slate-400">If enabled, recall uses only your repertoire openings for this side.</span>
                 {!hasRepertoire && (
@@ -530,30 +530,10 @@ export const Train: React.FC = () => {
     ) : null;
 
     return (
-        <div className="w-full max-w-6xl mx-auto space-y-4">
+        <div className="w-full max-w-6xl mx-auto h-[calc(100vh-7.5rem)] flex flex-col">
             <GuestModeBanner isAuthenticated={!!user?.is_authenticated} isLoading={userLoading} />
-            {/* Session Metadata Banner - Hidden in Train Mode for now */}
-            {/* {!completed && !hasSpecificOpening && !isOneMoveMode && (session.difficulty || session.training_goal || (session.themes && session.themes.length > 0)) && (
-                <div className="mb-4 flex flex-wrap items-center gap-2 animate-in fade-in slide-in-from-top-1">
-                    {session.difficulty && (
-                        <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full font-medium capitalize border border-gray-200">
-                            {session.difficulty}
-                        </span>
-                    )}
-                    {session.training_goal && (
-                        <span className="text-xs px-2 py-1 bg-purple-50 text-purple-700 rounded-full font-medium capitalize border border-purple-100 flex items-center gap-1">
-                            <Target size={10} /> {session.training_goal}
-                        </span>
-                    )}
-                    {session.themes?.map(t => (
-                        <span key={t} className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded-full font-medium capitalize border border-blue-100">
-                            {t.replace(/_/g, ' ')}
-                        </span>
-                    ))}
-                </div>
-            )} */}
 
-            <div className="bg-white/85 border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-lg shadow-slate-200/60 relative dark:bg-slate-900/70 dark:border-slate-800 dark:shadow-2xl dark:shadow-black/40 transition-colors duration-200">
+            <div className="flex-1 min-h-0 bg-white/85 border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-lg shadow-slate-200/60 relative dark:bg-slate-900/70 dark:border-slate-800 dark:shadow-2xl dark:shadow-black/40 transition-colors duration-200 flex flex-col">
                 {completed && (
                     <div className="absolute top-0 left-0 right-0 z-20 flex justify-center p-2">
                         <div className="w-full max-w-2xl rounded-lg border border-emerald-400/60 bg-emerald-100/95 p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 shadow-lg shadow-emerald-200/70 dark:bg-emerald-900/85 dark:border-emerald-500/60 dark:shadow-emerald-900/50">
@@ -596,34 +576,36 @@ export const Train: React.FC = () => {
                         </div>
                     </div>
                 )}
-                <GameArea
-                    mode={activeSession?.type === 'mistake' ? 'mistake' : 'sequence'}
-                    sessionTitle={activeSession?.type === 'mistake' ? (activeSession as any).variation_name : activeSession?.name}
-                    sessionType={activeSession?.type}
-                    initialFen={activeSession?.type === 'mistake' ? (activeSession as any).fen : undefined}
-                    targetNextMove={activeSession?.type === 'mistake' ? (activeSession as any).correct_move : undefined}
-                    targetMoves={activeSession?.type !== 'mistake' ? (activeSession as any).moves : undefined}
-                    orientation={activeSession?.orientation}
-                    onComplete={handleComplete}
-                    onMistake={handleMistake}
-                    locked={completed}
-                    opening={
-                        (isOneMoveMode && session && 'opening' in session && session.opening) 
-                            ? { slug: session.opening.slug, name: session.opening.name }
-                            : (currentOpening
-                                ? { slug: currentOpening.slug, name: currentOpening.name }
-                                : (session && 'opening' in session && session.opening ? { slug: session.opening.slug, name: session.opening.name } : undefined))
-                    }
-                    openingOptions={openingOptions}
-                    onSelectOpening={handleSelectOpening}
-                    lineOptions={displayedLineOptions.map(l => ({ id: l.id, label: l.label }))}
-                    selectedLineId={displayedSelectedLineId}
-                    onSelectLine={handleSelectLine}
-                    headerMode="training"
-                    hideLog={isOneMoveMode}
-                    isOneMoveMode={isOneMoveMode}
-                    sidebarFooter={repertoireOnlyControl}
-                />
+                <div className="flex-1 min-h-0">
+                    <GameArea
+                        mode={activeSession?.type === 'mistake' ? 'mistake' : 'sequence'}
+                        sessionTitle={activeSession?.type === 'mistake' ? (activeSession as any).variation_name : activeSession?.name}
+                        sessionType={activeSession?.type}
+                        initialFen={activeSession?.type === 'mistake' ? (activeSession as any).fen : undefined}
+                        targetNextMove={activeSession?.type === 'mistake' ? (activeSession as any).correct_move : undefined}
+                        targetMoves={activeSession?.type !== 'mistake' ? (activeSession as any).moves : undefined}
+                        orientation={activeSession?.orientation}
+                        onComplete={handleComplete}
+                        onMistake={handleMistake}
+                        locked={completed}
+                        opening={
+                            (isOneMoveMode && session && 'opening' in session && session.opening)
+                                ? { slug: session.opening.slug, name: session.opening.name }
+                                : (currentOpening
+                                    ? { slug: currentOpening.slug, name: currentOpening.name }
+                                    : (session && 'opening' in session && session.opening ? { slug: session.opening.slug, name: session.opening.name } : undefined))
+                        }
+                        openingOptions={openingOptions}
+                        onSelectOpening={handleSelectOpening}
+                        lineOptions={displayedLineOptions.map(l => ({ id: l.id, label: l.label }))}
+                        selectedLineId={displayedSelectedLineId}
+                        onSelectLine={handleSelectLine}
+                        headerMode="training"
+                        hideLog={isOneMoveMode}
+                        isOneMoveMode={isOneMoveMode}
+                        sidebarFooter={repertoireOnlyControl}
+                    />
+                </div>
             </div>
         </div>
     );

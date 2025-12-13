@@ -35,23 +35,23 @@ interface GameAreaProps {
     sidebarFooter?: React.ReactNode;
 }
 
-export const GameArea: React.FC<GameAreaProps> = ({ 
-    initialFen, 
-    orientation = 'white', 
-    targetMoves, 
-    targetNextMove, 
-    onComplete, 
-    onMistake, 
-    mode, 
-    locked = false, 
-    sessionTitle, 
-    opening, 
-    openingOptions, 
-    onSelectOpening, 
-    showInlineProgress = true, 
-    onRemainingMovesChange, 
-    lineOptions, 
-    selectedLineId, 
+export const GameArea: React.FC<GameAreaProps> = ({
+    initialFen,
+    orientation = 'white',
+    targetMoves,
+    targetNextMove,
+    onComplete,
+    onMistake,
+    mode,
+    locked = false,
+    sessionTitle,
+    opening,
+    openingOptions,
+    onSelectOpening,
+    showInlineProgress = true,
+    onRemainingMovesChange,
+    lineOptions,
+    selectedLineId,
     onSelectLine,
     headerMode = 'training',
     hideLog = false,
@@ -82,7 +82,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
     const [logRevealed, setLogRevealed] = useState(false);
     const [openingPickerOpen, setOpeningPickerOpen] = useState(false);
     const [linePickerOpen, setLinePickerOpen] = useState(false);
-    
+
     // Audio sounds
     // NOTE: move.mp3, success.mp3, error.mp3, and capture.mp3
     // must be real audio files in public/sounds/. Repo placeholders are empty; replace with actual assets.
@@ -105,7 +105,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
         const sound = isCapture ? captureSound : moveSound;
         playSound(sound);
     };
-    
+
     const activeMoveRef = useRef<HTMLDivElement>(null);
     const logContainerRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -115,12 +115,12 @@ export const GameArea: React.FC<GameAreaProps> = ({
         if (activeMoveRef.current && logContainerRef.current) {
             const container = logContainerRef.current;
             const element = activeMoveRef.current;
-            
+
             // Only scroll if element is not fully visible or to center it
             const relativeTop = element.offsetTop - container.offsetTop;
             const halfContainer = container.clientHeight / 2;
             const halfElement = element.clientHeight / 2;
-            
+
             container.scrollTo({
                 top: relativeTop - halfContainer + halfElement,
                 behavior: 'smooth'
@@ -131,10 +131,10 @@ export const GameArea: React.FC<GameAreaProps> = ({
     const getSquareCoords = (square: string, orientation: 'white' | 'black') => {
         const file = square.charCodeAt(0) - 97; // a=0
         const rank = parseInt(square[1]) - 1;   // 1=0
-        
+
         const x = orientation === 'white' ? file : 7 - file;
         const y = orientation === 'white' ? 7 - rank : rank;
-        
+
         return { x, y };
     };
 
@@ -185,10 +185,10 @@ export const GameArea: React.FC<GameAreaProps> = ({
             events: {
                 select: (key: string) => {
                     if (isWrongMoveStay && wrongMoveView?.lastMove) {
-                         const [_, target] = wrongMoveView.lastMove;
-                         if (key === target) {
-                             handleRevertWrong();
-                         }
+                        const [_, target] = wrongMoveView.lastMove;
+                        if (key === target) {
+                            handleRevertWrong();
+                        }
                     }
                 }
             },
@@ -209,7 +209,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
         } else {
             groundRef.current.set(config);
         }
-        
+
         // Cleanup
         return () => {
             // Chessground ref cleanup if needed
@@ -240,7 +240,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
 
             const fenBeforeMove = game.fen();
             const playedSan = result.san;
-            
+
             let isCorrect = false;
             let expectedMove = '';
 
@@ -257,7 +257,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                 setFeedback('correct');
                 setHint(null);
                 playMoveSound({ captured: !!result.captured, san: result.san });
-                
+
                 // Handle Progression
                 if (mode === 'mistake') {
                     setTimeout(() => onComplete(true, hintsUsed), 500);
@@ -267,11 +267,11 @@ export const GameArea: React.FC<GameAreaProps> = ({
                         setTimeout(() => onComplete(true, hintsUsed), 500);
                     } else {
                         setMoveIndex(nextIndex);
-                        
+
                         // Opponent Auto-play logic
                         const isWhiteTurn = gameCopy.turn() === 'w';
                         const userPlaysWhite = orientation === 'white';
-                        
+
                         if (isWhiteTurn !== userPlaysWhite) {
                             setTimeout(() => {
                                 const nextMove = targetMoves[nextIndex];
@@ -360,13 +360,13 @@ export const GameArea: React.FC<GameAreaProps> = ({
             let currentGame = newGame;
             let currentIndex = 0;
             const userPlaysWhite = orientation === 'white';
-            
+
             while (currentIndex < targetMoves.length) {
                 const isWhiteTurn = currentGame.turn() === 'w';
                 const isUserTurn = (userPlaysWhite && isWhiteTurn) || (!userPlaysWhite && !isWhiteTurn);
-                
+
                 if (isUserTurn) break;
-                
+
                 const move = targetMoves[currentIndex];
                 try {
                     const result = currentGame.move(move.san);
@@ -374,7 +374,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                     else break;
                 } catch (e) { break; }
             }
-            
+
             if (currentIndex > 0) {
                 setGame(new Chess(currentGame.fen()));
                 setMoveIndex(currentIndex);
@@ -432,7 +432,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
     const isLineCompleted = useMemo(() => {
         if (mode === 'mistake') return feedback === 'correct';
         if (mode !== 'sequence' || !targetMoves) return false;
-        
+
         // Completed if we've advanced past all moves OR we are at the last move and just got it right
         return moveIndex >= targetMoves.length || (moveIndex === targetMoves.length - 1 && feedback === 'correct');
     }, [mode, targetMoves, moveIndex, feedback]);
@@ -447,17 +447,17 @@ export const GameArea: React.FC<GameAreaProps> = ({
     useEffect(() => {
         if (isLineCompleted) {
             playSound(successSound);
-            
+
             // Trigger confetti on perfect run
             if (!hasMistakeInLine && !hintsUsed) {
                 if (containerRef.current) {
-                     const rect = containerRef.current.getBoundingClientRect();
-                     // Calculate normalized coordinates (0-1) for origin
-                     const x = (rect.left + rect.width / 2) / window.innerWidth;
-                     const y = (rect.top + rect.height / 3) / window.innerHeight;
-                     
-                     const myConfetti = confetti.create(undefined, { resize: true, useWorker: true });
-                     myConfetti({
+                    const rect = containerRef.current.getBoundingClientRect();
+                    // Calculate normalized coordinates (0-1) for origin
+                    const x = (rect.left + rect.width / 2) / window.innerWidth;
+                    const y = (rect.top + rect.height / 3) / window.innerHeight;
+
+                    const myConfetti = confetti.create(undefined, { resize: true, useWorker: true });
+                    myConfetti({
                         particleCount: 150,
                         spread: 70,
                         origin: { x, y },
@@ -496,7 +496,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
     const { capturedWhite, capturedBlack } = useMemo(() => {
         const capturedW: string[] = [];
         const capturedB: string[] = [];
-        
+
         let tempGame: Chess;
         try {
             if (!initialFen || initialFen === 'start') tempGame = new Chess();
@@ -505,9 +505,9 @@ export const GameArea: React.FC<GameAreaProps> = ({
         } catch (e) {
             tempGame = new Chess();
         }
-        
+
         const movesToReplay: string[] = [];
-        
+
         if (mode === 'sequence' && targetMoves) {
             for (let i = 0; i < moveIndex; i++) {
                 if (targetMoves[i]) {
@@ -517,7 +517,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
         } else if (mode === 'mistake' && feedback === 'correct' && targetNextMove) {
             movesToReplay.push(targetNextMove);
         }
-        
+
         for (const san of movesToReplay) {
             try {
                 const move = tempGame.move(san);
@@ -532,7 +532,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                 console.error("Error replaying move for captures:", san, e);
             }
         }
-        
+
         return { capturedWhite: capturedW, capturedBlack: capturedB };
     }, [initialFen, mode, targetMoves, targetNextMove, moveIndex, feedback]);
 
@@ -588,10 +588,10 @@ export const GameArea: React.FC<GameAreaProps> = ({
         }
 
         const end = Math.min(moveIndex + 1, total);
-        const maxVisible = 5;
-        const start = Math.max(0, end - maxVisible);
+        // Show all history up to current move to allow scrolling
+        // Do not slice the start
 
-        return targetMoves.slice(start, end).map((mv, offset) => ({ move: mv, originalIndex: start + offset }));
+        return targetMoves.slice(0, end).map((mv, idx) => ({ move: mv, originalIndex: idx }));
     }, [targetMoves, isMovesExpanded, logRevealed, moveIndex]);
 
     const hasHiddenMoves = useMemo(() => {
@@ -610,19 +610,24 @@ export const GameArea: React.FC<GameAreaProps> = ({
                 const shouldBlur = !logRevealed && !isPast;
                 const isBlackMove = originalIndex % 2 === 1;
 
+                // De-emphasize older moves (more than 3 moves ago)
+                const isRecent = moveIndex - originalIndex <= 3;
+                const isOldHistory = !logRevealed && isPast && !isRecent;
+
                 return (
                     <div
                         key={originalIndex}
                         ref={isCurrent ? activeMoveRef : null}
                         className={clsx(
-                            "flex items-start gap-2 px-2 py-1 rounded border transition-colors",
+                            "flex items-start gap-2 px-2 py-1 rounded border transition-all",
                             isCurrent
                                 ? "bg-indigo-100 text-slate-900 border-indigo-200 ring-1 ring-indigo-200 dark:bg-indigo-500/15 dark:text-slate-100 dark:border-indigo-400/30 dark:ring-indigo-500/30"
                                 : "border-slate-200 ring-1 ring-white/5 dark:border-white/10",
                             !isCurrent && isBlackMove
                                 ? "bg-slate-200/80 text-slate-900 dark:bg-white/6 dark:text-slate-100"
                                 : (!isCurrent && "bg-indigo-50/90 text-slate-800 dark:bg-white/12 dark:text-slate-100"),
-                            shouldBlur ? "opacity-50" : ""
+                            shouldBlur ? "opacity-50" : "",
+                            isOldHistory ? "opacity-40 grayscale blur-[0.5px]" : ""
                         )}
                     >
                         <span className="text-[11px] text-slate-500 font-mono w-5 text-right pt-0.5 dark:text-slate-400">{originalIndex + 1}.</span>
@@ -692,7 +697,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
             } catch (e) { return new Chess(); }
         };
         const newGame = safeChess(initialFen);
-        
+
         let movesToPlay: string[] = [];
         if (mode === 'sequence' && targetMoves) {
             movesToPlay = targetMoves.slice(0, index).map(m => m.san);
@@ -712,11 +717,30 @@ export const GameArea: React.FC<GameAreaProps> = ({
         setWrongMoveView(null);
     };
 
+    const boardWrapperRef = useRef<HTMLDivElement>(null);
+    const [boardSize, setBoardSize] = useState<number>(0);
+
+    useEffect(() => {
+        if (!boardWrapperRef.current) return;
+
+        const resizeObserver = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                const { width, height } = entry.contentRect;
+                // Leave a tiny buffer to avoid rounding jitters causing scrollbars
+                const size = Math.floor(Math.min(width, height)) - 2;
+                setBoardSize(Math.max(0, size));
+            }
+        });
+
+        resizeObserver.observe(boardWrapperRef.current);
+        return () => resizeObserver.disconnect();
+    }, []);
+
     return (
-        <div className="flex flex-col lg:flex-row gap-4 justify-center items-stretch w-full">
-            
+        <div className="flex flex-col lg:flex-row gap-4 justify-center items-stretch w-full h-full">
+
             {/* Left Column: Board + Progress + Status */}
-            <div className="flex flex-col w-full max-w-2xl gap-2">
+            <div className="flex flex-col w-full max-w-2xl gap-2 min-h-0 flex-1">
                 {showInlineProgress && (
                     <div className="w-full shrink-0">
                         <div className="flex justify-between text-xs text-slate-400 mb-1 font-medium">
@@ -732,44 +756,53 @@ export const GameArea: React.FC<GameAreaProps> = ({
                     </div>
                 )}
 
-                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-200/80 text-slate-700 font-semibold uppercase tracking-wide dark:bg-white/10 dark:text-slate-100">
                         {statusLabel}
                     </span>
                 </div>
 
-                {/* Board Container */}
-                <div className="w-full aspect-square rounded-2xl overflow-hidden relative bg-slate-100 border border-slate-200 dark:bg-slate-900/70 dark:border-slate-800 transition-colors duration-200">
+                {/* Board Container Wrapper - Flex grow to fill available space */}
+                <div
+                    ref={boardWrapperRef}
+                    className="flex-1 min-h-0 w-full relative flex items-center justify-center"
+                >
+                    {/* Actual Board - Sized via JS */}
                     <div
-                        ref={containerRef}
-                        className="w-full h-full block"
-                    />
-                    
-                    {/* Wrong Move Indicator Overlay */}
-                    {wrongMoveView && wrongMoveMode === 'stay' && wrongMoveView.lastMove && (() => {
-                        const targetSquare = wrongMoveView.lastMove[1];
-                        const { x, y } = getSquareCoords(targetSquare, orientation);
-                        return (
-                            <div 
-                                className="absolute pointer-events-none z-10"
-                                style={{
-                                    left: `${x * 12.5}%`,
-                                    top: `${y * 12.5}%`,
-                                    width: '12.5%',
-                                    height: '12.5%',
-                                }}
-                            >
-                                <div className="absolute top-0 right-0 w-3 h-3 bg-rose-500 rounded-full shadow-sm ring-1 ring-white/70 m-1" />
-                            </div>
-                        );
-                    })()}
+                        className="rounded-2xl overflow-hidden relative bg-slate-100 border border-slate-200 dark:bg-slate-900/70 dark:border-slate-800 transition-colors duration-200 shadow-md"
+                        style={{ width: boardSize, height: boardSize }}
+                    >
+                        <div
+                            ref={containerRef}
+                            className="w-full h-full block"
+                        />
+
+                        {/* Wrong Move Indicator Overlay */}
+                        {wrongMoveView && wrongMoveMode === 'stay' && wrongMoveView.lastMove && (() => {
+                            const targetSquare = wrongMoveView.lastMove[1];
+                            const { x, y } = getSquareCoords(targetSquare, orientation);
+                            return (
+                                <div
+                                    className="absolute pointer-events-none z-10"
+                                    style={{
+                                        left: `${x * 12.5}%`,
+                                        top: `${y * 12.5}%`,
+                                        width: '12.5%',
+                                        height: '12.5%',
+                                    }}
+                                >
+                                    <div className="absolute top-0 right-0 w-3 h-3 bg-rose-500 rounded-full shadow-sm ring-1 ring-white/70 m-1" />
+                                </div>
+                            );
+                        })()}
+                    </div>
                 </div>
 
                 {/* Status Bar */}
                 <div className="bg-white rounded-xl shadow-md border border-slate-200 p-2 flex items-center justify-between w-full shrink-0 dark:bg-slate-900/80 dark:border-slate-800 dark:shadow-lg transition-colors duration-200">
                     <div className="flex items-center gap-3">
-                        {feedback === 'correct' && <span className="text-emerald-600 font-bold flex items-center gap-1.5 text-sm dark:text-emerald-300"><CheckCircle size={18}/> Correct!</span>}
-                        {feedback === 'wrong' && <span className="text-rose-500 font-bold flex items-center gap-1.5 text-sm dark:text-rose-300"><XCircle size={18}/> Incorrect</span>}
+                        {feedback === 'correct' && <span className="text-emerald-600 font-bold flex items-center gap-1.5 text-sm dark:text-emerald-300"><CheckCircle size={18} /> Correct!</span>}
+                        {feedback === 'wrong' && <span className="text-rose-500 font-bold flex items-center gap-1.5 text-sm dark:text-rose-300"><XCircle size={18} /> Incorrect</span>}
                         {!feedback && <span className="text-slate-500 italic text-sm font-medium dark:text-slate-400">Make your move...</span>}
                         {wrongMoveView && wrongMoveMode === 'stay' && (
                             <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-xs rounded font-semibold border border-rose-200 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30">Wrong move</span>
@@ -792,7 +825,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                         <button
                             onClick={() => {
                                 // Reset Logic
-                                    const safeChess = (fen?: string) => {
+                                const safeChess = (fen?: string) => {
                                     try {
                                         return new Chess(fen || undefined);
                                     } catch (e) { return new Chess(); }
@@ -808,8 +841,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                 setWrongMoveView(null);
                                 setLogRevealed(false);
                                 setIsMovesExpanded(false);
-                                
-                                    if (mode === 'sequence' && targetMoves && targetMoves.length > 0) {
+
+                                if (mode === 'sequence' && targetMoves && targetMoves.length > 0) {
                                     let currentGame = newGame;
                                     let currentIndex = 0;
                                     const userPlaysWhite = orientation === 'white';
@@ -828,7 +861,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                         setMaxPlayedIndex(currentIndex);
                                     }
                                 }
-                                
+
                                 if (groundRef.current) {
                                     groundRef.current.set({
                                         fen: newGame.fen(),
@@ -850,7 +883,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                         >
                             <RotateCcw size={18} />
                         </button>
-                        
+
                         <div className="flex items-center rounded-lg border border-slate-800 bg-slate-900/80 p-0.5">
                             <button
                                 onClick={() => jumpTo(moveIndex - 1)}
@@ -878,8 +911,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
             {/* Right Column: Sidebar */}
             <div className="relative flex flex-col w-full lg:w-[300px] shrink-0">
                 {/* Wrapper to match height on desktop */}
-                <div className="flex flex-col gap-2 lg:absolute lg:inset-0">
-                    
+                <div className="flex flex-col gap-2 lg:absolute lg:inset-0 lg:overflow-y-auto px-1">
+
                     {/* Session Info (Moved from Header) */}
                     <div className="bg-slate-900/70 p-2 rounded-xl border border-slate-800 shadow-lg shrink-0 relative">
                         <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-100 text-[10px] font-bold uppercase tracking-wide mb-1">
@@ -963,8 +996,8 @@ export const GameArea: React.FC<GameAreaProps> = ({
 
                     {/* Log */}
                     {!hideLog && (
-                    <div className="flex flex-col flex-1 min-h-0 bg-white/85 border border-slate-200 rounded-xl shadow-md overflow-hidden dark:bg-slate-900/70 dark:border-slate-800 dark:shadow-lg transition-colors duration-200">
-                                <div className="flex items-center justify-between p-2 border-b border-slate-200 text-xs font-semibold text-slate-700 shrink-0 bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:bg-slate-900/80">
+                        <div className="flex flex-col flex-1 min-h-0 bg-white/85 border border-slate-200 rounded-xl shadow-md overflow-hidden dark:bg-slate-900/70 dark:border-slate-800 dark:shadow-lg transition-colors duration-200">
+                            <div className="flex items-center justify-between p-2 border-b border-slate-200 text-xs font-semibold text-slate-700 shrink-0 bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:bg-slate-900/80">
                                 <span>Line Moves</span>
                                 {!logRevealed && (
                                     <button
@@ -982,7 +1015,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                             {renderMoveLogContent()}
                         </div>
                     )}
-                    
+
                     {/* Captured pieces */}
                     <div className="bg-slate-50/95 border border-slate-200 rounded-xl p-2 shadow-md space-y-2 shrink-0 dark:bg-white/10 dark:border-white/10 dark:ring-1 dark:ring-white/10 dark:shadow-lg transition-colors duration-200">
                         <div className="text-xs font-semibold text-slate-600 uppercase tracking-wider opacity-80 dark:text-slate-300">Captured</div>

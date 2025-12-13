@@ -147,7 +147,7 @@ export const Openings: React.FC = () => {
                         "flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-all border",
                         showFilters || activeFiltersCount > 0
                             ? "bg-indigo-500/20 text-indigo-100 border-indigo-500/40 shadow-inner"
-                            : "bg-slate-900/60 text-slate-200 border-slate-800 hover:border-slate-700"
+                            : "bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-800 dark:hover:border-slate-700"
                     )}
                 >
                     <Filter size={18} />
@@ -443,7 +443,7 @@ const VariationItem: React.FC<{ variation: Variation; openingSlug: string }> = (
                         <ChevronDown className={clsx("w-4 h-4 text-slate-400 transition-transform", showMoves && "rotate-180")} />
                     )}
                 </div>
-                </div>
+            </div>
 
             {variation.locked && (
                 <div className="mt-2 px-3 py-2 rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-50 flex items-start justify-between gap-3">

@@ -2,6 +2,7 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.utils import timezone
 from functools import wraps
+from .entitlements import user_has_premium_access
 
 class MonetizationManager:
     """
@@ -19,15 +20,9 @@ class MonetizationManager:
     def is_effective_premium(user):
         """
         Returns True if the user should be treated as premium for all gating.
-        Superusers and staff are always considered premium for testing/admin.
+        Delegates to centralized entitlement logic.
         """
-        if not user.is_authenticated:
-            return False
-
-        if user.is_superuser or user.is_staff:
-            return True
-
-        return hasattr(user, "profile") and getattr(user.profile, "is_premium", False)
+        return user_has_premium_access(user)
 
     @staticmethod
     def check_permission(user, action_type, context=None):

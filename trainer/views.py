@@ -18,6 +18,7 @@ import hashlib
 import logging
 from functools import wraps
 from .billing import compute_is_premium, compute_effective_status
+from .entitlements import user_has_premium_access, has_premium_override
 
 from .models import (
     OpeningCategory,
@@ -53,8 +54,7 @@ def require_premium(view_func):
         if not request.user.is_authenticated:
             return JsonResponse({"error": "Authentication required"}, status=401)
 
-        profile = getattr(request.user, "profile", None)
-        if not profile or not profile.is_premium:
+        if not user_has_premium_access(request.user):
             return premium_required_response()
 
         return view_func(request, *args, **kwargs)
@@ -102,8 +102,8 @@ def api_get_dashboard_data(request):
         'is_authenticated': True,
         'xp': profile.total_xp,
         'level': profile.level,
-        'is_premium': profile.is_premium,
-        'effective_premium': MonetizationManager.is_effective_premium(request.user),
+        'is_premium': user_has_premium_access(request.user),
+        'effective_premium': user_has_premium_access(request.user),
         'subscription': {
             'status': compute_effective_status(
                 profile.subscription_status,
@@ -161,7 +161,7 @@ def _get_unlocked_opening_slugs(user):
     Returns slugs of openings with at least one unlocked variation.
     """
     # Allow anonymous users (Free Tier Guest)
-    if user.is_authenticated and MonetizationManager.is_effective_premium(user):
+    if user.is_authenticated and user_has_premium_access(user):
         return set(Opening.objects.values_list("slug", flat=True))
 
     strategy = MonetizationManager.get_strategy()
@@ -200,7 +200,7 @@ def _get_unlocked_variation_ids(user):
       - None for premium users or non-HARD_LOCK strategies (meaning "no restriction")
       - list[int] for HARD_LOCK free users (authenticated or guest)
     """
-    if user.is_authenticated and MonetizationManager.is_effective_premium(user):
+    if user.is_authenticated and user_has_premium_access(user):
         return None
 
     strategy = MonetizationManager.get_strategy()
@@ -354,7 +354,7 @@ def api_get_openings(request):
     
     if request.user.is_authenticated:
         try:
-            is_premium = MonetizationManager.is_effective_premium(request.user)
+            is_premium = user_has_premium_access(request.user)
             user_completed_ids = set(
                 UserProgress.objects.filter(profile=request.user.profile)
                 .values_list('variation__slug', flat=True)
@@ -470,7 +470,7 @@ def api_toggle_repertoire(request):
     user = request.user
 
     # Monetization gating: free users can only add unlocked openings
-    if not MonetizationManager.is_effective_premium(user):
+    if not user_has_premium_access(user):
         unlocked_slugs = _get_unlocked_opening_slugs(user)
         if opening.slug not in unlocked_slugs:
             return premium_required_response()
@@ -1442,7 +1442,7 @@ def api_me(request):
             'id': request.user.id,
             'email': request.user.email,
             'isAuthenticated': True,
-            'isPremium': profile.is_premium,
+            'isPremium': user_has_premium_access(request.user),
             'subscription': {
                 'status': compute_effective_status(
                     profile.subscription_status,

@@ -13,7 +13,7 @@ export const OpeningDrill: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const location = useLocation();
-    
+
     // State for Openings List
     const [availableOpenings, setAvailableOpenings] = useState<OpeningDrillOpening[]>([]);
     const [openingsLoading, setOpeningsLoading] = useState(true);
@@ -31,6 +31,13 @@ export const OpeningDrill: React.FC = () => {
 
     const handlePremiumError = useCallback((err: any) => {
         if (err?.response?.status === 403 && err?.response?.data?.error === 'PREMIUM_REQUIRED') {
+            // Safety: If user is already premium locally, do not redirect to pricing.
+            if (user?.is_premium) {
+                console.warn("User is premium but backend rejected with PREMIUM_REQUIRED");
+                setMessage("Subscription sync error. Please refresh.");
+                return true;
+            }
+
             if (user?.is_authenticated) {
                 navigate('/pricing');
             } else {
@@ -44,12 +51,12 @@ export const OpeningDrill: React.FC = () => {
     // Fetch Available Openings on Mount
     useEffect(() => {
         if (!user?.is_authenticated) return;
-        
+
         setOpeningsLoading(true);
         api.getOpeningDrillOpenings()
             .then(data => {
                 setAvailableOpenings(data.openings);
-                
+
                 // If ID is in URL, validate it
                 const urlId = searchParams.get('opening_id');
                 if (urlId) {
@@ -85,7 +92,7 @@ export const OpeningDrill: React.FC = () => {
 
     const fetchSession = useCallback(async () => {
         if (!selectedOpeningId) return;
-        
+
         setSessionLoading(true);
         setCompleted(false);
         setFailed(false);
@@ -131,7 +138,7 @@ export const OpeningDrill: React.FC = () => {
     const handleComplete = async (_success: boolean, hintUsed: boolean) => {
         if (!session || failed) return;
         setCompleted(true);
-        
+
         try {
             await api.submitResult({
                 type: 'variation_complete',
@@ -156,7 +163,7 @@ export const OpeningDrill: React.FC = () => {
     const handleMistake = async (fen: string, wrongMove: string, correctMove: string) => {
         if (!session || failed || completed) return;
         setFailed(true);
-        
+
         try {
             await api.submitResult({
                 type: 'blunder_made',
@@ -218,11 +225,10 @@ export const OpeningDrill: React.FC = () => {
                                 key={opening.slug}
                                 onClick={() => opening.drill_unlocked && handleSelectOpening(opening.slug)}
                                 disabled={!opening.drill_unlocked}
-                                className={`flex items-center justify-between p-4 rounded-xl border text-left transition-all ${
-                                    opening.drill_unlocked
+                                className={`flex items-center justify-between p-4 rounded-xl border text-left transition-all ${opening.drill_unlocked
                                         ? 'bg-slate-900/70 border-slate-800 hover:border-rose-400/40 hover:shadow-rose-900/30 cursor-pointer group'
                                         : 'bg-slate-900/40 border-slate-800 opacity-70 cursor-not-allowed'
-                                }`}
+                                    }`}
                             >
                                 <div>
                                     <h3 className={`font-semibold ${opening.drill_unlocked ? 'text-white group-hover:text-rose-200' : 'text-slate-500'}`}>
@@ -292,8 +298,8 @@ export const OpeningDrill: React.FC = () => {
                                 <span className={clsx(
                                     "inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold border",
                                     srsStatus === 'mastered' ? "bg-emerald-500/20 text-emerald-100 border-emerald-400/30" :
-                                    srsStatus === 'due' ? "bg-amber-500/20 text-amber-100 border-amber-400/30" :
-                                    "bg-indigo-500/20 text-indigo-100 border-indigo-400/30"
+                                        srsStatus === 'due' ? "bg-amber-500/20 text-amber-100 border-amber-400/30" :
+                                            "bg-indigo-500/20 text-indigo-100 border-indigo-400/30"
                                 )}>
                                     {statusLabel}
                                 </span>
@@ -302,13 +308,11 @@ export const OpeningDrill: React.FC = () => {
 
                             {(completed || failed) && (
                                 <div className="absolute top-0 left-0 right-0 z-20 flex justify-center p-2">
-                                    <div className={`w-full max-w-2xl rounded-lg border p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 shadow-lg ${
-                                        completed ? 'border-emerald-400/40 bg-emerald-900/40' : 'border-rose-400/40 bg-rose-900/30'
-                                    }`}>
+                                    <div className={`w-full max-w-2xl rounded-lg border p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 shadow-lg ${completed ? 'border-emerald-400/40 bg-emerald-900/40' : 'border-rose-400/40 bg-rose-900/30'
+                                        }`}>
                                         <div className={`flex items-center gap-2 ${completed ? 'text-emerald-100' : 'text-rose-100'}`}>
-                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
-                                                completed ? 'bg-emerald-700 text-emerald-100' : 'bg-rose-700 text-rose-100'
-                                            }`}>
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${completed ? 'bg-emerald-700 text-emerald-100' : 'bg-rose-700 text-rose-100'
+                                                }`}>
                                                 {completed ? <Trophy size={14} /> : <XCircle size={14} />}
                                             </div>
                                             <div>
@@ -333,7 +337,7 @@ export const OpeningDrill: React.FC = () => {
                             <GameArea
                                 mode="sequence"
                                 sessionTitle={`${session.opening.name} Drill`}
-                                sessionType="new_learn" 
+                                sessionType="new_learn"
                                 targetMoves={session.variation.moves}
                                 orientation={session.variation.orientation}
                                 onComplete={handleComplete}
@@ -412,7 +416,7 @@ export const OpeningDrill: React.FC = () => {
                                         <div className="flex items-end gap-2">
                                             <div className="text-xl font-bold text-white">{stats.current_flawless_streak}</div>
                                         </div>
-                                         <div className="text-[10px] text-purple-100">Best: {stats.longest_flawless_streak}</div>
+                                        <div className="text-[10px] text-purple-100">Best: {stats.longest_flawless_streak}</div>
                                     </div>
 
                                     <div className="bg-amber-500/10 p-2 rounded-lg border border-amber-400/30">
@@ -451,7 +455,7 @@ export const OpeningDrill: React.FC = () => {
                                                 )}>
                                                     <Star size={12} fill={badge.earned ? "currentColor" : "none"} />
                                                 </div>
-                                                
+
                                                 {/* Tooltip */}
                                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-900 text-white text-xs p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 text-center">
                                                     <div className="font-bold mb-1">{badge.name}</div>

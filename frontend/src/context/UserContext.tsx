@@ -20,18 +20,41 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const refreshUser = async () => {
         setLoading(true);
         try {
-            // Check session via dashboard or explicit 'me'
-            // Using dashboard ensures we get all user data
-            const data = await api.getDashboard();
-            setUser(data);
+            // Unify source of truth: Get auth/premium from 'me' endpoint, stats from 'dashboard'.
+            // Execute in parallel to minimize latency.
+            const [meData, dashboardData] = await Promise.all([
+                api.me().catch(() => null), // If me fails, we probably aren't authed
+                api.getDashboard().catch(() => null)
+            ]);
+
+            if (!meData && !dashboardData) {
+                // Both failed
+                setUser(null);
+                return;
+            }
+
+            // Normalize and merge. 'me' takes precedence for auth/premium.
+            // Dashboard takes precedence for XP/quests.
+            const combinedUser: DashboardResponse = {
+                ...(dashboardData || {}),
+                ...(meData || {}),
+
+                // Explicitly normalize premium/auth fields from 'me' (assuming meData is fresher/correct)
+                is_authenticated: meData?.isAuthenticated ?? dashboardData?.is_authenticated ?? false,
+                is_premium: meData?.isPremium ?? dashboardData?.is_premium ?? false,
+                subscription: meData?.subscription ?? dashboardData?.subscription,
+
+                // Ensure we have stats if 'me' doesn't provide them
+                xp: dashboardData?.xp ?? meData?.xp,
+                level: dashboardData?.level ?? meData?.level,
+                quests: dashboardData?.quests ?? meData?.quests,
+            };
+
+            setUser(combinedUser);
         } catch (error) {
             console.error("Failed to fetch user data", error);
-            // Avoid treating transient network errors as logged-out.
-            // Only clear local user state if server explicitly says we're unauthorized.
-            const status = (error as any)?.response?.status;
-            if (status === 401 || status === 403) {
-                setUser(null);
-            }
+            // If we have a critical failure (like 401 on me), clear user
+            setUser(null);
         } finally {
             setLoading(false);
         }

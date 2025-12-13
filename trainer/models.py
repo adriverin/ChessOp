@@ -115,6 +115,11 @@ class UserProfile(models.Model):
     daily_moves_remaining = models.IntegerField(default=20)
     last_stamina_reset = models.DateTimeField(default=timezone.now)
 
+    class Meta:
+        permissions = [
+            ("premium_override", "Can access premium features without subscription"),
+        ]
+
     def __str__(self):
         return f"{self.user.username}'s Profile"
 
