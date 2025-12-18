@@ -3,6 +3,7 @@ import { SessionProgress } from './SessionProgress'
 import { BoardControls } from './BoardControls'
 import { SessionSidebar } from './SessionSidebar'
 import { CompletionBanner } from './CompletionBanner'
+import type { ReactNode } from 'react'
 
 export interface TrainingSessionProps {
     /** List of available openings */
@@ -15,6 +16,10 @@ export interface TrainingSessionProps {
     userStats: UserStats
     /** Whether the user is a guest */
     isGuest?: boolean
+    /** Optional injected board UI (e.g., real board). */
+    board?: ReactNode
+    /** For guest banner call-to-action. */
+    onSignUp?: () => void
 
     // === Session Actions ===
     onPlayMove?: (move: string) => void
@@ -124,6 +129,8 @@ export function TrainingSession({
     currentSession,
     userStats,
     isGuest = false,
+    board,
+    onSignUp,
     onRequestHint,
     onResetPosition,
     onStepBack,
@@ -145,7 +152,7 @@ export function TrainingSession({
 
     return (
         <div className="w-full max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-            {isGuest && <GuestBanner />}
+            {isGuest && <GuestBanner onSignUp={onSignUp} />}
 
             <div className="mb-6">
                 <div className="flex items-center gap-3 mb-2">
@@ -208,14 +215,10 @@ export function TrainingSession({
                             </div>
                         </div>
 
-                        <ChessboardPlaceholder isWhitePerspective={isWhitePerspective} />
+                        {board ?? <ChessboardPlaceholder isWhitePerspective={isWhitePerspective ?? true} />}
 
                         <div className="mt-6">
-                            <SessionProgress
-                                movesPlayed={currentSession.movesPlayed}
-                                totalMoves={currentSession.totalMoves}
-                                hintsUsed={currentSession.hintsUsed}
-                            />
+                            <SessionProgress session={currentSession} />
                         </div>
 
                         <div className="mt-6">
@@ -252,4 +255,3 @@ export function TrainingSession({
         </div>
     )
 }
-

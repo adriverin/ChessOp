@@ -368,7 +368,6 @@ export function PlayerProfile({
     isPremium = false,
     onSelectTab,
     onTrainOpening,
-    onSelectOpening,
     onViewMistake,
     onRetryMistake,
     onUpdatePreferences,
@@ -978,4 +977,3 @@ export function PlayerProfile({
         </div>
     )
 }
-

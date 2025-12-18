@@ -124,5 +124,6 @@ export interface TrainingArenaProps {
 
     onStartFreeTrial?: () => void
     onSignUp?: () => void
-}
 
+    sessionBoard?: import('react').ReactNode
+}

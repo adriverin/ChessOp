@@ -1,6 +1,16 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, {
+    forwardRef,
+    useCallback,
+    useEffect,
+    useImperativeHandle,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { Chess } from 'chess.js';
 import { Chessground } from 'chessground';
+import type { Config } from 'chessground/config';
+import type { Dests } from 'chessground/types';
 import type { Move as APIMove } from '../types';
 import { RotateCcw, CheckCircle, XCircle, HelpCircle, Brain, ChevronLeft, ChevronRight } from 'lucide-react';
 import clsx from 'clsx';
@@ -34,9 +44,17 @@ interface GameAreaProps {
     isOneMoveMode?: boolean;
     sidebarFooter?: React.ReactNode;
     fitToViewport?: boolean;
+    layout?: 'full' | 'embedded';
 }
 
-export const GameArea: React.FC<GameAreaProps> = ({
+export type GameAreaHandle = {
+    requestHint: () => void
+    resetPosition: () => void
+    stepBack: () => void
+    stepForward: () => void
+}
+
+export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
     initialFen,
     orientation = 'white',
     targetMoves,
@@ -58,8 +76,10 @@ export const GameArea: React.FC<GameAreaProps> = ({
     hideLog = false,
     isOneMoveMode = false,
     sidebarFooter,
-    fitToViewport = false
-}) => {
+    fitToViewport = false,
+    layout = 'full',
+}, ref) => {
+    const isEmbedded = layout === 'embedded'
     const [game, setGame] = useState(() => {
         try {
             if (!initialFen || initialFen === 'start') return new Chess();
@@ -111,7 +131,21 @@ export const GameArea: React.FC<GameAreaProps> = ({
     const activeMoveRef = useRef<HTMLDivElement>(null);
     const logContainerRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
-    const groundRef = useRef<any>(null);
+    const groundRef = useRef<ReturnType<typeof Chessground> | null>(null);
+    const groundHostRef = useRef<HTMLElement | null>(null);
+
+    useEffect(() => {
+        return () => {
+            try {
+                groundRef.current?.destroy?.();
+            } catch {
+                // ignore
+            } finally {
+                groundRef.current = null;
+                groundHostRef.current = null;
+            }
+        };
+    }, []);
 
     useEffect(() => {
         if (activeMoveRef.current && logContainerRef.current) {
@@ -141,11 +175,12 @@ export const GameArea: React.FC<GameAreaProps> = ({
     };
 
     // Calculate legal moves for Chessground
-    const toDests = (chess: Chess) => {
-        const dests = new Map();
-        chess.moves({ verbose: true }).forEach((m: any) => {
-            if (!dests.has(m.from)) dests.set(m.from, []);
-            dests.get(m.from).push(m.to);
+    const toDests = (chess: Chess): Dests => {
+        const dests: Dests = new Map();
+        chess.moves({ verbose: true }).forEach((move) => {
+            const existing = dests.get(move.from);
+            if (existing) existing.push(move.to);
+            else dests.set(move.from, [move.to]);
         });
         return dests;
     };
@@ -157,7 +192,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
         const isLocked = locked;
         const isWrongMoveStay = wrongMoveView && wrongMoveMode === 'stay';
 
-        const config = {
+        const config: Config = {
             fen: wrongMoveView ? wrongMoveView.fen : game.fen(),
             orientation: orientation,
             viewOnly: isLocked, // Allow interaction if wrong move (to click/revert)
@@ -205,18 +240,26 @@ export const GameArea: React.FC<GameAreaProps> = ({
             }
         };
 
+        if (groundRef.current && groundHostRef.current !== containerRef.current) {
+            try {
+                groundRef.current.destroy?.();
+            } catch {
+                // ignore
+            } finally {
+                groundRef.current = null;
+                groundHostRef.current = null;
+            }
+        }
+
         if (!groundRef.current) {
             // @ts-ignore
             groundRef.current = Chessground(containerRef.current, config);
+            groundHostRef.current = containerRef.current;
         } else {
             groundRef.current.set(config);
         }
 
-        // Cleanup
-        return () => {
-            // Chessground ref cleanup if needed
-        };
-    }, [game, orientation, locked, wrongMoveView]);
+    }, [game, orientation, locked, wrongMoveView, fitToViewport, isEmbedded]);
 
     useEffect(() => {
         if (moveIndex > maxPlayedIndex) {
@@ -489,10 +532,13 @@ export const GameArea: React.FC<GameAreaProps> = ({
         }
     }, [logRevealed]);
 
+    const lastRemainingRef = useRef<{ remaining: number; total: number } | null>(null);
     useEffect(() => {
-        if (onRemainingMovesChange) {
-            onRemainingMovesChange(remainingMoves, totalUserMoves);
-        }
+        if (!onRemainingMovesChange) return;
+        const last = lastRemainingRef.current;
+        if (last && last.remaining === remainingMoves && last.total === totalUserMoves) return;
+        lastRemainingRef.current = { remaining: remainingMoves, total: totalUserMoves };
+        onRemainingMovesChange(remainingMoves, totalUserMoves);
     }, [remainingMoves, totalUserMoves, onRemainingMovesChange]);
 
     const { capturedWhite, capturedBlack } = useMemo(() => {
@@ -692,7 +738,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
         }
     };
 
-    const jumpTo = (index: number) => {
+    const jumpTo = useCallback((index: number) => {
         const safeChess = (fen?: string) => {
             try {
                 return new Chess(fen || undefined);
@@ -717,7 +763,86 @@ export const GameArea: React.FC<GameAreaProps> = ({
         setMoveIndex(index);
         setFeedback(null); // Clear feedback when navigating
         setWrongMoveView(null);
-    };
+    }, [initialFen, mode, targetMoves, targetNextMove]);
+
+    const requestHint = useCallback(() => {
+        const mv = mode === 'mistake' ? targetNextMove : targetMoves?.[moveIndex]?.san;
+        setHint(mv || "No move available");
+        setHintsUsed(true);
+    }, [mode, targetNextMove, targetMoves, moveIndex]);
+
+    const resetPosition = useCallback(() => {
+        const safeChess = (fen?: string) => {
+            try {
+                return new Chess(fen || undefined);
+            } catch (e) { return new Chess(); }
+        };
+        const newGame = safeChess(initialFen);
+        setGame(newGame);
+        setMoveIndex(0);
+        setMaxPlayedIndex(0);
+        setFeedback(null);
+        setHint(null);
+        setHintsUsed(false);
+        setHasMistakeInLine(false);
+        setWrongMoveView(null);
+        setLogRevealed(false);
+        setIsMovesExpanded(false);
+
+        if (mode === 'sequence' && targetMoves && targetMoves.length > 0) {
+            let currentGame = newGame;
+            let currentIndex = 0;
+            const userPlaysWhite = orientation === 'white';
+            while (currentIndex < targetMoves.length) {
+                const isWhiteTurn = currentGame.turn() === 'w';
+                const isUserTurn = (userPlaysWhite && isWhiteTurn) || (!userPlaysWhite && !isWhiteTurn);
+                if (isUserTurn) break;
+                try {
+                    if (currentGame.move(targetMoves[currentIndex].san)) currentIndex++;
+                    else break;
+                } catch (e) { break; }
+            }
+            if (currentIndex > 0) {
+                setGame(new Chess(currentGame.fen()));
+                setMoveIndex(currentIndex);
+                setMaxPlayedIndex(currentIndex);
+            }
+        }
+
+        if (groundRef.current) {
+            groundRef.current.set({
+                fen: newGame.fen(),
+                turnColor: newGame.turn() === 'w' ? 'white' : 'black',
+                lastMove: undefined,
+                movable: {
+                    free: false,
+                    color: orientation,
+                    dests: toDests(newGame),
+                    showDests: true,
+                    rookCastle: true,
+                }
+            });
+        }
+    }, [initialFen, mode, orientation, targetMoves]);
+
+    const stepBack = useCallback(() => {
+        if (locked) return;
+        if (moveIndex <= 0) return;
+        jumpTo(moveIndex - 1);
+    }, [jumpTo, locked, moveIndex]);
+
+    const stepForward = useCallback(() => {
+        if (locked) return;
+        if (moveIndex >= maxPlayedIndex) return;
+        jumpTo(moveIndex + 1);
+    }, [jumpTo, locked, maxPlayedIndex, moveIndex]);
+
+    useImperativeHandle(ref, () => ({
+        requestHint,
+        resetPosition,
+        stepBack,
+        stepForward,
+    }), [requestHint, resetPosition, stepBack, stepForward]);
 
     const boardWrapperRef = useRef<HTMLDivElement>(null);
     const [boardSize, setBoardSize] = useState<number>(0);
@@ -738,6 +863,82 @@ export const GameArea: React.FC<GameAreaProps> = ({
         resizeObserver.observe(boardWrapperRef.current);
         return () => resizeObserver.disconnect();
     }, [fitToViewport]);
+
+    if (isEmbedded) {
+        if (fitToViewport) {
+            return (
+                <div
+                    ref={boardWrapperRef}
+                    className="w-full relative flex items-center justify-center"
+                    style={{ aspectRatio: '1 / 1' }}
+                >
+                    <div
+                        className="rounded-2xl overflow-hidden relative bg-slate-100 border border-slate-200 dark:bg-slate-900/70 dark:border-slate-800 transition-colors duration-200 shadow-md"
+                        style={{ width: boardSize, height: boardSize }}
+                    >
+                        <div ref={containerRef} className="w-full h-full block" />
+
+                        {wrongMoveView && wrongMoveMode === 'stay' && wrongMoveView.lastMove && (() => {
+                            const targetSquare = wrongMoveView.lastMove[1];
+                            const { x, y } = getSquareCoords(targetSquare, orientation);
+                            return (
+                                <div
+                                    className="absolute pointer-events-none z-10"
+                                    style={{
+                                        left: `${x * 12.5}%`,
+                                        top: `${y * 12.5}%`,
+                                        width: '12.5%',
+                                        height: '12.5%',
+                                    }}
+                                >
+                                    <div className="absolute top-0 right-0 w-3 h-3 bg-rose-500 rounded-full shadow-sm ring-1 ring-white/70 m-1" />
+                                </div>
+                            );
+                        })()}
+
+                        {hint && (
+                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 max-w-[90%] max-h-24 overflow-y-auto bg-indigo-900/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-indigo-400/40 text-sm text-indigo-100 text-center font-medium shadow-lg">
+                                Hint: {hint}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <div
+                className="w-full rounded-2xl overflow-hidden relative bg-slate-100 border border-slate-200 dark:bg-slate-900/70 dark:border-slate-800 transition-colors duration-200"
+                style={{ aspectRatio: '1 / 1' }}
+            >
+                <div ref={containerRef} className="w-full h-full block" />
+
+                {wrongMoveView && wrongMoveMode === 'stay' && wrongMoveView.lastMove && (() => {
+                    const targetSquare = wrongMoveView.lastMove[1];
+                    const { x, y } = getSquareCoords(targetSquare, orientation);
+                    return (
+                        <div
+                            className="absolute pointer-events-none z-10"
+                            style={{
+                                left: `${x * 12.5}%`,
+                                top: `${y * 12.5}%`,
+                                width: '12.5%',
+                                height: '12.5%',
+                            }}
+                        >
+                            <div className="absolute top-0 right-0 w-3 h-3 bg-rose-500 rounded-full shadow-sm ring-1 ring-white/70 m-1" />
+                        </div>
+                    );
+                })()}
+
+                {hint && (
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 max-w-[90%] max-h-24 overflow-y-auto bg-indigo-900/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-indigo-400/40 text-sm text-indigo-100 text-center font-medium shadow-lg">
+                        Hint: {hint}
+                    </div>
+                )}
+            </div>
+        );
+    }
 
     return (
         <div className={clsx("flex flex-col lg:flex-row gap-4 justify-center items-stretch w-full", fitToViewport ? "h-full" : "")}>
@@ -810,7 +1011,10 @@ export const GameArea: React.FC<GameAreaProps> = ({
                     </div>
                 ) : (
                     /* Default / Drill Mode: Standard aspect-ratio sizing */
-                    <div className="w-full aspect-square rounded-2xl overflow-hidden relative bg-slate-100 border border-slate-200 dark:bg-slate-900/70 dark:border-slate-800 transition-colors duration-200">
+                    <div
+                        className="w-full rounded-2xl overflow-hidden relative bg-slate-100 border border-slate-200 dark:bg-slate-900/70 dark:border-slate-800 transition-colors duration-200"
+                        style={{ aspectRatio: '1 / 1' }}
+                    >
                         <div
                             ref={containerRef}
                             className="w-full h-full block"
@@ -856,11 +1060,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
 
                     <div className="flex gap-2">
                         <button
-                            onClick={() => {
-                                const mv = mode === 'mistake' ? targetNextMove : targetMoves?.[moveIndex]?.san;
-                                setHint(mv || "No move available");
-                                setHintsUsed(true);
-                            }}
+                            onClick={requestHint}
                             disabled={locked}
                             className="p-2 hover:bg-slate-800 rounded-lg text-slate-400 disabled:opacity-50 transition-colors"
                             title="Hint"
@@ -868,60 +1068,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                             <HelpCircle size={18} />
                         </button>
                         <button
-                            onClick={() => {
-                                // Reset Logic
-                                const safeChess = (fen?: string) => {
-                                    try {
-                                        return new Chess(fen || undefined);
-                                    } catch (e) { return new Chess(); }
-                                };
-                                const newGame = safeChess(initialFen);
-                                setGame(newGame);
-                                setMoveIndex(0);
-                                setMaxPlayedIndex(0);
-                                setFeedback(null);
-                                setHint(null);
-                                setHintsUsed(false);
-                                setHasMistakeInLine(false);
-                                setWrongMoveView(null);
-                                setLogRevealed(false);
-                                setIsMovesExpanded(false);
-
-                                if (mode === 'sequence' && targetMoves && targetMoves.length > 0) {
-                                    let currentGame = newGame;
-                                    let currentIndex = 0;
-                                    const userPlaysWhite = orientation === 'white';
-                                    while (currentIndex < targetMoves.length) {
-                                        const isWhiteTurn = currentGame.turn() === 'w';
-                                        const isUserTurn = (userPlaysWhite && isWhiteTurn) || (!userPlaysWhite && !isWhiteTurn);
-                                        if (isUserTurn) break;
-                                        try {
-                                            if (currentGame.move(targetMoves[currentIndex].san)) currentIndex++;
-                                            else break;
-                                        } catch (e) { break; }
-                                    }
-                                    if (currentIndex > 0) {
-                                        setGame(new Chess(currentGame.fen()));
-                                        setMoveIndex(currentIndex);
-                                        setMaxPlayedIndex(currentIndex);
-                                    }
-                                }
-
-                                if (groundRef.current) {
-                                    groundRef.current.set({
-                                        fen: newGame.fen(),
-                                        turnColor: newGame.turn() === 'w' ? 'white' : 'black',
-                                        lastMove: undefined,
-                                        movable: {
-                                            free: false,
-                                            color: orientation,
-                                            dests: toDests(newGame),
-                                            showDests: true,
-                                            rookCastle: true,
-                                        }
-                                    });
-                                }
-                            }}
+                            onClick={resetPosition}
                             disabled={locked}
                             className="p-2 hover:bg-slate-800 rounded-lg text-slate-300 disabled:opacity-50 transition-colors"
                             title="Reset Position"
@@ -931,7 +1078,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
 
                         <div className="flex items-center rounded-lg border border-slate-800 bg-slate-900/80 p-0.5">
                             <button
-                                onClick={() => jumpTo(moveIndex - 1)}
+                                onClick={stepBack}
                                 disabled={moveIndex <= 0}
                                 className="p-1.5 text-slate-400 hover:text-indigo-200 hover:bg-slate-800 rounded-md disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                                 title="Step Back"
@@ -939,7 +1086,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                 <ChevronLeft size={16} />
                             </button>
                             <button
-                                onClick={() => jumpTo(moveIndex + 1)}
+                                onClick={stepForward}
                                 disabled={moveIndex >= maxPlayedIndex}
                                 className="p-1.5 text-slate-400 hover:text-indigo-200 hover:bg-slate-800 rounded-md disabled:opacity-30 disabled:hover:bg-transparent transition-all"
                                 title="Step Forward"
@@ -1097,4 +1244,4 @@ export const GameArea: React.FC<GameAreaProps> = ({
             </div>
         </div>
     );
-};
+});

@@ -18,6 +18,7 @@ export function TrainingArena({
     userStats,
     isGuest = false,
     isPremium = false,
+    sessionBoard,
     onStartSession,
     onPlayMove,
     onRequestHint,
@@ -146,6 +147,8 @@ export function TrainingArena({
                         currentSession={currentSession}
                         userStats={userStats}
                         isGuest={isGuest}
+                        onSignUp={onSignUp}
+                        board={sessionBoard}
                         onPlayMove={onPlayMove}
                         onRequestHint={onRequestHint}
                         onResetPosition={onResetPosition}
@@ -214,4 +217,3 @@ export function TrainingArena({
         </div>
     )
 }
-

@@ -80,6 +80,7 @@ export function BoardControls({
                     onClick={onStepBack}
                     disabled={isComplete}
                     className={iconButton}
+                    aria-label="Step back"
                     title="Step back"
                     type="button"
                 >
@@ -89,6 +90,7 @@ export function BoardControls({
                     onClick={onStepForward}
                     disabled={isComplete}
                     className={iconButton}
+                    aria-label="Step forward"
                     title="Step forward"
                     type="button"
                 >
@@ -129,4 +131,3 @@ export function BoardControls({
         </div>
     )
 }
-

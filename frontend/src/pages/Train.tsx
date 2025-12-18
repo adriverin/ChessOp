@@ -1,19 +1,28 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
-import type { OpeningsResponse, RecallSessionResponse } from '../types';
+import type { OpeningsResponse, OpeningDrillResponse, RecallSessionResponse, RecallSessionVariation } from '../types';
 import type { MistakeListItem } from '../api/client';
-import { GameArea } from '../components/GameArea';
-import { GuestModeBanner } from '../components/GuestModeBanner';
+import { GameArea, type GameAreaHandle } from '../components/GameArea';
 import { useUser } from '../context/UserContext';
-import { Trophy, ArrowRight } from 'lucide-react';
-import clsx from 'clsx';
 import { Chess } from 'chess.js';
 import { TrainingArena } from '../components/TrainingArena/components';
-import type { Difficulty as ArenaDifficulty, Side as ArenaSide } from '../components/TrainingArena/types';
+import type {
+    CurrentSession as ArenaCurrentSession,
+    Difficulty as ArenaDifficulty,
+    Side as ArenaSide,
+    TrainingMode as ArenaTrainingMode,
+} from '../components/TrainingArena/types';
+
+type OneMovePuzzleSession = Omit<RecallSessionVariation, 'type'> & {
+    type: 'mistake'
+    fen: string
+    correct_move: string
+    variation_name: string
+}
 
 export const Train: React.FC = () => {
-    const { user, refreshUser, loading: userLoading } = useUser();
+    const { user, refreshUser } = useUser();
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
     const location = useLocation();
@@ -43,6 +52,14 @@ export const Train: React.FC = () => {
     const [openings, setOpenings] = useState<{ slug: string; name: string; variations: { id: string; name: string; label: string; locked?: boolean }[] }[]>([]);
     const [selectedOpening, setSelectedOpening] = useState<string | null>(null);
     const [selectedVariation, setSelectedVariation] = useState<string | null>(searchParams.get('id'));
+    const [openingDrillSession, setOpeningDrillSession] = useState<OpeningDrillResponse | null>(null);
+    const [arenaProgress, setArenaProgress] = useState<{ movesPlayed: number; totalMoves: number }>({
+        movesPlayed: 0,
+        totalMoves: 0,
+    });
+    const [arenaHintsUsed, setArenaHintsUsed] = useState(0);
+    const [arenaStartedAt, setArenaStartedAt] = useState(() => new Date().toISOString());
+    const gameAreaRef = useRef<GameAreaHandle | null>(null);
 
     const ONE_MOVE_REPERTOIRE_ONLY_KEY = 'one_move_repertoire_only';
     const PREMIUM_LOCK_MESSAGE_KEY = 'premium_line_locked';
@@ -79,9 +96,8 @@ export const Train: React.FC = () => {
     const [hasRepertoire, setHasRepertoire] = useState(false);
     const sideParam = searchParams.get('side') as 'white' | 'black' | null;
     const openingFilter = searchParams.get('opening_id') || undefined;
-    const hasSpecificOpening = Boolean(openingFilter);
-    const isReviewMode = searchParams.get('mode') === 'review';
     const isOneMoveMode = searchParams.get('mode') === 'one_move';
+    const isOpeningDrillMode = searchParams.get('mode') === 'opening_drill';
 
     // Load available openings and variations
     useEffect(() => {
@@ -303,25 +319,7 @@ export const Train: React.FC = () => {
         };
     }, [user, isGuestUser, isPremiumUser, staminaExhausted, variationsLearned, mistakes.length]);
 
-    const openingOptions = useMemo(() => openings.map(o => ({ slug: o.slug, name: o.name })), [openings]);
-    // In One Move Drill (no openingFilter), do not default to openings[0].
-    // Only default if we are in a mode that implies browsing (but even then, maybe better not to).
-    // Let's rely on openingFilter or manual selection.
     const currentOpening = openings.find(o => o.slug === (openingFilter || selectedOpening)) || openings.find(o => o.slug === selectedOpening);
-    const lineOptions = currentOpening ? currentOpening.variations : [];
-    const displayedLineOptions = useMemo(() => {
-        if (isOneMoveMode && session && session.type !== 'mistake') {
-            return [{ id: session.id, label: session.name }];
-        }
-        return lineOptions;
-    }, [isOneMoveMode, session, lineOptions]);
-
-    const displayedSelectedLineId = useMemo(() => {
-        if (isOneMoveMode && session && session.type !== 'mistake') {
-            return session.id;
-        }
-        return selectedVariation || undefined;
-    }, [isOneMoveMode, session, selectedVariation]);
 
     useEffect(() => {
         // Only auto-select if we have a filter but for some reason selectedOpening isn't set yet
@@ -374,10 +372,29 @@ export const Train: React.FC = () => {
 
     const fetchSession = useCallback(async () => {
         setLoading(true);
+        setArenaProgress({ movesPlayed: 0, totalMoves: 0 });
+        setArenaHintsUsed(0);
+        setArenaStartedAt(new Date().toISOString());
         setCompleted(false);
         setMessage(null);
         try {
             setStaminaExhausted(false);
+            setOpeningDrillSession(null);
+
+            if (isOpeningDrillMode) {
+                const openingId = openingFilter || selectedOpening || undefined;
+                if (!openingId) {
+                    setMessage("Select an opening to start Opening Drill.");
+                    return;
+                }
+                const data = await api.getOpeningDrillSession(openingId);
+                setOpeningDrillSession(data);
+                setSession(null);
+                setSelectedOpening(openingId);
+                setSelectedVariation(data.variation.id);
+                return;
+            }
+
             const mistakeId = searchParams.get('mistake_id') || undefined;
             if (mistakeId) {
                 const data = await api.getRecallSession(undefined, { t: Date.now() }, undefined, mistakeId);
@@ -430,10 +447,23 @@ export const Train: React.FC = () => {
             if (!selectedVariation && variationId) {
                 setSelectedVariation(variationId);
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Failed to fetch session", err);
-            if (err.response?.status === 403) {
-                const msg = err.response?.data?.error || err.response?.data?.message;
+            const response = (() => {
+                if (typeof err !== 'object' || err === null) return undefined;
+                if (!('response' in err)) return undefined;
+                return (err as { response?: { status?: number; data?: unknown } }).response;
+            })();
+            const status = response?.status;
+            const msg = (() => {
+                const data = response?.data;
+                if (typeof data !== 'object' || data === null) return undefined;
+                const record = data as { error?: unknown; message?: unknown };
+                const value = record.error ?? record.message;
+                return typeof value === 'string' ? value : undefined;
+            })();
+
+            if (status === 403) {
                 if (msg && (msg.includes("stamina") || msg.includes("limit"))) {
                     setMessage("You are out of stamina for today! Come back tomorrow.");
                     setStaminaExhausted(true);
@@ -442,7 +472,7 @@ export const Train: React.FC = () => {
                 } else {
                     setMessage("Access denied. Please check your account status.");
                 }
-            } else if (err.response?.status === 404) {
+            } else if (status === 404) {
                 setMessage("No variations match your specific filters.");
             } else {
                 setMessage("No training available right now.");
@@ -458,6 +488,8 @@ export const Train: React.FC = () => {
         sideParam,
         openingFilter,
         isOneMoveMode,
+        isOpeningDrillMode,
+        selectedOpening,
         fetchOneMoveSession,
         fetchSpecificOpeningSession,
     ]);
@@ -467,36 +499,28 @@ export const Train: React.FC = () => {
         fetchSession();
     }, [fetchSession, showEntry]);
 
-    const updateSearchWithVariation = (variationId: string) => {
-        const next = new URLSearchParams(searchParams);
-        if (variationId) {
-            next.set('id', variationId);
-        } else {
-            next.delete('id');
-        }
-        setSearchParams(next);
-    };
-
-    const handleSelectOpening = (slug: string) => {
-        const newOpening = openings.find(o => o.slug === slug);
-        if (!newOpening) return;
-        setSelectedOpening(slug);
-        const firstVar = newOpening.variations[0]?.id || null;
-        setSelectedVariation(firstVar);
-        if (firstVar) {
-            updateSearchWithVariation(firstVar);
-        }
-    };
-
-    const handleSelectLine = (variationId: string) => {
-        setSelectedVariation(variationId);
-        updateSearchWithVariation(variationId);
-    };
-
     const handleComplete = async (success: boolean, hintUsed: boolean) => {
-        if (!session) return;
-
         const isGuest = !user || !user.is_authenticated;
+
+        if (isOpeningDrillMode) {
+            if (!openingDrillSession) return;
+            setCompleted(true);
+            try {
+                await api.submitResult({
+                    type: 'variation_complete',
+                    id: openingDrillSession.variation.id,
+                    hint_used: hintUsed,
+                    mode: 'opening_drill',
+                });
+                if (!isGuest) refreshUser();
+                setMessage(hintUsed ? 'Line completed (with hint).' : 'Line completed!');
+            } catch (err) {
+                console.error(err);
+            }
+            return;
+        }
+
+        if (!session) return;
 
         // One Move Drill: Immediate next session
         if (isOneMoveMode) {
@@ -554,10 +578,30 @@ export const Train: React.FC = () => {
     };
 
     const handleMistake = async (fen: string, wrongMove: string, correctMove: string) => {
+        const isGuest = !user || !user.is_authenticated;
+
+        if (isOpeningDrillMode) {
+            if (!openingDrillSession) return;
+            try {
+                await api.submitResult({
+                    type: 'blunder_made',
+                    id: openingDrillSession.variation.id,
+                    fen,
+                    wrong_move: wrongMove,
+                    correct_move: correctMove,
+                    mode: 'opening_drill',
+                });
+                if (!isGuest) {
+                    void refreshMistakes();
+                }
+            } catch (err) {
+                console.error(err);
+            }
+            return;
+        }
+
         if (!session) return;
         if (session.type === 'mistake') return; // Don't double count mistakes in mistake mode
-
-        const isGuest = !user || !user.is_authenticated;
 
         // One Move Drill: Handle mistake and next
         if (isOneMoveMode) {
@@ -565,7 +609,7 @@ export const Train: React.FC = () => {
                 // Log mistake
                 await api.submitResult({
                     type: 'blunder_made',
-                    id: (session as any).id,
+                    id: session.id,
                     fen,
                     wrong_move: wrongMove,
                     correct_move: correctMove,
@@ -594,11 +638,14 @@ export const Train: React.FC = () => {
         try {
             await api.submitResult({
                 type: 'blunder_made',
-                id: (session as any).id, // Type cast for safety
+                id: session.id,
                 fen,
                 wrong_move: wrongMove,
                 correct_move: correctMove
             });
+            if (!isGuest) {
+                void refreshMistakes();
+            }
         } catch (err) {
             console.error(err);
         }
@@ -607,7 +654,7 @@ export const Train: React.FC = () => {
     // Blocking check removed to allow Guest Training
     // if (!user || !user.is_authenticated) { ... }
 
-    const oneMoveSession = useMemo(() => {
+    const oneMoveSession = useMemo<OneMovePuzzleSession | null>(() => {
         if (!isOneMoveMode || !session || session.type === 'mistake' || !session.moves) return null;
 
         try {
@@ -639,7 +686,7 @@ export const Train: React.FC = () => {
 
             return {
                 ...session,
-                type: 'mistake' as const, // Treat as single-move puzzle
+                type: 'mistake', // Treat as single-move puzzle
                 fen: selected.fen,
                 correct_move: selected.move,
                 variation_name: session.name,
@@ -651,7 +698,7 @@ export const Train: React.FC = () => {
         }
     }, [session, isOneMoveMode]);
 
-    const activeSession = isOneMoveMode && oneMoveSession ? oneMoveSession : session;
+    const activeSession: RecallSessionResponse | OneMovePuzzleSession | null = isOneMoveMode && oneMoveSession ? oneMoveSession : session;
 
     const handleArenaSignUp = () => {
         navigate('/signup', { state: { backgroundLocation: location } });
@@ -664,19 +711,86 @@ export const Train: React.FC = () => {
         setSearchParams(next);
     };
 
-    const handleArenaStartSession = (mode: 'opening-training' | 'one-move-drill' | 'opening-drill', openingId?: string, variationId?: string) => {
-        if (mode === 'opening-drill') {
-            if (openingId) navigate(`/drill?opening_id=${encodeURIComponent(openingId)}`);
-            else navigate('/drill');
-            return;
-        }
+    const handleArenaRequestHint = () => {
+        setArenaHintsUsed((prev) => prev + 1);
+        gameAreaRef.current?.requestHint();
+    };
 
+    const handleArenaResetPosition = () => {
+        setArenaHintsUsed(0);
+        setCompleted(false);
+        gameAreaRef.current?.resetPosition();
+    };
+
+    const handleArenaStepBack = () => {
+        gameAreaRef.current?.stepBack();
+    };
+
+    const handleArenaStepForward = () => {
+        gameAreaRef.current?.stepForward();
+    };
+
+    const handleRemainingMovesChange = useCallback((remaining: number, total: number) => {
+        setArenaProgress((prev) => {
+            const movesPlayed = Math.max(0, total - remaining);
+            if (prev.movesPlayed === movesPlayed && prev.totalMoves === total) return prev;
+            return { movesPlayed, totalMoves: total };
+        });
+    }, []);
+
+    const handleArenaSwitchMode = (mode: ArenaTrainingMode) => {
         const next = new URLSearchParams(searchParams);
         next.delete('mistake_id');
         next.delete('t');
 
         if (mode === 'one-move-drill') {
             next.set('mode', 'one_move');
+            next.delete('id');
+        } else if (mode === 'opening-drill') {
+            next.set('mode', 'opening_drill');
+            next.delete('id');
+        } else {
+            next.delete('mode');
+        }
+
+        next.set('t', String(Date.now()));
+        setSearchParams(next);
+        setShowEntry(false);
+    };
+
+    const handleArenaSelectOpening = (openingId: string) => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('mistake_id');
+        next.set('opening_id', openingId);
+        next.delete('id');
+        next.set('t', String(Date.now()));
+        setSearchParams(next);
+        setShowEntry(false);
+    };
+
+    const handleArenaSelectVariation = (variationId: string) => {
+        if (isOneMoveMode || isOpeningDrillMode) {
+            setSelectedVariation(variationId);
+            return;
+        }
+        const next = new URLSearchParams(searchParams);
+        next.delete('mistake_id');
+        next.set('id', variationId);
+        next.set('t', String(Date.now()));
+        setSearchParams(next);
+        setShowEntry(false);
+    };
+
+    const handleArenaStartSession = (mode: 'opening-training' | 'one-move-drill' | 'opening-drill', openingId?: string, variationId?: string) => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('mistake_id');
+        next.delete('t');
+
+        if (mode === 'one-move-drill') {
+            next.set('mode', 'one_move');
+            next.delete('id');
+        } else if (mode === 'opening-drill') {
+            next.set('mode', 'opening_drill');
             next.delete('id');
         } else {
             next.delete('mode');
@@ -685,7 +799,7 @@ export const Train: React.FC = () => {
         if (openingId) next.set('opening_id', openingId);
         else next.delete('opening_id');
 
-        if (variationId && mode !== 'one-move-drill') next.set('id', variationId);
+        if (variationId && mode !== 'one-move-drill' && mode !== 'opening-drill') next.set('id', variationId);
         else next.delete('id');
 
         next.set('t', String(Date.now()));
@@ -708,20 +822,8 @@ export const Train: React.FC = () => {
         setShowEntry(false);
     };
 
-    const handleArenaDismissMistake = async (mistakeId: string) => {
-        if (isGuestUser) {
-            handleArenaSignUp();
-            return;
-        }
-        const parsed = Number(mistakeId);
-        if (!Number.isFinite(parsed)) return;
-        try {
-            await api.submitResult({ type: 'mistake_fixed', mistake_id: parsed, hint_used: true });
-            setMistakes((prev) => prev.filter((m) => m.id !== mistakeId));
-            if (!isGuestUser) refreshUser();
-        } catch (e) {
-            console.error(e);
-        }
+    const handleArenaDismissMistake = (mistakeId: string) => {
+        setMistakes((prev) => prev.filter((m) => m.id !== mistakeId));
     };
 
     if (showEntry) {
@@ -760,148 +862,206 @@ export const Train: React.FC = () => {
 
     if (loading) return <div className="flex justify-center items-center h-64 text-slate-300">Loading session...</div>;
 
-    const isPremiumLockedMessage = message === PREMIUM_LOCK_MESSAGE_KEY;
+    const arenaMode: ArenaTrainingMode = isOpeningDrillMode
+        ? 'opening-drill'
+        : isOneMoveMode
+            ? 'one-move-drill'
+            : 'opening-training';
 
-    if (!session) {
+    const wrongMoveModeEnabled = (() => {
+        try {
+            return localStorage.getItem('trainingArena.wrongMoveMode') === 'true';
+        } catch {
+            return false;
+        }
+    })();
+
+    const openingsForArena = arenaOpenings.slice();
+    const variationsForArena = arenaVariations.slice();
+
+    let openingId = openingFilter || selectedOpening || openingsForArena[0]?.id || '';
+    let variationId = selectedVariation || variationsForArena.find(v => v.openingId === openingId)?.id || variationsForArena[0]?.id || '';
+
+    if (isOpeningDrillMode && openingDrillSession) {
+        openingId = openingFilter || selectedOpening || openingId;
+        variationId = openingDrillSession.variation.id;
+    }
+
+    if (!isOpeningDrillMode && activeSession) {
+        if (activeSession.opening?.slug) {
+            openingId = activeSession.opening.slug;
+        }
+
+        if (activeSession.type !== 'mistake') {
+            variationId = activeSession.id;
+        } else {
+            const syntheticOpeningId = openingId || 'unknown-opening';
+            if (!openingsForArena.some(o => o.id === syntheticOpeningId)) {
+                openingsForArena.push({
+                    id: syntheticOpeningId,
+                    name: activeSession.opening?.name ?? 'Unknown opening',
+                    description: '',
+                    side: 'white',
+                    eco: '',
+                    imageUrl: '',
+                    variationCount: 0,
+                    isPremium: false,
+                });
+            }
+            openingId = syntheticOpeningId;
+            variationId = `mistake-${activeSession.id}`;
+            if (!variationsForArena.some(v => v.id === variationId)) {
+                variationsForArena.push({
+                    id: variationId,
+                    openingId: syntheticOpeningId,
+                    name: activeSession.variation_name || 'Mistake',
+                    description: '',
+                    moves: '',
+                    moveCount: 1,
+                    difficulty: 'beginner',
+                    isPremium: false,
+                    isLocked: false,
+                    isInRepertoire: false,
+                });
+            }
+        }
+    }
+
+    const hasActiveSession = isOpeningDrillMode ? !!openingDrillSession : !!activeSession;
+    if (!hasActiveSession) {
         return (
             <div className="text-center py-20">
-                <h2 className="text-3xl font-semibold text-slate-900 dark:text-white mb-3">{isPremiumLockedMessage ? "This line is Premium" : (message || "All caught up!")}</h2>
+                <h2 className="text-3xl font-semibold text-slate-900 dark:text-white mb-3">
+                    {message || 'No training available right now.'}
+                </h2>
                 <p className="text-slate-600 dark:text-slate-400 mb-8">
-                    {isPremiumLockedMessage
-                        ? "Premium unlocks all lines, making training and drills far more effective."
-                        : "Try adjusting your filters or come back later."}
+                    Try adjusting filters, or start a new session from Training Arena.
                 </p>
                 <div className="flex items-center justify-center gap-3 flex-wrap">
                     <button
+                        onClick={() => {
+                            const next = new URLSearchParams(searchParams);
+                            next.delete('mistake_id');
+                            next.delete('id');
+                            next.delete('t');
+                            next.delete('mode');
+                            setSearchParams(next);
+                            setShowEntry(true);
+                        }}
+                        className="bg-emerald-600 text-white px-6 py-2 rounded-full hover:bg-emerald-700 transition shadow-sm"
+                        type="button"
+                    >
+                        Back to Training Arena
+                    </button>
+                    <button
                         onClick={fetchSession}
-                        className="bg-indigo-500 text-white px-6 py-2 rounded-full hover:bg-indigo-400 transition shadow-lg shadow-indigo-900/30"
+                        className="bg-slate-900 text-white px-6 py-2 rounded-full hover:bg-slate-800 transition shadow-sm dark:bg-slate-800 dark:hover:bg-slate-700"
+                        type="button"
                     >
                         Check Again
                     </button>
-                    {isPremiumLockedMessage && (
-                        <button
-                            onClick={() => navigate('/pricing')}
-                            className="px-5 py-2 rounded-full border border-indigo-200 text-indigo-800 bg-indigo-50 hover:bg-indigo-100 font-semibold shadow-sm transition-colors dark:border-indigo-500/40 dark:text-indigo-100 dark:bg-indigo-500/15 dark:hover:bg-indigo-500/25"
-                        >
-                            Start free trial
-                        </button>
-                    )}
                 </div>
             </div>
         );
     }
 
-    const repertoireOnlyControl = !hasSpecificOpening ? (
-        <div className="flex items-start gap-3 bg-white/85 border border-slate-200 rounded-xl p-3 shadow-sm dark:bg-slate-900/60 dark:border-slate-800">
-            <input
-                type="checkbox"
-                id="use-repertoire-only"
-                className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-indigo-500"
-                checked={hasRepertoire && useRepertoireOnly}
-                disabled={!hasRepertoire}
-                onChange={(e) => {
-                    const next = e.target.checked;
-                    didInitRepertoireOnlyRef.current = true;
-                    setUseRepertoireOnly(next);
-                    try {
-                        localStorage.setItem(ONE_MOVE_REPERTOIRE_ONLY_KEY, String(next));
-                    } catch {
-                        // ignore localStorage errors
-                    }
-                }}
-            />
-            <label htmlFor="use-repertoire-only" className={clsx("flex flex-col text-sm", !hasRepertoire && "text-slate-500")}>
-                <span className="font-semibold text-slate-900 dark:text-slate-100">Use my repertoire only</span>
-                <span className="text-xs text-slate-600 dark:text-slate-400">If enabled, recall uses only your repertoire openings for this side.</span>
-                {!hasRepertoire && (
-                    <span className="text-[11px] text-slate-500 mt-1">Add openings to your repertoire to enable this.</span>
-                )}
-            </label>
-        </div>
-    ) : null;
+    const fallbackTotalMoves = (() => {
+        if (arenaProgress.totalMoves > 0) return arenaProgress.totalMoves;
+        if (isOpeningDrillMode && openingDrillSession) return openingDrillSession.variation.moves.length;
+        if (!isOpeningDrillMode && activeSession && activeSession.type !== 'mistake') return activeSession.moves.length;
+        return 1;
+    })();
+
+    const arenaCurrentSession: ArenaCurrentSession = {
+        mode: arenaMode,
+        openingId,
+        variationId,
+        movesPlayed: arenaProgress.movesPlayed,
+        totalMoves: fallbackTotalMoves,
+        hintsUsed: arenaHintsUsed,
+        isComplete: !isOneMoveMode && completed,
+        startedAt: arenaStartedAt,
+        filters: {
+            repertoireOnly: useRepertoireOnly,
+            wrongMoveMode: wrongMoveModeEnabled,
+            side: sideParam,
+        },
+    };
+
+    const sessionBoard = (
+        <GameArea
+            ref={gameAreaRef}
+            mode={isOpeningDrillMode ? 'sequence' : (activeSession?.type === 'mistake' ? 'mistake' : 'sequence')}
+            sessionTitle={
+                isOpeningDrillMode
+                    ? (openingDrillSession?.opening.name ?? 'Opening Drill')
+                    : (activeSession?.type === 'mistake' ? activeSession.variation_name : activeSession?.name)
+            }
+            sessionType={isOpeningDrillMode ? 'opening_drill' : activeSession?.type}
+            initialFen={!isOpeningDrillMode && activeSession?.type === 'mistake' ? activeSession.fen : undefined}
+            targetNextMove={!isOpeningDrillMode && activeSession?.type === 'mistake' ? activeSession.correct_move : undefined}
+            targetMoves={
+                isOpeningDrillMode
+                    ? openingDrillSession?.variation.moves
+                    : (activeSession && activeSession.type !== 'mistake' ? activeSession.moves : undefined)
+            }
+            orientation={isOpeningDrillMode ? openingDrillSession?.variation.orientation : activeSession?.orientation}
+            onComplete={handleComplete}
+            onMistake={handleMistake}
+            locked={!isOneMoveMode && completed}
+            headerMode={isOpeningDrillMode ? 'drill' : 'training'}
+            showInlineProgress={false}
+            hideLog={true}
+            isOneMoveMode={isOneMoveMode}
+            layout="embedded"
+            fitToViewport={false}
+            onRemainingMovesChange={handleRemainingMovesChange}
+        />
+    );
 
     return (
-        <div
-            className="w-full max-w-6xl mx-auto flex flex-col overflow-hidden"
-            style={{ height: 'calc(100dvh - 6.5rem)' }} // 100dvh - (Header ~3.5rem + Padding ~3rem)
-        >
-            <GuestModeBanner isAuthenticated={!!user?.is_authenticated} isLoading={userLoading} />
-
-            <div className="flex-1 min-h-0 bg-white/85 border border-slate-200 rounded-2xl p-3 sm:p-4 shadow-lg shadow-slate-200/60 relative dark:bg-slate-900/70 dark:border-slate-800 dark:shadow-2xl dark:shadow-black/40 transition-colors duration-200 flex flex-col overflow-hidden">
-                {completed && (
-                    <div className="absolute top-0 left-0 right-0 z-20 flex justify-center p-2">
-                        <div className="w-full max-w-2xl rounded-lg border border-emerald-400/60 bg-emerald-100/95 p-3 flex items-center justify-between animate-in fade-in slide-in-from-top-2 duration-300 shadow-lg shadow-emerald-200/70 dark:bg-emerald-900/85 dark:border-emerald-500/60 dark:shadow-emerald-900/50">
-                            <div className="flex items-center gap-3 text-emerald-800 dark:text-emerald-100">
-                                <div className="w-8 h-8 bg-emerald-200 text-emerald-800 rounded-full flex items-center justify-center shrink-0 shadow-inner shadow-emerald-300/60 dark:bg-emerald-800/90 dark:text-emerald-100">
-                                    <Trophy size={16} />
-                                </div>
-                                <div>
-                                    <div className="font-semibold text-emerald-900 text-sm dark:text-emerald-50">Session Complete</div>
-                                    <div className="text-xs font-medium text-emerald-800/90 dark:text-emerald-100/90">{message}</div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => {
-                                        setCompleted(false);
-                                        setMessage(null);
-                                        fetchSession();
-                                    }}
-                                    className="text-xs font-medium text-indigo-700 hover:text-indigo-900 px-3 py-1.5 hover:bg-indigo-100 rounded-md transition-colors dark:text-indigo-200 dark:hover:text-white dark:hover:bg-indigo-500/20"
-                                >
-                                    Try again
-                                </button>
-                                {isReviewMode ? (
-                                    <button
-                                        onClick={() => navigate('/openings')}
-                                        className="inline-flex items-center gap-1 bg-indigo-500 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-indigo-400 transition shadow-lg shadow-indigo-900/40"
-                                    >
-                                        Train another opening <ArrowRight size={12} />
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={fetchSession}
-                                        className="inline-flex items-center gap-1 bg-indigo-500 text-white text-xs font-medium px-3 py-1.5 rounded-md hover:bg-indigo-400 transition shadow-lg shadow-indigo-900/40"
-                                    >
-                                        Next <ArrowRight size={12} />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
-                <div className="flex-1 min-h-0">
-                    <GameArea
-                        mode={activeSession?.type === 'mistake' ? 'mistake' : 'sequence'}
-                        sessionTitle={activeSession?.type === 'mistake' ? (activeSession as any).variation_name : activeSession?.name}
-                        sessionType={activeSession?.type}
-                        initialFen={activeSession?.type === 'mistake' ? (activeSession as any).fen : undefined}
-                        targetNextMove={activeSession?.type === 'mistake' ? (activeSession as any).correct_move : undefined}
-                        targetMoves={activeSession?.type !== 'mistake' ? (activeSession as any).moves : undefined}
-                        orientation={activeSession?.orientation}
-                        onComplete={handleComplete}
-                        onMistake={handleMistake}
-                        locked={completed}
-                        opening={
-                            (isOneMoveMode && session && 'opening' in session && session.opening)
-                                ? { slug: session.opening.slug, name: session.opening.name }
-                                : (currentOpening
-                                    ? { slug: currentOpening.slug, name: currentOpening.name }
-                                    : (session && 'opening' in session && session.opening ? { slug: session.opening.slug, name: session.opening.name } : undefined))
-                        }
-                        openingOptions={openingOptions}
-                        onSelectOpening={handleSelectOpening}
-                        lineOptions={displayedLineOptions.map(l => ({ id: l.id, label: l.label }))}
-                        selectedLineId={displayedSelectedLineId}
-                        onSelectLine={handleSelectLine}
-                        headerMode="training"
-                        hideLog={isOneMoveMode}
-                        isOneMoveMode={isOneMoveMode}
-                        sidebarFooter={repertoireOnlyControl}
-                        fitToViewport={true}
-                    />
-                </div>
-            </div>
-        </div>
+        <TrainingArena
+            openings={openingsForArena}
+            variations={variationsForArena}
+            userProgress={[]}
+            userMistakes={arenaUserMistakes}
+            currentSession={arenaCurrentSession}
+            userStats={arenaUserStats}
+            isGuest={isGuestUser}
+            isPremium={isPremiumUser}
+            sessionBoard={sessionBoard}
+            onRequestHint={handleArenaRequestHint}
+            onResetPosition={handleArenaResetPosition}
+            onStepBack={handleArenaStepBack}
+            onStepForward={handleArenaStepForward}
+            onNextSession={() => {
+                setCompleted(false);
+                fetchSession();
+            }}
+            onRetrySession={() => {
+                setCompleted(false);
+                setArenaHintsUsed(0);
+                gameAreaRef.current?.resetPosition();
+            }}
+            onSelectOpening={handleArenaSelectOpening}
+            onSelectVariation={handleArenaSelectVariation}
+            onSwitchMode={handleArenaSwitchMode}
+            onToggleRepertoireOnly={(enabled) => {
+                didInitRepertoireOnlyRef.current = true;
+                setUseRepertoireOnly(enabled);
+                setParam('repertoire_only', enabled ? 'true' : null);
+            }}
+            onToggleWrongMoveMode={(enabled) => {
+                try {
+                    localStorage.setItem('wrongMoveMode', enabled ? 'stay' : 'snap');
+                    localStorage.setItem('trainingArena.wrongMoveMode', enabled ? 'true' : 'false');
+                } catch {
+                    // ignore
+                }
+            }}
+            onChangeSideFilter={(side) => setParam('side', side)}
+            onStartFreeTrial={() => navigate('/pricing')}
+            onSignUp={handleArenaSignUp}
+        />
     );
 };
