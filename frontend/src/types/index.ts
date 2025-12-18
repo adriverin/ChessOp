@@ -8,6 +8,14 @@ export interface Quest {
 }
 
 export interface DashboardResponse {
+    /** From /api/auth/me/ (merged in UserContext) */
+    id?: string;
+    /** From /api/auth/me/ (merged in UserContext) */
+    email?: string;
+    /** From /api/auth/me/ (merged in UserContext) */
+    isAuthenticated?: boolean;
+    /** From /api/auth/me/ (merged in UserContext) */
+    isPremium?: boolean;
     is_authenticated: boolean;
     xp?: number;
     level?: number;
@@ -15,6 +23,10 @@ export interface DashboardResponse {
     effective_premium?: boolean;
     is_superuser?: boolean;
     is_staff?: boolean;
+    one_move_current_streak?: number;
+    one_move_best_streak?: number;
+    daily_moves_remaining?: number;
+    daily_moves_max?: number;
     quests?: Quest[];
     subscription?: {
         status: string | null;

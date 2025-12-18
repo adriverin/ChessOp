@@ -1,0 +1,491 @@
+{
+    "_meta": {
+        "models": {
+            "user": "The signed-in player using the app, including their level and whether they have premium access.",
+            "openings": "A chess opening family (e.g., Sicilian Defense). Each opening can be locked, unlocked, or mastered.",
+            "variations": "A specific line inside an opening—the core learning unit with actual move sequences.",
+            "userProgress": "Tracks how well the user knows each variation using spaced repetition (next review date, interval, ease factor).",
+            "openingProgress": "A per-opening rollup used by the curriculum list UI (state, mastery %, XP earned, prerequisites, and lock reason).",
+            "goals": "Lightweight preferences that steer training (daily review target, stamina cap, preferred side).",
+            "ui": "Local UI state for the screen design (active filter and which opening row is expanded).",
+            "recentlyUnlockedOpenings": "Optional list used for a 'recent activity' area; empty here to exercise empty states."
+        },
+        "relationships": [
+            "Each Opening contains multiple Variations (the specific lines to learn)",
+            "Each UserProgress entry links to a Variation to track mastery and SRS scheduling",
+            "Each OpeningProgress entry summarizes progress and requirements for a single Opening",
+            "OpeningProgress can be locked due to premium, level, or prerequisites"
+        ]
+    },
+    "user": {
+        "id": "user-001",
+        "displayName": "Adrian R.",
+        "username": "adrian_plays",
+        "avatarUrl": "/images/avatars/user-001.png",
+        "totalXp": 1840,
+        "level": 9,
+        "isPremium": false
+    },
+    "goals": {
+        "dailyReviewTarget": 12,
+        "staminaCap": 10,
+        "preferredSide": "white"
+    },
+    "ui": {
+        "activeFilter": "all",
+        "expandedOpeningId": "opening-002"
+    },
+    "openings": [
+        {
+            "id": "opening-001",
+            "name": "Sicilian Defense",
+            "description": "The most popular response to 1.e4, leading to sharp tactical battles and a huge variety of setups.",
+            "side": "black",
+            "eco": "B20-B99",
+            "imageUrl": "/images/openings/sicilian.png",
+            "variationCount": 2,
+            "isPremium": false
+        },
+        {
+            "id": "opening-002",
+            "name": "Queen's Gambit",
+            "description": "A classical opening where White offers a pawn to gain central control and long-term pressure.",
+            "side": "white",
+            "eco": "D06-D69",
+            "imageUrl": "/images/openings/queens-gambit.png",
+            "variationCount": 2,
+            "isPremium": false
+        },
+        {
+            "id": "opening-003",
+            "name": "French Defense",
+            "description": "A resilient defense against 1.e4, challenging the center with ...d5 and aiming for counterplay.",
+            "side": "black",
+            "eco": "C00-C19",
+            "imageUrl": "/images/openings/french.png",
+            "variationCount": 2,
+            "isPremium": false
+        },
+        {
+            "id": "opening-004",
+            "name": "London System",
+            "description": "A reliable system opening for White built around solid development and clear plans.",
+            "side": "white",
+            "eco": "D02",
+            "imageUrl": "/images/openings/london.png",
+            "variationCount": 1,
+            "isPremium": false
+        },
+        {
+            "id": "opening-005",
+            "name": "Caro-Kann Defense",
+            "description": "A sturdy reply to 1.e4 that aims for a sound pawn structure and strong endgames.",
+            "side": "black",
+            "eco": "B10-B19",
+            "imageUrl": "/images/openings/caro-kann.png",
+            "variationCount": 1,
+            "isPremium": false
+        },
+        {
+            "id": "opening-006",
+            "name": "Ruy Lopez",
+            "description": "A flagship 1.e4 opening for White. Deep, strategic, and rich with plans across many structures.\n\nThis description is intentionally long to help test truncation, multi-line layout, and expansion behavior in the UI. The Ruy is often a lifetime study—perfect for showing 'locked due to level' messaging and 'start review' CTAs once unlocked.",
+            "side": "white",
+            "eco": "C60-C99",
+            "imageUrl": "/images/openings/ruy-lopez.png",
+            "variationCount": 2,
+            "isPremium": false
+        },
+        {
+            "id": "opening-007",
+            "name": "King's Indian Defense",
+            "description": "A dynamic defense where Black allows White space before counterattacking with ...e5 or ...c5.",
+            "side": "black",
+            "eco": "E60-E99",
+            "imageUrl": "/images/openings/kings-indian.png",
+            "variationCount": 2,
+            "isPremium": true
+        },
+        {
+            "id": "opening-008",
+            "name": "Scandinavian Defense",
+            "description": "A direct, practical defense to 1.e4 where Black immediately challenges the center with ...d5.",
+            "side": "black",
+            "eco": "B01",
+            "imageUrl": "/images/openings/scandinavian.png",
+            "variationCount": 1,
+            "isPremium": false
+        }
+    ],
+    "variations": [
+        {
+            "id": "var-201",
+            "openingId": "opening-001",
+            "name": "Najdorf Variation (Main Line)",
+            "description": "A sharp Sicilian setup featuring ...a6 and complex middlegame play.",
+            "moves": "1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Nxd4 Nf6 5.Nc3 a6",
+            "moveCount": 10,
+            "difficulty": "advanced",
+            "isPremium": false,
+            "isLocked": true,
+            "isInRepertoire": false
+        },
+        {
+            "id": "var-202",
+            "openingId": "opening-001",
+            "name": "Classical Sicilian",
+            "description": "A principled line that develops naturally and teaches key Sicilian ideas.",
+            "moves": "1.e4 c5 2.Nf3 Nc6 3.d4 cxd4 4.Nxd4 d6",
+            "moveCount": 8,
+            "difficulty": "intermediate",
+            "isPremium": false,
+            "isLocked": true,
+            "isInRepertoire": false
+        },
+        {
+            "id": "var-203",
+            "openingId": "opening-002",
+            "name": "Queen's Gambit Declined",
+            "description": "Black defends d5 rather than taking on c4, leading to solid structures.",
+            "moves": "1.d4 d5 2.c4 e6 3.Nc3 Nf6 4.Bg5 Be7 5.e3 O-O",
+            "moveCount": 10,
+            "difficulty": "beginner",
+            "isPremium": false,
+            "isLocked": false,
+            "isInRepertoire": true
+        },
+        {
+            "id": "var-204",
+            "openingId": "opening-002",
+            "name": "Slav Defense (Accepted)",
+            "description": "Black supports d5 with c6 and can accept the gambit for practical play.",
+            "moves": "1.d4 d5 2.c4 c6 3.Nf3 Nf6 4.Nc3 dxc4",
+            "moveCount": 8,
+            "difficulty": "intermediate",
+            "isPremium": false,
+            "isLocked": false,
+            "isInRepertoire": false
+        },
+        {
+            "id": "var-205",
+            "openingId": "opening-003",
+            "name": "Advance Variation",
+            "description": "White closes the center with e5; Black attacks the pawn chain with ...c5.",
+            "moves": "1.e4 e6 2.d4 d5 3.e5 c5 4.c3 Nc6",
+            "moveCount": 9,
+            "difficulty": "intermediate",
+            "isPremium": false,
+            "isLocked": false,
+            "isInRepertoire": true
+        },
+        {
+            "id": "var-206",
+            "openingId": "opening-003",
+            "name": "Tarrasch Defense",
+            "description": "A flexible way to meet d4 setups after 1.e4 e6 2.d4 d5.",
+            "moves": "1.e4 e6 2.d4 d5 3.Nd2 c5",
+            "moveCount": 7,
+            "difficulty": "beginner",
+            "isPremium": false,
+            "isLocked": false,
+            "isInRepertoire": false
+        },
+        {
+            "id": "var-207",
+            "openingId": "opening-004",
+            "name": "London System (Core Setup)",
+            "description": "A straightforward setup with Bf4, e3, and c3 to build a solid center.",
+            "moves": "1.d4 d5 2.Nf3 Nf6 3.Bf4 e6 4.e3 c5 5.c3",
+            "moveCount": 9,
+            "difficulty": "beginner",
+            "isPremium": false,
+            "isLocked": false,
+            "isInRepertoire": true
+        },
+        {
+            "id": "var-208",
+            "openingId": "opening-005",
+            "name": "Classical Caro-Kann",
+            "description": "Black challenges the center with ...c6 and aims for a solid, healthy structure.",
+            "moves": "1.e4 c6 2.d4 d5 3.Nc3 dxe4 4.Nxe4 Bf5",
+            "moveCount": 8,
+            "difficulty": "intermediate",
+            "isPremium": false,
+            "isLocked": false,
+            "isInRepertoire": false
+        },
+        {
+            "id": "var-209",
+            "openingId": "opening-006",
+            "name": "Closed Ruy Lopez",
+            "description": "A mainline structure with slow maneuvering and deep plans for both sides.",
+            "moves": "1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4 Nf6 5.O-O Be7 6.Re1 b5",
+            "moveCount": 12,
+            "difficulty": "advanced",
+            "isPremium": false,
+            "isLocked": true,
+            "isInRepertoire": false
+        },
+        {
+            "id": "var-210",
+            "openingId": "opening-006",
+            "name": "Exchange Ruy Lopez",
+            "description": "White trades on c6 and plays for an endgame edge and structural pressure.",
+            "moves": "1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Bxc6 dxc6 5.O-O",
+            "moveCount": 9,
+            "difficulty": "intermediate",
+            "isPremium": false,
+            "isLocked": true,
+            "isInRepertoire": false
+        },
+        {
+            "id": "var-211",
+            "openingId": "opening-007",
+            "name": "Classical King's Indian",
+            "description": "A mainline where Black fianchettos and strikes back against White's center.",
+            "moves": "1.d4 Nf6 2.c4 g6 3.Nc3 Bg7 4.e4 d6 5.Nf3 O-O 6.Be2 e5",
+            "moveCount": 13,
+            "difficulty": "advanced",
+            "isPremium": true,
+            "isLocked": true,
+            "isInRepertoire": false
+        },
+        {
+            "id": "var-212",
+            "openingId": "opening-007",
+            "name": "Fianchetto Variation",
+            "description": "White fianchettos as well, aiming for control and a slower plan-based game.",
+            "moves": "1.d4 Nf6 2.c4 g6 3.Nf3 Bg7 4.g3 O-O 5.Bg2 d6",
+            "moveCount": 12,
+            "difficulty": "intermediate",
+            "isPremium": true,
+            "isLocked": true,
+            "isInRepertoire": false
+        },
+        {
+            "id": "var-213",
+            "openingId": "opening-008",
+            "name": "Scandinavian: 3...Qa5",
+            "description": "A common Scandinavian setup that pressures c3 and supports quick development.",
+            "moves": "1.e4 d5 2.exd5 Qxd5 3.Nc3 Qa5",
+            "moveCount": 6,
+            "difficulty": "beginner",
+            "isPremium": false,
+            "isLocked": false,
+            "isInRepertoire": false
+        }
+    ],
+    "userProgress": [
+        {
+            "id": "prog-201",
+            "variationId": "var-203",
+            "masteryPercent": 96,
+            "streak": 21,
+            "nextReviewDate": "2025-01-02T09:00:00Z",
+            "interval": 14,
+            "easeFactor": 2.75,
+            "totalReviews": 38,
+            "correctReviews": 36,
+            "lastReviewedAt": "2024-12-17T20:10:00Z"
+        },
+        {
+            "id": "prog-202",
+            "variationId": "var-204",
+            "masteryPercent": 62,
+            "streak": 4,
+            "nextReviewDate": "2024-12-18T18:30:00Z",
+            "interval": 3,
+            "easeFactor": 2.25,
+            "totalReviews": 16,
+            "correctReviews": 11,
+            "lastReviewedAt": "2024-12-15T08:05:00Z"
+        },
+        {
+            "id": "prog-203",
+            "variationId": "var-205",
+            "masteryPercent": 78,
+            "streak": 9,
+            "nextReviewDate": "2024-12-19T07:30:00Z",
+            "interval": 5,
+            "easeFactor": 2.4,
+            "totalReviews": 22,
+            "correctReviews": 18,
+            "lastReviewedAt": "2024-12-16T21:00:00Z"
+        },
+        {
+            "id": "prog-204",
+            "variationId": "var-207",
+            "masteryPercent": 40,
+            "streak": 0,
+            "nextReviewDate": "2024-12-18T10:00:00Z",
+            "interval": 1,
+            "easeFactor": 1.9,
+            "totalReviews": 6,
+            "correctReviews": 3,
+            "lastReviewedAt": "2024-12-17T07:10:00Z"
+        },
+        {
+            "id": "prog-205",
+            "variationId": "var-208",
+            "masteryPercent": 18,
+            "streak": 0,
+            "nextReviewDate": null,
+            "interval": 0,
+            "easeFactor": 2.1,
+            "totalReviews": 1,
+            "correctReviews": 0,
+            "lastReviewedAt": "2024-12-18T07:55:00Z"
+        },
+        {
+            "id": "prog-206",
+            "variationId": "var-213",
+            "masteryPercent": 55,
+            "streak": 2,
+            "nextReviewDate": "2024-12-18T23:00:00Z",
+            "interval": 2,
+            "easeFactor": 2.05,
+            "totalReviews": 9,
+            "correctReviews": 6,
+            "lastReviewedAt": "2024-12-16T12:35:00Z"
+        }
+    ],
+    "openingProgress": [
+        {
+            "openingId": "opening-001",
+            "state": "locked",
+            "masteryPercent": 0,
+            "xpEarned": 0,
+            "isInRepertoire": false,
+            "premiumLocked": false,
+            "prerequisites": {
+                "requiredLevel": 6,
+                "requiredOpenings": [
+                    {
+                        "openingId": "opening-008",
+                        "requiredState": "mastered"
+                    }
+                ]
+            },
+            "lockReason": null,
+            "unlockedAt": null,
+            "masteredAt": null
+        },
+        {
+            "openingId": "opening-002",
+            "state": "mastered",
+            "masteryPercent": 92,
+            "xpEarned": 640,
+            "isInRepertoire": true,
+            "premiumLocked": false,
+            "prerequisites": {
+                "requiredLevel": 1,
+                "requiredOpenings": []
+            },
+            "lockReason": null,
+            "unlockedAt": "2024-10-03T18:00:00Z",
+            "masteredAt": "2024-12-10T19:15:00Z"
+        },
+        {
+            "openingId": "opening-003",
+            "state": "unlocked",
+            "masteryPercent": 74,
+            "xpEarned": 410,
+            "isInRepertoire": true,
+            "premiumLocked": false,
+            "prerequisites": {
+                "requiredLevel": 5,
+                "requiredOpenings": []
+            },
+            "lockReason": null,
+            "unlockedAt": "2024-11-18T09:30:00Z",
+            "masteredAt": null
+        },
+        {
+            "openingId": "opening-004",
+            "state": "unlocked",
+            "masteryPercent": 38,
+            "xpEarned": 120,
+            "isInRepertoire": true,
+            "premiumLocked": false,
+            "prerequisites": {
+                "requiredLevel": 1,
+                "requiredOpenings": []
+            },
+            "lockReason": null,
+            "unlockedAt": "2024-12-05T07:45:00Z",
+            "masteredAt": null
+        },
+        {
+            "openingId": "opening-005",
+            "state": "unlocked",
+            "masteryPercent": 16,
+            "xpEarned": 40,
+            "isInRepertoire": false,
+            "premiumLocked": false,
+            "prerequisites": {
+                "requiredLevel": 7,
+                "requiredOpenings": []
+            },
+            "lockReason": null,
+            "unlockedAt": "2024-12-15T13:10:00Z",
+            "masteredAt": null
+        },
+        {
+            "openingId": "opening-006",
+            "state": "locked",
+            "masteryPercent": 0,
+            "xpEarned": 0,
+            "isInRepertoire": false,
+            "premiumLocked": false,
+            "prerequisites": {
+                "requiredLevel": 12,
+                "requiredOpenings": [
+                    {
+                        "openingId": "opening-002",
+                        "requiredState": "mastered"
+                    }
+                ]
+            },
+            "lockReason": {
+                "type": "level",
+                "message": "Reach level 12 to unlock Ruy Lopez."
+            },
+            "unlockedAt": null,
+            "masteredAt": null
+        },
+        {
+            "openingId": "opening-007",
+            "state": "locked",
+            "masteryPercent": 0,
+            "xpEarned": 0,
+            "isInRepertoire": false,
+            "premiumLocked": true,
+            "prerequisites": {
+                "requiredLevel": 8,
+                "requiredOpenings": []
+            },
+            "lockReason": {
+                "type": "premium",
+                "message": "Premium required to unlock King's Indian Defense."
+            },
+            "unlockedAt": null,
+            "masteredAt": null
+        },
+        {
+            "openingId": "opening-008",
+            "state": "mastered",
+            "masteryPercent": 90,
+            "xpEarned": 420,
+            "isInRepertoire": false,
+            "premiumLocked": false,
+            "prerequisites": {
+                "requiredLevel": 3,
+                "requiredOpenings": []
+            },
+            "lockReason": null,
+            "unlockedAt": "2024-11-01T12:00:00Z",
+            "masteredAt": "2024-12-14T18:25:00Z"
+        }
+    ],
+    "recentlyUnlockedOpenings": []
+}

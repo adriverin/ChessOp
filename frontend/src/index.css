@@ -3,11 +3,18 @@
 @layer base {
   :root {
     color-scheme: light;
+    --color-primary: emerald;
+    --color-secondary: amber;
+    --color-neutral: slate;
+    --font-heading: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+    --font-body: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   }
 
   body {
     @apply bg-slate-100 text-slate-900 min-h-screen antialiased;
     background-color: #f8fafc;
+    font-family: var(--font-body);
   }
 
   .dark {

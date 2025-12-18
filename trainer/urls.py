@@ -15,6 +15,7 @@ urlpatterns = [
     path('api/repertoire/', views.api_get_repertoire, name='api_get_repertoire'),
     path('api/repertoire/toggle/', views.api_toggle_repertoire, name='api_toggle_repertoire'),
     path('api/recall/session/', views.api_get_recall_session, name='api_get_recall_session'),
+    path('api/mistakes/', views.api_get_mistakes, name='api_get_mistakes'),
     path('api/submit-result/', views.api_submit_result, name='api_submit_result'),
     path('api/stats/themes/', views.api_get_theme_stats, name='api_get_theme_stats'),
     path('api/opening-drill/session/', views.api_get_opening_drill_session, name='api_get_opening_drill_session'),

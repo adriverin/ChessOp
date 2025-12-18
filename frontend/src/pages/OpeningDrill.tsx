@@ -226,8 +226,8 @@ export const OpeningDrill: React.FC = () => {
                                 onClick={() => opening.drill_unlocked && handleSelectOpening(opening.slug)}
                                 disabled={!opening.drill_unlocked}
                                 className={`flex items-center justify-between p-4 rounded-xl border text-left transition-all ${opening.drill_unlocked
-                                        ? 'bg-slate-900/70 border-slate-800 hover:border-rose-400/40 hover:shadow-rose-900/30 cursor-pointer group'
-                                        : 'bg-slate-900/40 border-slate-800 opacity-70 cursor-not-allowed'
+                                    ? 'bg-slate-900/70 border-slate-800 hover:border-rose-400/40 hover:shadow-rose-900/30 cursor-pointer group'
+                                    : 'bg-slate-900/40 border-slate-800 opacity-70 cursor-not-allowed'
                                     }`}
                             >
                                 <div>

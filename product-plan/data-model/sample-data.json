@@ -1,0 +1,90 @@
+{
+  "users": [
+    {
+      "id": "user-1",
+      "displayName": "Adrian",
+      "username": "adrian",
+      "avatarUrl": null,
+      "totalXp": 1250,
+      "level": 7,
+      "currentStreak": 5,
+      "longestStreak": 12,
+      "isPremium": false
+    }
+  ],
+  "openings": [
+    {
+      "id": "opening-1",
+      "name": "Queen's Gambit",
+      "description": "A classical 1.d4 opening focused on central control.",
+      "side": "white",
+      "eco": "D06",
+      "imageUrl": null,
+      "variationCount": 8,
+      "isPremium": false
+    }
+  ],
+  "variations": [
+    {
+      "id": "variation-1",
+      "openingId": "opening-1",
+      "name": "QGD: Exchange Variation",
+      "description": "Solid structure with long-term plans.",
+      "moves": "d4 d5 c4 e6 cxd5 exd5",
+      "moveCount": 6,
+      "difficulty": "beginner",
+      "isPremium": false
+    }
+  ],
+  "userProgress": [
+    {
+      "id": "progress-1",
+      "userId": "user-1",
+      "variationId": "variation-1",
+      "masteryPercent": 42,
+      "streak": 2,
+      "nextReviewDate": "2025-12-19T10:00:00.000Z",
+      "interval": 2,
+      "easeFactor": 2.3,
+      "totalReviews": 6,
+      "correctReviews": 4,
+      "lastReviewedAt": "2025-12-18T10:00:00.000Z"
+    }
+  ],
+  "userMistakes": [
+    {
+      "id": "mistake-1",
+      "userId": "user-1",
+      "variationId": "variation-1",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "wrongMove": "h3",
+      "correctMove": "d4",
+      "explanation": "Claim the center first; side-pawn pushes are too slow here.",
+      "occurredAt": "2025-12-18T09:00:00.000Z",
+      "reviewedCount": 0,
+      "lastReviewedAt": null
+    }
+  ],
+  "dailyQuests": [
+    {
+      "id": "quest-1",
+      "userId": "user-1",
+      "title": "Fix 3 Blunders",
+      "description": "Review and correct 3 saved mistakes.",
+      "target": 3,
+      "progress": 0,
+      "completedAt": null,
+      "expiresAt": "2025-12-19T00:00:00.000Z"
+    }
+  ],
+  "badges": [
+    {
+      "id": "badge-1",
+      "userId": "user-1",
+      "title": "First Steps",
+      "description": "Complete your first training session.",
+      "earnedAt": "2025-12-18T10:05:00.000Z"
+    }
+  ]
+}
+

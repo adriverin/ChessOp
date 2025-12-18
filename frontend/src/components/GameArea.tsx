@@ -721,6 +721,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
 
     const boardWrapperRef = useRef<HTMLDivElement>(null);
     const [boardSize, setBoardSize] = useState<number>(0);
+    const MAX_BOARD_SIZE = 820;
 
     useEffect(() => {
         if (!fitToViewport || !boardWrapperRef.current) return;
@@ -729,7 +730,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
             for (const entry of entries) {
                 const { width, height } = entry.contentRect;
                 // Leave a tiny buffer to avoid rounding jitters causing scrollbars
-                const size = Math.floor(Math.min(width, height)) - 2;
+                const size = Math.floor(Math.min(width, height, MAX_BOARD_SIZE)) - 2;
                 setBoardSize(Math.max(0, size));
             }
         });
@@ -742,7 +743,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
         <div className={clsx("flex flex-col lg:flex-row gap-4 justify-center items-stretch w-full", fitToViewport ? "h-full" : "")}>
 
             {/* Left Column: Board + Progress + Status */}
-            <div className={clsx("flex flex-col w-full max-w-2xl gap-2", fitToViewport ? "min-h-0 flex-1" : "")}>
+            <div className={clsx("flex flex-col w-full gap-2", fitToViewport ? "min-h-0 flex-1" : "")}>
                 {showInlineProgress && (
                     <div className="w-full shrink-0">
                         <div className="flex justify-between text-xs text-slate-400 mb-1 font-medium">
@@ -798,6 +799,13 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                     </div>
                                 );
                             })()}
+
+                            {/* Hint Overlay */}
+                            {hint && (
+                                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 max-w-[90%] max-h-24 overflow-y-auto bg-indigo-900/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-indigo-400/40 text-sm text-indigo-100 text-center font-medium shadow-lg">
+                                    Hint: {hint}
+                                </div>
+                            )}
                         </div>
                     </div>
                 ) : (
@@ -825,6 +833,13 @@ export const GameArea: React.FC<GameAreaProps> = ({
                                 </div>
                             );
                         })()}
+
+                        {/* Hint Overlay */}
+                        {hint && (
+                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 max-w-[90%] max-h-24 overflow-y-auto bg-indigo-900/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-indigo-400/40 text-sm text-indigo-100 text-center font-medium shadow-lg">
+                                Hint: {hint}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -935,7 +950,7 @@ export const GameArea: React.FC<GameAreaProps> = ({
                     </div>
                 </div>
 
-                {hint && <div className="text-sm text-indigo-100 bg-indigo-500/20 px-4 py-2 rounded-lg border border-indigo-500/30 text-center font-medium">Hint: {hint}</div>}
+
             </div>
 
             {/* Right Column: Sidebar */}

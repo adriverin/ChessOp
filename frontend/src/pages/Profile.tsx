@@ -1,95 +1,303 @@
-import React from 'react';
-import { useUser } from '../context/UserContext';
-import { User, Mail, Shield, Settings, Crown } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { api, type MistakesResponse } from '../api/client'
+import { PlayerProfile } from '../components/PlayerProfile/components'
+import type {
+  Opening as BackendOpening,
+  OpeningsResponse,
+  Variation as BackendVariation,
+} from '../types'
+import type {
+  Opening,
+  OpeningProgress,
+  PlayerPreferences,
+  PlayerProfileUiState,
+  Side,
+  User,
+  UserMistake,
+  Variation,
+} from '../components/PlayerProfile/types'
+import { useTheme } from '../context/ThemeContext'
+import { useUser } from '../context/UserContext'
 
-export const Profile: React.FC = () => {
-    const { user } = useUser();
+const PREFERENCES_STORAGE_KEY = 'playerProfile.preferences'
 
-    if (!user?.is_authenticated) {
-        return <div className="p-10 text-center">Please log in to view your profile.</div>;
+function inferSideFromTags(tags: string[]): Side {
+  return tags.includes('Black') ? 'black' : 'white'
+}
+
+function asDifficulty(value: string | undefined): Variation['difficulty'] {
+  if (value === 'beginner' || value === 'intermediate' || value === 'advanced') return value
+  return 'beginner'
+}
+
+function getStableUserId(fallback: string, user: { id?: string } | null): string {
+  return user?.id ?? fallback
+}
+
+function getDefaultPreferences(theme: PlayerPreferences['theme']): PlayerPreferences {
+  return {
+    theme,
+    soundEnabled: true,
+    moveHints: 'on',
+    autoPromoteLines: true,
+  }
+}
+
+function readStoredPreferences(theme: PlayerPreferences['theme']): PlayerPreferences {
+  const defaults = getDefaultPreferences(theme)
+  try {
+    const raw = localStorage.getItem(PREFERENCES_STORAGE_KEY)
+    if (!raw) return defaults
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return defaults
+    const obj = parsed as Record<string, unknown>
+
+    const storedTheme = obj.theme
+    const nextTheme =
+      storedTheme === 'system' || storedTheme === 'light' || storedTheme === 'dark'
+        ? storedTheme
+        : defaults.theme
+
+    const soundEnabled = typeof obj.soundEnabled === 'boolean' ? obj.soundEnabled : defaults.soundEnabled
+    const moveHints = obj.moveHints === 'on' || obj.moveHints === 'off' ? obj.moveHints : defaults.moveHints
+    const autoPromoteLines =
+      typeof obj.autoPromoteLines === 'boolean' ? obj.autoPromoteLines : defaults.autoPromoteLines
+
+    return { theme: nextTheme, soundEnabled, moveHints, autoPromoteLines }
+  } catch {
+    return defaults
+  }
+}
+
+function writeStoredPreferences(prefs: PlayerPreferences) {
+  try {
+    localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(prefs))
+  } catch {
+    // ignore
+  }
+}
+
+function mapOpeningsToProfile(openingsResponse: OpeningsResponse) {
+  const openings: Opening[] = []
+  const variations: Variation[] = []
+  const openingProgress: OpeningProgress[] = []
+
+  const seenOpenings = new Set<string>()
+  const seenVariations = new Set<string>()
+
+  const pushOpening = (opening: Opening) => {
+    if (seenOpenings.has(opening.id)) return
+    seenOpenings.add(opening.id)
+    openings.push(opening)
+  }
+
+  const pushVariation = (variation: Variation) => {
+    if (seenVariations.has(variation.id)) return
+    seenVariations.add(variation.id)
+    variations.push(variation)
+  }
+
+  Object.values(openingsResponse).forEach((categoryOpenings) => {
+    categoryOpenings.forEach((opening: BackendOpening) => {
+      const side = inferSideFromTags(opening.tags)
+      const openingId = opening.id
+
+      pushOpening({
+        id: openingId,
+        name: opening.name,
+        description: '',
+        side,
+        eco: '—',
+        imageUrl: '',
+        variationCount: opening.variations.length,
+        isPremium: false,
+      })
+
+      opening.variations.forEach((variation: BackendVariation) => {
+        const variationId = variation.id
+        pushVariation({
+          id: variationId,
+          openingId,
+          name: variation.name,
+          description: '',
+          moves: '',
+          moveCount: variation.moves.length,
+          difficulty: asDifficulty(variation.difficulty),
+          isPremium: false,
+          isLocked: variation.locked,
+          isInRepertoire: false,
+        })
+      })
+
+      const progress = opening.progress
+      if (!progress) return
+
+      if (progress.percentage <= 0 && progress.completed <= 0) return
+
+      const status: OpeningProgress['status'] =
+        progress.total > 0 && progress.completed >= progress.total ? 'mastered' : 'inProgress'
+
+      openingProgress.push({
+        openingId,
+        status,
+        masteryPercent: progress.percentage,
+        masteredVariations: progress.completed,
+        totalVariations: progress.total,
+        lastTrainedAt: null,
+        nextReviewDate: null,
+      })
+    })
+  })
+
+  return { openings, variations, openingProgress }
+}
+
+function mapMistakesToProfile(response: MistakesResponse): UserMistake[] {
+  return response.mistakes.map((m) => {
+    const variationId =
+      m.variation_id === null || m.variation_id === undefined ? `unknown-${m.id}` : String(m.variation_id)
+
+    return {
+      id: String(m.id),
+      variationId,
+      fen: m.fen,
+      wrongMove: m.wrong_move,
+      correctMove: m.correct_move,
+      explanation: 'Replay this position in Training Arena to see the correct plan.',
+      occurredAt: m.created_at,
+      reviewedCount: 0,
+      lastReviewedAt: null,
+      tags: [],
+      note: null,
     }
+  })
+}
 
+export function Profile() {
+  const navigate = useNavigate()
+  const { user, loading: userLoading } = useUser()
+  const { themePreference, setThemePreference } = useTheme()
+
+  const [openingsResponse, setOpeningsResponse] = useState<OpeningsResponse | null>(null)
+  const [mistakesResponse, setMistakesResponse] = useState<MistakesResponse | null>(null)
+  const [dataLoading, setDataLoading] = useState(true)
+  const [dataError, setDataError] = useState<string | null>(null)
+
+  const [ui, setUi] = useState<PlayerProfileUiState>({
+    activeTab: 'overview',
+    selectedOpeningId: null,
+    selectedMistakeId: null,
+  })
+
+  const [preferences, setPreferences] = useState<PlayerPreferences>(() =>
+    readStoredPreferences(themePreference)
+  )
+
+  useEffect(() => {
+    if (userLoading) return
+    if (!user?.is_authenticated) return
+
+    Promise.all([api.getOpenings(), api.getMistakes()])
+      .then(([openings, mistakes]) => {
+        setDataError(null)
+        setOpeningsResponse(openings)
+        setMistakesResponse(mistakes)
+      })
+      .catch((e: unknown) => {
+        const message = e instanceof Error ? e.message : 'Failed to load profile data'
+        setDataError(message)
+      })
+      .finally(() => setDataLoading(false))
+  }, [userLoading, user?.is_authenticated])
+
+  const { openings, variations, openingProgress } = useMemo(() => {
+    if (!openingsResponse) return { openings: [], variations: [], openingProgress: [] }
+    return mapOpeningsToProfile(openingsResponse)
+  }, [openingsResponse])
+
+  const userMistakes = useMemo(() => {
+    if (!mistakesResponse) return []
+    return mapMistakesToProfile(mistakesResponse)
+  }, [mistakesResponse])
+
+  const isPremium = Boolean(
+    user?.effective_premium ?? user?.is_premium ?? user?.is_staff ?? user?.is_superuser
+  )
+
+  const displayName = (() => {
+    const email = user?.email
+    if (typeof email === 'string' && email.includes('@')) return email.split('@')[0] ?? 'Player'
+    return 'Player'
+  })()
+
+  const username = (() => {
+    const email = user?.email
+    if (typeof email === 'string' && email.includes('@')) return email.split('@')[0] ?? 'player'
+    return 'player'
+  })()
+
+  const profileUser: User = {
+    id: getStableUserId('me', user),
+    displayName,
+    username,
+    avatarUrl: '/vite.svg',
+    totalXp: user?.xp ?? 0,
+    level: user?.level ?? 1,
+    currentStreak: user?.one_move_current_streak ?? 0,
+    longestStreak: user?.one_move_best_streak ?? 0,
+    isPremium,
+  }
+
+  if (!user?.is_authenticated) {
+    return <div className="p-10 text-center">Please log in to view your profile.</div>
+  }
+
+  if (dataLoading) {
+    return <div className="p-10 text-center text-slate-500 dark:text-slate-400">Loading profile…</div>
+  }
+
+  if (dataError) {
     return (
-        <div className="max-w-2xl mx-auto space-y-6">
-            <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
+      <div className="p-10 text-center">
+        <p className="text-slate-700 dark:text-slate-300">Could not load your profile.</p>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{dataError}</p>
+      </div>
+    )
+  }
 
-            {/* User Info Card */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="flex items-center gap-4 mb-6">
-                    <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
-                        <User size={32} />
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-bold text-gray-900">Chess Master</h2>
-                        <p className="text-gray-500">Level {user.level}</p>
-                    </div>
-                    {user.effective_premium && (
-                        <span className="ml-auto px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-bold flex items-center gap-1">
-                            <Crown size={14} /> Premium
-                        </span>
-                    )}
-                </div>
-
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center gap-3 text-gray-700">
-                            <Mail size={18} />
-                            <span>Email</span>
-                        </div>
-                        <span className="text-gray-500 font-mono text-sm">user@example.com</span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center gap-3 text-gray-700">
-                            <Shield size={18} />
-                            <span>Account Type</span>
-                        </div>
-                        <span className="text-gray-900 font-medium">
-                            {user.effective_premium ? 'Premium Member' : 'Free Tier'}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            {/* Settings */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <Settings size={20} /> Settings
-                </h3>
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="font-medium text-gray-900">Sound Effects</p>
-                            <p className="text-sm text-gray-500">Play sounds when moving pieces</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" defaultChecked className="sr-only peer" />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                    </div>
-                    <hr className="border-gray-100" />
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="font-medium text-gray-900">Board Coordinates</p>
-                            <p className="text-sm text-gray-500">Show ranks and files on the board</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" defaultChecked className="sr-only peer" />
-                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                    </div>
-                </div>
-            </div>
-
-            <div className="text-center pt-4">
-                <a 
-                    href="/admin/logout/?next=/" 
-                    className="text-red-600 hover:text-red-700 font-medium text-sm hover:underline"
-                >
-                    Sign Out
-                </a>
-            </div>
-        </div>
-    );
-};
-
+  return (
+    <PlayerProfile
+      user={profileUser}
+      openings={openings}
+      variations={variations}
+      userProgress={[]}
+      openingProgress={openingProgress}
+      userMistakes={userMistakes}
+      preferences={preferences}
+      ui={ui}
+      isGuest={false}
+      isPremium={isPremium}
+      onSelectTab={(tab) => setUi((prev) => ({ ...prev, activeTab: tab }))}
+      onTrainOpening={(openingId) => {
+        const next = new URLSearchParams()
+        next.set('opening_id', openingId)
+        next.set('t', String(Date.now()))
+        navigate(`/train?${next.toString()}`)
+      }}
+      onSelectOpening={(openingId) => setUi((prev) => ({ ...prev, selectedOpeningId: openingId }))}
+      onViewMistake={(mistakeId) => setUi((prev) => ({ ...prev, selectedMistakeId: mistakeId }))}
+      onRetryMistake={(mistakeId) => {
+        const next = new URLSearchParams()
+        next.set('mistake_id', mistakeId)
+        next.set('t', String(Date.now()))
+        navigate(`/train?${next.toString()}`)
+      }}
+      onUpdatePreferences={(next) => {
+        setPreferences(next)
+        writeStoredPreferences(next)
+        setThemePreference(next.theme)
+      }}
+    />
+  )
+}

@@ -1,22 +1,45 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
-import type { RecallSessionResponse } from '../types';
+import type { OpeningsResponse, RecallSessionResponse } from '../types';
+import type { MistakeListItem } from '../api/client';
 import { GameArea } from '../components/GameArea';
 import { GuestModeBanner } from '../components/GuestModeBanner';
 import { useUser } from '../context/UserContext';
 import { Trophy, ArrowRight } from 'lucide-react';
 import clsx from 'clsx';
 import { Chess } from 'chess.js';
+import { TrainingArena } from '../components/TrainingArena/components';
+import type { Difficulty as ArenaDifficulty, Side as ArenaSide } from '../components/TrainingArena/types';
 
 export const Train: React.FC = () => {
     const { user, refreshUser, loading: userLoading } = useUser();
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
+    const location = useLocation();
+    const isPremiumUser = Boolean(user?.effective_premium || user?.is_premium || user?.is_superuser || user?.is_staff);
+    const isGuestUser = !user?.is_authenticated;
+
+    const shouldAutoStart =
+        searchParams.has('mistake_id') ||
+        searchParams.has('mode') ||
+        searchParams.has('opening_id') ||
+        searchParams.has('id') ||
+        searchParams.has('difficulties') ||
+        searchParams.has('training_goals') ||
+        searchParams.has('themes') ||
+        searchParams.has('side') ||
+        searchParams.has('repertoire_only');
+
+    const [showEntry, setShowEntry] = useState<boolean>(() => !shouldAutoStart);
     const [session, setSession] = useState<RecallSessionResponse | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState<boolean>(() => shouldAutoStart);
     const [completed, setCompleted] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
+    const [openingsResponse, setOpeningsResponse] = useState<OpeningsResponse | null>(null);
+    const [mistakes, setMistakes] = useState<MistakeListItem[]>([]);
+    const [repertoireOpeningIds, setRepertoireOpeningIds] = useState<Set<string>>(() => new Set());
+    const [staminaExhausted, setStaminaExhausted] = useState(false);
     const [openings, setOpenings] = useState<{ slug: string; name: string; variations: { id: string; name: string; label: string; locked?: boolean }[] }[]>([]);
     const [selectedOpening, setSelectedOpening] = useState<string | null>(null);
     const [selectedVariation, setSelectedVariation] = useState<string | null>(searchParams.get('id'));
@@ -44,6 +67,14 @@ export const Train: React.FC = () => {
             // ignore localStorage errors
         }
     }, [useRepertoireOnly]);
+    // Keep Design OS quick-start toggle in sync with existing stored value.
+    useEffect(() => {
+        try {
+            localStorage.setItem('trainingArena.repertoireOnly', String(useRepertoireOnly));
+        } catch {
+            // ignore localStorage errors
+        }
+    }, [useRepertoireOnly]);
 
     const [hasRepertoire, setHasRepertoire] = useState(false);
     const sideParam = searchParams.get('side') as 'white' | 'black' | null;
@@ -56,6 +87,7 @@ export const Train: React.FC = () => {
     useEffect(() => {
         api.getOpenings()
             .then(data => {
+                setOpeningsResponse(data);
                 const isPremium = Boolean(user?.effective_premium || user?.is_premium || user?.is_superuser || user?.is_staff);
                 const flattened: { slug: string; name: string; variations: { id: string; name: string; label: string; locked?: boolean }[] }[] = [];
                 Object.values(data).forEach(openingList => {
@@ -105,6 +137,10 @@ export const Train: React.FC = () => {
             .then(data => {
                 const has = (data.white?.length ?? 0) + (data.black?.length ?? 0) > 0;
                 setHasRepertoire(has);
+                setRepertoireOpeningIds(new Set([
+                    ...(data.white ?? []).map((o) => o.opening_id),
+                    ...(data.black ?? []).map((o) => o.opening_id),
+                ]));
 
                 // Initialize the checkbox ONCE (only if user has no saved preference).
                 if (!didInitRepertoireOnlyRef.current) {
@@ -124,8 +160,148 @@ export const Train: React.FC = () => {
             })
             .catch(() => {
                 setHasRepertoire(false);
+                setRepertoireOpeningIds(new Set());
             });
     }, [user]);
+
+    const refreshMistakes = useCallback(async () => {
+        if (!user?.is_authenticated) {
+            setMistakes([]);
+            return;
+        }
+        try {
+            const data = await api.getMistakes();
+            setMistakes(data.mistakes);
+        } catch {
+            setMistakes([]);
+        }
+    }, [user?.is_authenticated]);
+
+    useEffect(() => {
+        void refreshMistakes();
+    }, [refreshMistakes]);
+
+    function inferArenaSide(tags: string[]): ArenaSide {
+        return tags.includes('Black') ? 'black' : 'white';
+    }
+
+    function mapArenaDifficulty(value: string | undefined): ArenaDifficulty {
+        if (value === 'beginner' || value === 'intermediate' || value === 'advanced') return value;
+        return 'advanced';
+    }
+
+    const arenaOpenings = useMemo(() => {
+        if (!openingsResponse) return [];
+        const result: Array<{
+            id: string;
+            name: string;
+            description: string;
+            side: ArenaSide;
+            eco: string;
+            imageUrl: string;
+            variationCount: number;
+            isPremium: boolean;
+        }> = [];
+        Object.values(openingsResponse).forEach((openingList) => {
+            openingList.forEach((o) => {
+                result.push({
+                    id: o.id,
+                    name: o.name,
+                    description: '',
+                    side: inferArenaSide(o.tags),
+                    eco: '',
+                    imageUrl: '',
+                    variationCount: o.variations.length,
+                    isPremium: false,
+                });
+            });
+        });
+        return result;
+    }, [openingsResponse]);
+
+    const arenaVariations = useMemo(() => {
+        if (!openingsResponse) return [];
+        const result: Array<{
+            id: string;
+            openingId: string;
+            name: string;
+            description: string;
+            moves: string;
+            moveCount: number;
+            difficulty: ArenaDifficulty;
+            isPremium: boolean;
+            isLocked: boolean;
+            isInRepertoire: boolean;
+        }> = [];
+        Object.values(openingsResponse).forEach((openingList) => {
+            openingList.forEach((opening) => {
+                const isInRepertoire = repertoireOpeningIds.has(opening.id);
+                const isLocked = !Boolean(opening.drill_mode_unlocked);
+                opening.variations.forEach((v) => {
+                    const moveSans = (v.moves ?? []).map((m) => m.san).join(' ');
+                    result.push({
+                        id: v.id,
+                        openingId: opening.id,
+                        name: v.name,
+                        description: '',
+                        moves: moveSans,
+                        moveCount: (v.moves ?? []).length,
+                        difficulty: mapArenaDifficulty(v.difficulty),
+                        isPremium: Boolean(v.locked),
+                        isLocked,
+                        isInRepertoire,
+                    });
+                });
+            });
+        });
+        return result;
+    }, [openingsResponse, repertoireOpeningIds]);
+
+    const variationsLearned = useMemo(() => {
+        if (!openingsResponse) return 0;
+        let count = 0;
+        Object.values(openingsResponse).forEach((openingList) => {
+            openingList.forEach((opening) => {
+                opening.variations.forEach((v) => {
+                    if (v.completed) count += 1;
+                });
+            });
+        });
+        return count;
+    }, [openingsResponse]);
+
+    const arenaUserMistakes = useMemo(() => {
+        return mistakes.map((m) => ({
+            id: m.id,
+            variationId: m.variation_id ?? 'unknown',
+            fen: m.fen,
+            wrongMove: m.wrong_move,
+            correctMove: m.correct_move,
+            explanation: 'Review this position and play the best move.',
+            occurredAt: m.created_at,
+            reviewedCount: 0,
+            lastReviewedAt: null,
+        }));
+    }, [mistakes]);
+
+    const arenaUserStats = useMemo(() => {
+        const staminaMax = user?.daily_moves_max ?? 20;
+        const staminaRemainingRaw = user?.daily_moves_remaining ?? staminaMax;
+        const staminaRemaining = staminaExhausted && !isPremiumUser ? 0 : staminaRemainingRaw;
+
+        return {
+            totalXp: user?.xp ?? 0,
+            level: user?.level ?? 1,
+            currentStreak: user?.one_move_current_streak ?? 0,
+            longestStreak: user?.one_move_best_streak ?? 0,
+            staminaRemaining: isGuestUser ? staminaMax : staminaRemaining,
+            staminaMax,
+            dueReviews: 0,
+            variationsLearned,
+            totalMistakes: mistakes.length,
+            mistakesFixed: 0,
+        };
+    }, [user, isGuestUser, isPremiumUser, staminaExhausted, variationsLearned, mistakes.length]);
 
     const openingOptions = useMemo(() => openings.map(o => ({ slug: o.slug, name: o.name })), [openings]);
     // In One Move Drill (no openingFilter), do not default to openings[0].
@@ -201,6 +377,14 @@ export const Train: React.FC = () => {
         setCompleted(false);
         setMessage(null);
         try {
+            setStaminaExhausted(false);
+            const mistakeId = searchParams.get('mistake_id') || undefined;
+            if (mistakeId) {
+                const data = await api.getRecallSession(undefined, { t: Date.now() }, undefined, mistakeId);
+                setSession(data);
+                return;
+            }
+
             // One Move Drill: randomize across openings unless explicitly in a specific-opening flow.
             if (isOneMoveMode && !openingFilter) {
                 const data = await fetchOneMoveSession();
@@ -252,6 +436,7 @@ export const Train: React.FC = () => {
                 const msg = err.response?.data?.error || err.response?.data?.message;
                 if (msg && (msg.includes("stamina") || msg.includes("limit"))) {
                     setMessage("You are out of stamina for today! Come back tomorrow.");
+                    setStaminaExhausted(true);
                 } else if (msg && (msg.includes("locked") || msg.includes("premium"))) {
                     setMessage(PREMIUM_LOCK_MESSAGE_KEY);
                 } else {
@@ -278,8 +463,9 @@ export const Train: React.FC = () => {
     ]);
 
     useEffect(() => {
+        if (showEntry) return;
         fetchSession();
-    }, [fetchSession]);
+    }, [fetchSession, showEntry]);
 
     const updateSearchWithVariation = (variationId: string) => {
         const next = new URLSearchParams(searchParams);
@@ -466,6 +652,111 @@ export const Train: React.FC = () => {
     }, [session, isOneMoveMode]);
 
     const activeSession = isOneMoveMode && oneMoveSession ? oneMoveSession : session;
+
+    const handleArenaSignUp = () => {
+        navigate('/signup', { state: { backgroundLocation: location } });
+    };
+
+    const setParam = (key: string, value: string | null) => {
+        const next = new URLSearchParams(searchParams);
+        if (value === null || value === '') next.delete(key);
+        else next.set(key, value);
+        setSearchParams(next);
+    };
+
+    const handleArenaStartSession = (mode: 'opening-training' | 'one-move-drill' | 'opening-drill', openingId?: string, variationId?: string) => {
+        if (mode === 'opening-drill') {
+            if (openingId) navigate(`/drill?opening_id=${encodeURIComponent(openingId)}`);
+            else navigate('/drill');
+            return;
+        }
+
+        const next = new URLSearchParams(searchParams);
+        next.delete('mistake_id');
+        next.delete('t');
+
+        if (mode === 'one-move-drill') {
+            next.set('mode', 'one_move');
+            next.delete('id');
+        } else {
+            next.delete('mode');
+        }
+
+        if (openingId) next.set('opening_id', openingId);
+        else next.delete('opening_id');
+
+        if (variationId && mode !== 'one-move-drill') next.set('id', variationId);
+        else next.delete('id');
+
+        next.set('t', String(Date.now()));
+        setSearchParams(next);
+        setShowEntry(false);
+    };
+
+    const handleArenaReviewMistake = (mistakeId: string) => {
+        if (isGuestUser) {
+            handleArenaSignUp();
+            return;
+        }
+        const next = new URLSearchParams(searchParams);
+        next.delete('opening_id');
+        next.delete('id');
+        next.delete('mode');
+        next.set('mistake_id', mistakeId);
+        next.set('t', String(Date.now()));
+        setSearchParams(next);
+        setShowEntry(false);
+    };
+
+    const handleArenaDismissMistake = async (mistakeId: string) => {
+        if (isGuestUser) {
+            handleArenaSignUp();
+            return;
+        }
+        const parsed = Number(mistakeId);
+        if (!Number.isFinite(parsed)) return;
+        try {
+            await api.submitResult({ type: 'mistake_fixed', mistake_id: parsed, hint_used: true });
+            setMistakes((prev) => prev.filter((m) => m.id !== mistakeId));
+            if (!isGuestUser) refreshUser();
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    if (showEntry) {
+        return (
+            <TrainingArena
+                openings={arenaOpenings}
+                variations={arenaVariations}
+                userProgress={[]}
+                userMistakes={arenaUserMistakes}
+                currentSession={null}
+                userStats={arenaUserStats}
+                isGuest={isGuestUser}
+                isPremium={isPremiumUser}
+                onStartSession={handleArenaStartSession}
+                onReviewMistake={handleArenaReviewMistake}
+                onDismissMistake={handleArenaDismissMistake}
+                onStartFreeTrial={() => navigate('/pricing')}
+                onSignUp={handleArenaSignUp}
+                onToggleRepertoireOnly={(enabled) => {
+                    didInitRepertoireOnlyRef.current = true;
+                    setUseRepertoireOnly(enabled);
+                    setParam('repertoire_only', enabled ? 'true' : null);
+                }}
+                onToggleWrongMoveMode={(enabled) => {
+                    try {
+                        localStorage.setItem('wrongMoveMode', enabled ? 'stay' : 'snap');
+                        localStorage.setItem('trainingArena.wrongMoveMode', enabled ? 'true' : 'false');
+                    } catch {
+                        // ignore
+                    }
+                }}
+                onChangeSideFilter={(side) => setParam('side', side)}
+            />
+        );
+    }
 
     if (loading) return <div className="flex justify-center items-center h-64 text-slate-300">Loading session...</div>;
 

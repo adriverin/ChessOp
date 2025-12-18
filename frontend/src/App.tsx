@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactElement } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { UserProvider, useUser } from './context/UserContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { Layout } from './components/Layout';
@@ -7,12 +7,15 @@ import { Dashboard } from './pages/Dashboard';
 import { Train } from './pages/Train';
 import { OpeningDrill } from './pages/OpeningDrill';
 import { Openings } from './pages/Openings';
+import { Curriculum } from './pages/Curriculum';
 import { Profile } from './pages/Profile';
 import { Pricing } from './pages/Pricing';
 import { Subscription } from './pages/Subscription';
 import { LoginPage } from './pages/LoginPage';
 import { SignupPage } from './pages/SignupPage';
 import { Modal } from './components/Modal';
+import { Help } from './pages/Help';
+import { Settings } from './pages/Settings';
 
 function RequireAuth({ children }: { children: ReactElement }) {
     const { user, loading } = useUser();
@@ -51,19 +54,6 @@ function RequireAuth({ children }: { children: ReactElement }) {
     return children;
 }
 
-// Handles landing logic: / -> Dashboard (if authed) or Openings (if not)
-function LandingRedirect() {
-    const { user, loading } = useUser();
-    
-    if (loading) return null;
-
-    if (user && user.is_authenticated) {
-        return <Navigate to="/dashboard" replace />;
-    } else {
-        return <Navigate to="/openings" replace />;
-    }
-}
-
 function AppContent() {
     const location = useLocation();
     // Helper to determine background location for modal
@@ -74,7 +64,8 @@ function AppContent() {
         <>
             <Routes location={backgroundLocation}>
                 <Route path="/" element={<Layout />}>
-                    <Route index element={<LandingRedirect />} />
+                    {/* Training Arena */}
+                    <Route index element={<Train />} />
                     
                     {/* Protected Route */}
                     <Route path="dashboard" element={
@@ -94,10 +85,18 @@ function AppContent() {
                             <Subscription />
                         </RequireAuth>
                     } />
+                    
+                    <Route path="settings" element={
+                        <RequireAuth>
+                            <Settings />
+                        </RequireAuth>
+                    } />
 
                     {/* Free Tier / Optional Auth */}
                     <Route path="openings" element={<Openings />} />
+                    <Route path="curriculum" element={<Curriculum />} />
                     <Route path="pricing" element={<Pricing />} />
+                    <Route path="help" element={<Help />} />
                     
                     {/* Train/Drill: accessible, but saving requires auth. 
                         If they hit a 401/403 inside, component should handle it or they just can't save. 

@@ -105,6 +105,22 @@ export interface OpeningDrillStatsResponse {
     badges: OpeningDrillBadge[];
 }
 
+export interface MistakeListItem {
+    id: string;
+    variation_id: string | null;
+    variation_name: string | null;
+    opening_id: string | null;
+    opening_name: string | null;
+    fen: string;
+    wrong_move: string;
+    correct_move: string;
+    created_at: string;
+}
+
+export interface MistakesResponse {
+    mistakes: MistakeListItem[];
+}
+
 export const api = {
     getDashboard: async () => {
         const { data } = await client.get<DashboardResponse>('/dashboard/');
@@ -114,12 +130,15 @@ export const api = {
         const { data } = await client.get<OpeningsResponse>('/openings/');
         return data;
     },
-    getRecallSession: async (id?: string, filters?: RecallFilters, openingId?: string) => {
+    getRecallSession: async (id?: string, filters?: RecallFilters, openingId?: string, mistakeId?: string) => {
         let url = '/recall/session/';
         const params = new URLSearchParams();
         
         if (id) {
             params.append('id', id);
+        }
+        if (mistakeId) {
+            params.append('mistake_id', mistakeId);
         }
 
         const effectiveFilters = {
@@ -160,6 +179,10 @@ export const api = {
         }
         
         const { data } = await client.get<RecallSessionResponse>(url);
+        return data;
+    },
+    getMistakes: async () => {
+        const { data } = await client.get<MistakesResponse>('/mistakes/');
         return data;
     },
     getRepertoire: async () => {

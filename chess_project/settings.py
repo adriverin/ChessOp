@@ -48,6 +48,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8000",
     # Add your local network IP here to play from other devices (e.g. "http://192.168.1.5:5173")
     "http://192.168.1.3:5173",
+    "http://192.168.1.25:5173",
     "http://192.168.1.3:8000"
 ]
 

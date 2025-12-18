@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -17,6 +17,7 @@ export const GuestModeBanner: React.FC<GuestModeBannerProps> = ({
     className,
 }) => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [dismissed, setDismissed] = useState(false);
 
     useEffect(() => {
@@ -55,7 +56,12 @@ export const GuestModeBanner: React.FC<GuestModeBannerProps> = ({
                 </p>
                 <div className="flex flex-wrap gap-2 pt-1">
                     <button
-                        onClick={() => navigate('/login')}
+                        onClick={() =>
+                            navigate('/signup', {
+                                replace: false,
+                                state: { backgroundLocation: location, from: location },
+                            })
+                        }
                         className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-full shadow-sm hover:bg-indigo-500 transition-colors"
                     >
                         Create account

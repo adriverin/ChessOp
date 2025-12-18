@@ -102,6 +102,8 @@ def api_get_dashboard_data(request):
         'is_authenticated': True,
         'xp': profile.total_xp,
         'level': profile.level,
+        'daily_moves_remaining': profile.daily_moves_remaining,
+        'daily_moves_max': 20,
         'is_premium': user_has_premium_access(request.user),
         'effective_premium': user_has_premium_access(request.user),
         'subscription': {
@@ -123,6 +125,31 @@ def api_get_dashboard_data(request):
         'one_move_best_streak': profile.one_move_best_streak,
         # Add Heatmap summary if needed (or fetch via separate endpoint)
     })
+
+
+@login_required
+def api_get_mistakes(request):
+    profile = request.user.profile
+    mistakes = (
+        UserMistake.objects.filter(profile=profile, resolved=False)
+        .select_related('variation', 'variation__opening')
+        .order_by('-created_at')
+    )
+
+    payload = []
+    for m in mistakes:
+        payload.append({
+            'id': str(m.id),
+            'variation_id': m.variation.slug if m.variation else None,
+            'variation_name': m.variation.name if m.variation else None,
+            'opening_id': m.variation.opening.slug if m.variation else None,
+            'opening_name': m.variation.opening.name if m.variation else None,
+            'fen': m.fen,
+            'wrong_move': m.wrong_move,
+            'correct_move': m.correct_move,
+            'created_at': m.created_at.isoformat(),
+        })
+    return JsonResponse({'mistakes': payload})
 
 def opening_drill_unlocked(user, opening):
     """
@@ -511,6 +538,16 @@ def api_get_recall_session(request):
             profile = request.user.profile
         except:
             pass
+
+    # Specific mistake request (Blunder Basket item)
+    mistake_id = request.GET.get('mistake_id')
+    if mistake_id:
+        if not profile:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        mistake = UserMistake.objects.filter(profile=profile, resolved=False, id=mistake_id).first()
+        if not mistake:
+            return JsonResponse({'error': 'Mistake not found'}, status=404)
+        return _return_mistake(mistake)
     
     # Parse Filter Params
     # Expected format: ?difficulties=beginner,elite&training_goals=tactics&themes=IQP,pawn_storm
@@ -1659,4 +1696,3 @@ def stripe_webhook(request):
             )
 
     return JsonResponse({'status': 'success'})
-

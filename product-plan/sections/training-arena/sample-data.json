@@ -1,0 +1,303 @@
+{
+    "_meta": {
+        "models": {
+            "openings": "A chess opening family (e.g., Sicilian Defense). Contains multiple variations a user can learn.",
+            "variations": "A specific line within an opening—the core learning unit with actual move sequences.",
+            "userProgress": "Tracks how well you know each variation using spaced repetition (next review date, mastery level).",
+            "userMistakes": "Your 'Blunder Basket'—positions where you played the wrong move, saved for targeted review.",
+            "currentSession": "The active training session state including mode, filters, and progress."
+        },
+        "relationships": [
+            "Each Opening contains multiple Variations (the specific lines to learn)",
+            "UserProgress links to a Variation to track your mastery of that line",
+            "UserMistakes reference a specific position (FEN) where you went wrong"
+        ]
+    },
+    "openings": [
+        {
+            "id": "opening-001",
+            "name": "Sicilian Defense",
+            "description": "The most popular response to 1.e4, leading to sharp, tactical battles.",
+            "side": "black",
+            "eco": "B20-B99",
+            "imageUrl": "/images/openings/sicilian.png",
+            "variationCount": 3,
+            "isPremium": false
+        },
+        {
+            "id": "opening-002",
+            "name": "Queen's Gambit",
+            "description": "A classical opening where White offers a pawn to gain central control.",
+            "side": "white",
+            "eco": "D06-D69",
+            "imageUrl": "/images/openings/queens-gambit.png",
+            "variationCount": 2,
+            "isPremium": false
+        },
+        {
+            "id": "opening-003",
+            "name": "King's Indian Defense",
+            "description": "A hypermodern defense allowing White to build a big center before striking back.",
+            "side": "black",
+            "eco": "E60-E99",
+            "imageUrl": "/images/openings/kings-indian.png",
+            "variationCount": 2,
+            "isPremium": true
+        },
+        {
+            "id": "opening-004",
+            "name": "Italian Game",
+            "description": "One of the oldest openings, developing pieces naturally toward the center.",
+            "side": "white",
+            "eco": "C50-C54",
+            "imageUrl": "/images/openings/italian.png",
+            "variationCount": 1,
+            "isPremium": false
+        }
+    ],
+    "variations": [
+        {
+            "id": "var-001",
+            "openingId": "opening-001",
+            "name": "Najdorf Variation",
+            "description": "The most theoretically complex and popular Sicilian line, favored by world champions.",
+            "moves": "1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Nxd4 Nf6 5.Nc3 a6",
+            "moveCount": 10,
+            "difficulty": "advanced",
+            "isPremium": false,
+            "isLocked": false,
+            "isInRepertoire": true
+        },
+        {
+            "id": "var-002",
+            "openingId": "opening-001",
+            "name": "Dragon Variation",
+            "description": "An aggressive system with the bishop fianchetto, leading to sharp opposite-side attacks.",
+            "moves": "1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Nxd4 Nf6 5.Nc3 g6",
+            "moveCount": 10,
+            "difficulty": "intermediate",
+            "isPremium": false,
+            "isLocked": false,
+            "isInRepertoire": true
+        },
+        {
+            "id": "var-003",
+            "openingId": "opening-001",
+            "name": "Accelerated Dragon",
+            "description": "A faster version of the Dragon, avoiding some of White's most dangerous setups.",
+            "moves": "1.e4 c5 2.Nf3 Nc6 3.d4 cxd4 4.Nxd4 g6",
+            "moveCount": 8,
+            "difficulty": "intermediate",
+            "isPremium": true,
+            "isLocked": true,
+            "isInRepertoire": false
+        },
+        {
+            "id": "var-004",
+            "openingId": "opening-002",
+            "name": "Queen's Gambit Declined",
+            "description": "A solid response where Black defends the d5 pawn instead of capturing.",
+            "moves": "1.d4 d5 2.c4 e6 3.Nc3 Nf6 4.Bg5 Be7 5.e3 O-O",
+            "moveCount": 10,
+            "difficulty": "beginner",
+            "isPremium": false,
+            "isLocked": false,
+            "isInRepertoire": true
+        },
+        {
+            "id": "var-005",
+            "openingId": "opening-002",
+            "name": "Slav Defense",
+            "description": "Black supports d5 with c6, keeping the light-squared bishop active.",
+            "moves": "1.d4 d5 2.c4 c6 3.Nf3 Nf6 4.Nc3 dxc4",
+            "moveCount": 8,
+            "difficulty": "intermediate",
+            "isPremium": false,
+            "isLocked": false,
+            "isInRepertoire": false
+        },
+        {
+            "id": "var-006",
+            "openingId": "opening-003",
+            "name": "Classical King's Indian",
+            "description": "The mainline with d6, Nf6, g6, Bg7, and O-O before striking with e5 or c5.",
+            "moves": "1.d4 Nf6 2.c4 g6 3.Nc3 Bg7 4.e4 d6 5.Nf3 O-O 6.Be2 e5",
+            "moveCount": 13,
+            "difficulty": "advanced",
+            "isPremium": true,
+            "isLocked": true,
+            "isInRepertoire": false
+        },
+        {
+            "id": "var-007",
+            "openingId": "opening-003",
+            "name": "Sämisch Variation",
+            "description": "White plays f3 to support a massive pawn center—double-edged and complex.",
+            "moves": "1.d4 Nf6 2.c4 g6 3.Nc3 Bg7 4.e4 d6 5.f3 O-O",
+            "moveCount": 11,
+            "difficulty": "advanced",
+            "isPremium": true,
+            "isLocked": true,
+            "isInRepertoire": false
+        },
+        {
+            "id": "var-008",
+            "openingId": "opening-004",
+            "name": "Giuoco Piano",
+            "description": "The 'quiet game'—a slow, strategic approach with Bc4 and c3.",
+            "moves": "1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5 4.c3 Nf6 5.d4 exd4 6.cxd4",
+            "moveCount": 11,
+            "difficulty": "beginner",
+            "isPremium": false,
+            "isLocked": false,
+            "isInRepertoire": true
+        }
+    ],
+    "userProgress": [
+        {
+            "id": "prog-001",
+            "variationId": "var-001",
+            "masteryPercent": 85,
+            "streak": 12,
+            "nextReviewDate": "2024-12-19T10:00:00Z",
+            "interval": 7,
+            "easeFactor": 2.5,
+            "totalReviews": 24,
+            "correctReviews": 21,
+            "lastReviewedAt": "2024-12-12T14:30:00Z"
+        },
+        {
+            "id": "prog-002",
+            "variationId": "var-002",
+            "masteryPercent": 72,
+            "streak": 5,
+            "nextReviewDate": "2024-12-18T08:00:00Z",
+            "interval": 3,
+            "easeFactor": 2.3,
+            "totalReviews": 15,
+            "correctReviews": 11,
+            "lastReviewedAt": "2024-12-15T09:15:00Z"
+        },
+        {
+            "id": "prog-003",
+            "variationId": "var-004",
+            "masteryPercent": 95,
+            "streak": 28,
+            "nextReviewDate": "2024-12-25T12:00:00Z",
+            "interval": 14,
+            "easeFactor": 2.8,
+            "totalReviews": 42,
+            "correctReviews": 40,
+            "lastReviewedAt": "2024-12-11T16:45:00Z"
+        },
+        {
+            "id": "prog-004",
+            "variationId": "var-005",
+            "masteryPercent": 45,
+            "streak": 0,
+            "nextReviewDate": "2024-12-18T06:00:00Z",
+            "interval": 1,
+            "easeFactor": 1.8,
+            "totalReviews": 8,
+            "correctReviews": 4,
+            "lastReviewedAt": "2024-12-17T11:20:00Z"
+        },
+        {
+            "id": "prog-005",
+            "variationId": "var-008",
+            "masteryPercent": 60,
+            "streak": 3,
+            "nextReviewDate": "2024-12-20T09:00:00Z",
+            "interval": 2,
+            "easeFactor": 2.1,
+            "totalReviews": 10,
+            "correctReviews": 6,
+            "lastReviewedAt": "2024-12-18T08:00:00Z"
+        },
+        {
+            "id": "prog-006",
+            "variationId": "var-001",
+            "masteryPercent": 15,
+            "streak": 0,
+            "nextReviewDate": null,
+            "interval": 0,
+            "easeFactor": 2.5,
+            "totalReviews": 1,
+            "correctReviews": 0,
+            "lastReviewedAt": "2024-12-17T20:00:00Z"
+        }
+    ],
+    "userMistakes": [
+        {
+            "id": "mistake-001",
+            "variationId": "var-001",
+            "fen": "rnbqkb1r/1p2pppp/p2p1n2/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 6",
+            "wrongMove": "Bc4",
+            "correctMove": "Be2",
+            "explanation": "Be2 is the main line in the Najdorf, keeping options open. Bc4 allows ...e5 with tempo.",
+            "occurredAt": "2024-12-17T14:30:00Z",
+            "reviewedCount": 0,
+            "lastReviewedAt": null
+        },
+        {
+            "id": "mistake-002",
+            "variationId": "var-002",
+            "fen": "rnbqkb1r/pp2pp1p/3p1np1/8/3NP3/2N5/PPP2PPP/R1BQKB1R w KQkq - 0 6",
+            "wrongMove": "f3",
+            "correctMove": "Be3",
+            "explanation": "Be3 prepares the Yugoslav Attack with Qd2 and O-O-O. f3 is too slow here.",
+            "occurredAt": "2024-12-16T10:15:00Z",
+            "reviewedCount": 2,
+            "lastReviewedAt": "2024-12-17T09:00:00Z"
+        },
+        {
+            "id": "mistake-003",
+            "variationId": "var-004",
+            "fen": "rnbqk2r/ppp1bppp/4pn2/3p2B1/2PP4/2N5/PP2PPPP/R2QKBNR w KQkq - 2 5",
+            "wrongMove": "Nf3",
+            "correctMove": "e3",
+            "explanation": "e3 solidifies the center and prepares Bd3. Nf3 is playable but less accurate in this specific move order.",
+            "occurredAt": "2024-12-15T16:45:00Z",
+            "reviewedCount": 1,
+            "lastReviewedAt": "2024-12-16T11:30:00Z"
+        },
+        {
+            "id": "mistake-004",
+            "variationId": "var-008",
+            "fen": "r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4",
+            "wrongMove": "d3",
+            "correctMove": "c3",
+            "explanation": "c3 prepares d4 with a strong center. d3 is too passive and gives Black easy equality.",
+            "occurredAt": "2024-12-18T08:20:00Z",
+            "reviewedCount": 0,
+            "lastReviewedAt": null
+        }
+    ],
+    "currentSession": {
+        "mode": "opening-training",
+        "openingId": "opening-001",
+        "variationId": "var-001",
+        "movesPlayed": 4,
+        "totalMoves": 10,
+        "hintsUsed": 1,
+        "isComplete": false,
+        "startedAt": "2024-12-18T16:50:00Z",
+        "filters": {
+            "repertoireOnly": true,
+            "wrongMoveMode": false,
+            "side": "black"
+        }
+    },
+    "userStats": {
+        "totalXp": 2450,
+        "level": 12,
+        "currentStreak": 7,
+        "longestStreak": 14,
+        "staminaRemaining": 8,
+        "staminaMax": 10,
+        "dueReviews": 3,
+        "variationsLearned": 5,
+        "totalMistakes": 47,
+        "mistakesFixed": 43
+    }
+}
