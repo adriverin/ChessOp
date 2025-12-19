@@ -401,28 +401,32 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
         setIsMovesExpanded(false);
 
         if (mode === 'sequence' && targetMoves && targetMoves.length > 0) {
-            let currentGame = newGame;
-            let currentIndex = 0;
-            const userPlaysWhite = orientation === 'white';
+            const userTurnColor = orientation === 'white' ? 'w' : 'b';
 
-            while (currentIndex < targetMoves.length) {
-                const isWhiteTurn = currentGame.turn() === 'w';
-                const isUserTurn = (userPlaysWhite && isWhiteTurn) || (!userPlaysWhite && !isWhiteTurn);
+            // Only auto-play when it's NOT the user's turn (e.g. user plays Black so White's first move must be played),
+            // or when starting from a non-start FEN where the opponent is to move.
+            if (newGame.turn() !== userTurnColor) {
+                let currentGame = newGame;
+                let currentIndex = 0;
 
-                if (isUserTurn) break;
+                while (currentIndex < targetMoves.length) {
+                    if (currentGame.turn() === userTurnColor) break;
 
-                const move = targetMoves[currentIndex];
-                try {
-                    const result = currentGame.move(move.san);
-                    if (result) currentIndex++;
-                    else break;
-                } catch (e) { break; }
-            }
+                    const move = targetMoves[currentIndex];
+                    try {
+                        const result = currentGame.move(move.san);
+                        if (result) currentIndex++;
+                        else break;
+                    } catch (e) {
+                        break;
+                    }
+                }
 
-            if (currentIndex > 0) {
-                setGame(new Chess(currentGame.fen()));
-                setMoveIndex(currentIndex);
-                setMaxPlayedIndex(currentIndex);
+                if (currentIndex > 0) {
+                    setGame(new Chess(currentGame.fen()));
+                    setMoveIndex(currentIndex);
+                    setMaxPlayedIndex(currentIndex);
+                }
             }
         }
     }, [initialFen, targetMoves, targetNextMove, mode, orientation]);
@@ -789,22 +793,25 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
         setIsMovesExpanded(false);
 
         if (mode === 'sequence' && targetMoves && targetMoves.length > 0) {
-            let currentGame = newGame;
-            let currentIndex = 0;
-            const userPlaysWhite = orientation === 'white';
-            while (currentIndex < targetMoves.length) {
-                const isWhiteTurn = currentGame.turn() === 'w';
-                const isUserTurn = (userPlaysWhite && isWhiteTurn) || (!userPlaysWhite && !isWhiteTurn);
-                if (isUserTurn) break;
-                try {
-                    if (currentGame.move(targetMoves[currentIndex].san)) currentIndex++;
-                    else break;
-                } catch (e) { break; }
-            }
-            if (currentIndex > 0) {
-                setGame(new Chess(currentGame.fen()));
-                setMoveIndex(currentIndex);
-                setMaxPlayedIndex(currentIndex);
+            const userTurnColor = orientation === 'white' ? 'w' : 'b';
+
+            if (newGame.turn() !== userTurnColor) {
+                let currentGame = newGame;
+                let currentIndex = 0;
+                while (currentIndex < targetMoves.length) {
+                    if (currentGame.turn() === userTurnColor) break;
+                    try {
+                        if (currentGame.move(targetMoves[currentIndex].san)) currentIndex++;
+                        else break;
+                    } catch (e) {
+                        break;
+                    }
+                }
+                if (currentIndex > 0) {
+                    setGame(new Chess(currentGame.fen()));
+                    setMoveIndex(currentIndex);
+                    setMaxPlayedIndex(currentIndex);
+                }
             }
         }
 
@@ -868,8 +875,7 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
             return (
                 <div
                     ref={boardWrapperRef}
-                    className="w-full relative flex items-center justify-center"
-                    style={{ aspectRatio: '1 / 1' }}
+                    className="w-full h-full min-h-0 relative flex items-center justify-center"
                 >
                     <div
                         className="rounded-2xl overflow-hidden relative bg-slate-100 border border-slate-200 dark:bg-slate-900/70 dark:border-slate-800 transition-colors duration-200 shadow-md"
@@ -969,7 +975,7 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
                 {fitToViewport ? (
                     <div
                         ref={boardWrapperRef}
-                        className="flex-1 min-h-0 w-full relative flex items-center justify-center"
+                        className="flex-1 min-h-0 w-full h-full relative flex items-center justify-center"
                     >
                         {/* Actual Board - Sized via JS */}
                         <div

@@ -51,34 +51,36 @@ export function TrainingArena({
 
     return (
         <div className="w-full">
-            <div className="relative border-b border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-950">
-                <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_15%,rgba(16,185,129,0.12),transparent_45%),radial-gradient(circle_at_80%_10%,rgba(245,158,11,0.14),transparent_40%)] dark:bg-[radial-gradient(circle_at_20%_15%,rgba(16,185,129,0.16),transparent_45%),radial-gradient(circle_at_80%_10%,rgba(245,158,11,0.18),transparent_40%)]" />
-                <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                        <div>
-                            <p className="text-xs font-medium tracking-wider uppercase text-slate-500 dark:text-slate-400">
-                                Training Arena
-                            </p>
-                            <h1 className="mt-2 text-2xl sm:text-3xl font-heading font-bold text-slate-900 dark:text-white">
-                                Drill openings with intent
-                            </h1>
-                            <p className="mt-2 text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl">
-                                Learn new lines, review due variations, and surface weak positions from your Blunder Basket.
-                            </p>
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
-                            <span className="inline-flex items-center gap-2 rounded-full bg-white/70 dark:bg-slate-900/40 px-3 py-1.5 ring-1 ring-inset ring-slate-200 dark:ring-slate-800">
-                                <span>🔥</span>
-                                <span className="font-medium">{userStats.currentStreak} day streak</span>
-                            </span>
-                            <span className="inline-flex items-center gap-2 rounded-full bg-white/70 dark:bg-slate-900/40 px-3 py-1.5 ring-1 ring-inset ring-slate-200 dark:ring-slate-800">
-                                <span>⚡</span>
-                                <span className="font-medium">{userStats.staminaRemaining}/{userStats.staminaMax}</span>
-                            </span>
+            {!currentSession && (
+                <div className="relative border-b border-slate-200 dark:border-slate-900 bg-white dark:bg-slate-950">
+                    <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_20%_15%,rgba(16,185,129,0.12),transparent_45%),radial-gradient(circle_at_80%_10%,rgba(245,158,11,0.14),transparent_40%)] dark:bg-[radial-gradient(circle_at_20%_15%,rgba(16,185,129,0.16),transparent_45%),radial-gradient(circle_at_80%_10%,rgba(245,158,11,0.18),transparent_40%)]" />
+                    <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                            <div>
+                                <p className="text-xs font-medium tracking-wider uppercase text-slate-500 dark:text-slate-400">
+                                    Training Arena
+                                </p>
+                                <h1 className="mt-2 text-2xl sm:text-3xl font-heading font-bold text-slate-900 dark:text-white">
+                                    Drill openings with intent
+                                </h1>
+                                <p className="mt-2 text-sm sm:text-base text-slate-600 dark:text-slate-300 max-w-2xl">
+                                    Learn new lines, review due variations, and surface weak positions from your Blunder Basket.
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-300">
+                                <span className="inline-flex items-center gap-2 rounded-full bg-white/70 dark:bg-slate-900/40 px-3 py-1.5 ring-1 ring-inset ring-slate-200 dark:ring-slate-800">
+                                    <span>🔥</span>
+                                    <span className="font-medium">{userStats.currentStreak} day streak</span>
+                                </span>
+                                <span className="inline-flex items-center gap-2 rounded-full bg-white/70 dark:bg-slate-900/40 px-3 py-1.5 ring-1 ring-inset ring-slate-200 dark:ring-slate-800">
+                                    <span>⚡</span>
+                                    <span className="font-medium">{userStats.staminaRemaining}/{userStats.staminaMax}</span>
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {currentSession ? (
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">

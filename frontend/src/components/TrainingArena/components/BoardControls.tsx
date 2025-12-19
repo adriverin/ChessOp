@@ -40,94 +40,72 @@ export function BoardControls({
     onStepBack,
     onStepForward,
 }: BoardControlsProps) {
-    const buttonBase = `
-        flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
-        font-medium text-sm transition-all duration-200
-        disabled:opacity-50 disabled:cursor-not-allowed
-        focus:outline-none focus:ring-2 focus:ring-offset-2
-        dark:focus:ring-offset-slate-900
-    `
-
-    const primaryButton = `
-        ${buttonBase}
-        bg-amber-100 hover:bg-amber-200 text-amber-800
-        dark:bg-amber-900/30 dark:hover:bg-amber-900/50 dark:text-amber-300
-        focus:ring-amber-400
-    `
-
-    const secondaryButton = `
-        ${buttonBase}
-        bg-slate-100 hover:bg-slate-200 text-slate-700
-        dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300
-        focus:ring-slate-400
-    `
-
     const iconButton = `
-        flex items-center justify-center w-10 h-10 rounded-xl
-        bg-slate-100 hover:bg-slate-200 text-slate-600
-        dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-400
-        transition-all duration-200
+        relative inline-flex items-center justify-center w-9 h-9 rounded-lg
+        bg-slate-100 hover:bg-slate-200 text-slate-700
+        dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200
+        transition-all duration-150
         disabled:opacity-50 disabled:cursor-not-allowed
         focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2
         dark:focus:ring-offset-slate-900
     `
 
+    const hintButton = `
+        ${iconButton}
+        bg-amber-100 hover:bg-amber-200 text-amber-900
+        dark:bg-amber-900/30 dark:hover:bg-amber-900/45 dark:text-amber-200
+        focus:ring-amber-400
+    `
+
     return (
-        <div className="flex items-center justify-between gap-3 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
-            {/* Left: Navigation */}
-            <div className="flex items-center gap-2">
-                <button
-                    onClick={onStepBack}
-                    disabled={isComplete}
-                    className={iconButton}
-                    aria-label="Step back"
-                    title="Step back"
-                    type="button"
-                >
-                    <ChevronLeftIcon />
-                </button>
-                <button
-                    onClick={onStepForward}
-                    disabled={isComplete}
-                    className={iconButton}
-                    aria-label="Step forward"
-                    title="Step forward"
-                    type="button"
-                >
-                    <ChevronRightIcon />
-                </button>
-            </div>
+        <div className="flex items-center gap-2">
+            <button
+                onClick={onStepBack}
+                disabled={isComplete}
+                className={iconButton}
+                aria-label="Step back"
+                title="Step back"
+                type="button"
+            >
+                <ChevronLeftIcon />
+            </button>
+            <button
+                onClick={onStepForward}
+                disabled={isComplete}
+                className={iconButton}
+                aria-label="Step forward"
+                title="Step forward"
+                type="button"
+            >
+                <ChevronRightIcon />
+            </button>
 
-            {/* Center: Main Actions */}
-            <div className="flex items-center gap-3">
-                <button
-                    onClick={onRequestHint}
-                    disabled={isComplete}
-                    className={primaryButton}
-                    type="button"
-                >
-                    <LightbulbIcon />
-                    <span>Hint</span>
-                    {hintsUsed > 0 && (
-                        <span className="ml-1 px-1.5 py-0.5 text-xs bg-amber-200 dark:bg-amber-800 rounded-full">
-                            {hintsUsed}
-                        </span>
-                    )}
-                </button>
+            <button
+                onClick={onRequestHint}
+                disabled={isComplete}
+                className={hintButton}
+                aria-label="Hint"
+                title="Hint"
+                type="button"
+            >
+                <LightbulbIcon />
+                {hintsUsed > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] leading-4 text-center ring-2 ring-white dark:ring-slate-900">
+                        {hintsUsed}
+                    </span>
+                )}
+            </button>
 
-                <button
-                    onClick={onResetPosition}
-                    disabled={isComplete}
-                    className={secondaryButton}
-                    type="button"
-                >
-                    <RefreshIcon />
-                    <span>Reset</span>
-                </button>
-            </div>
-
-            {/* Right: Spacer for balance */}
-            <div className="w-[88px]" />
+            <button
+                onClick={onResetPosition}
+                disabled={isComplete}
+                className={iconButton}
+                aria-label="Reset"
+                title="Reset"
+                type="button"
+            >
+                <RefreshIcon />
+            </button>
         </div>
     )
 }

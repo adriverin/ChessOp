@@ -988,8 +988,14 @@ export const Train: React.FC = () => {
         },
     };
 
+    const sessionKey = isOpeningDrillMode
+        ? openingDrillSession?.variation.id
+        : activeSession?.id;
+    const boardKey = `${arenaMode}:${sessionKey ?? 'none'}`;
+
     const sessionBoard = (
         <GameArea
+            key={boardKey}
             ref={gameAreaRef}
             mode={isOpeningDrillMode ? 'sequence' : (activeSession?.type === 'mistake' ? 'mistake' : 'sequence')}
             sessionTitle={

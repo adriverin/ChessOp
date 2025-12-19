@@ -34,26 +34,17 @@ const EyeIcon = () => (
     </svg>
 )
 
-const modeLabels: Record<TrainingMode, string> = {
-    'opening-training': 'Opening Training',
-    'one-move-drill': 'One Move Drill',
-    'opening-drill': 'Opening Drill',
-}
-
 export function SessionSidebar({
     openings,
     variations,
     currentOpeningId,
     currentVariationId,
-    mode,
     filters,
     movesPlayed,
     onSelectOpening,
     onSelectVariation,
-    onSwitchMode,
     onToggleRepertoireOnly,
     onToggleWrongMoveMode,
-    onChangeSideFilter,
 }: SessionSidebarProps) {
     const currentOpening = openings.find(o => o.id === currentOpeningId)
     const currentVariation = variations.find(v => v.id === currentVariationId)
@@ -66,34 +57,9 @@ export function SessionSidebar({
     const visibleMoves = revealAll ? parsedMoves : parsedMoves.slice(0, movesPlayed.length)
 
     return (
-        <div className="flex flex-col h-full bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-            {/* Mode Selector */}
-            <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-                <label
-                    htmlFor="training-arena-mode"
-                    className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 block"
-                >
-                    Training Mode
-                </label>
-                <div className="relative">
-                    <select
-                        id="training-arena-mode"
-                        value={mode}
-                        onChange={(e) => onSwitchMode?.(e.target.value as TrainingMode)}
-                        className="w-full appearance-none px-4 py-2.5 pr-10 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-medium cursor-pointer hover:border-slate-300 dark:hover:border-slate-500 transition-colors"
-                    >
-                        <option value="opening-training">{modeLabels['opening-training']}</option>
-                        <option value="one-move-drill">{modeLabels['one-move-drill']}</option>
-                        <option value="opening-drill">{modeLabels['opening-drill']}</option>
-                    </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                        <ChevronDownIcon />
-                    </div>
-                </div>
-            </div>
-
+        <div className="flex flex-col h-full min-h-0 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
             {/* Opening & Variation Selectors */}
-            <div className="p-4 space-y-4 border-b border-slate-200 dark:border-slate-700">
+            <div className="p-3 space-y-3 border-b border-slate-200 dark:border-slate-700">
                 {/* Opening */}
                 <div>
                     <label
@@ -107,7 +73,7 @@ export function SessionSidebar({
                             id="training-arena-opening"
                             value={currentOpeningId}
                             onChange={(e) => onSelectOpening?.(e.target.value)}
-                            className="w-full appearance-none px-4 py-2.5 pr-10 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-medium cursor-pointer hover:border-slate-300 dark:hover:border-slate-500 transition-colors"
+                            className="w-full appearance-none px-3 py-2 pr-10 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-medium cursor-pointer hover:border-slate-300 dark:hover:border-slate-500 transition-colors"
                         >
                             {openings.map(opening => (
                                 <option key={opening.id} value={opening.id}>
@@ -139,7 +105,7 @@ export function SessionSidebar({
                             id="training-arena-variation"
                             value={currentVariationId}
                             onChange={(e) => onSelectVariation?.(e.target.value)}
-                            className="w-full appearance-none px-4 py-2.5 pr-10 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-medium cursor-pointer hover:border-slate-300 dark:hover:border-slate-500 transition-colors"
+                            className="w-full appearance-none px-3 py-2 pr-10 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-medium cursor-pointer hover:border-slate-300 dark:hover:border-slate-500 transition-colors"
                         >
                             {availableVariations.map(variation => (
                                 <option key={variation.id} value={variation.id}>
@@ -153,22 +119,6 @@ export function SessionSidebar({
                     </div>
                     {currentVariation && (
                         <div className="mt-2 space-y-1">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                                    {currentVariation.moveCount} moves
-                                </span>
-                                <span className={`
-                                    px-2 py-0.5 rounded-full text-xs font-medium
-                                    ${currentVariation.difficulty === 'beginner'
-                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                        : currentVariation.difficulty === 'intermediate'
-                                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                                    }
-                                `}>
-                                    {currentVariation.difficulty}
-                                </span>
-                            </div>
                             <p className="text-xs text-slate-600 dark:text-slate-400">
                                 {currentVariation.description}
                             </p>
@@ -178,7 +128,7 @@ export function SessionSidebar({
             </div>
 
             {/* Move List */}
-            <div className="flex-1 p-4 overflow-y-auto">
+            <div className="flex-1 min-h-0 h-full px-3 py-2 overflow-y-auto">
                 <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                         Move List
@@ -211,7 +161,7 @@ export function SessionSidebar({
             </div>
 
             {/* Filter Toggles */}
-            <div className="p-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
+            <div className="p-3 border-t border-slate-200 dark:border-slate-700 space-y-3">
                 <label className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
                     Filters
                 </label>
@@ -271,40 +221,6 @@ export function SessionSidebar({
                         />
                     </button>
                 </label>
-
-                {/* Side Filter */}
-                <div className="flex items-center gap-2 pt-2">
-                    <button
-                        onClick={() => onChangeSideFilter?.(null)}
-                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${filters.side === null
-                                ? 'bg-slate-200 dark:bg-slate-600 text-slate-900 dark:text-white'
-                                : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                            }`}
-                        type="button"
-                    >
-                        Both
-                    </button>
-                    <button
-                        onClick={() => onChangeSideFilter?.('white')}
-                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${filters.side === 'white'
-                                ? 'bg-slate-200 dark:bg-slate-600 text-slate-900 dark:text-white'
-                                : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                            }`}
-                        type="button"
-                    >
-                        ♔ White
-                    </button>
-                    <button
-                        onClick={() => onChangeSideFilter?.('black')}
-                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${filters.side === 'black'
-                                ? 'bg-slate-200 dark:bg-slate-600 text-slate-900 dark:text-white'
-                                : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-                            }`}
-                        type="button"
-                    >
-                        ♚ Black
-                    </button>
-                </div>
             </div>
         </div>
     )

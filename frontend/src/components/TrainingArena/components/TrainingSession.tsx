@@ -3,7 +3,7 @@ import { SessionProgress } from './SessionProgress'
 import { BoardControls } from './BoardControls'
 import { SessionSidebar } from './SessionSidebar'
 import { CompletionBanner } from './CompletionBanner'
-import type { ReactNode } from 'react'
+import { cloneElement, isValidElement, type ReactNode } from 'react'
 
 export interface TrainingSessionProps {
     /** List of available openings */
@@ -124,64 +124,45 @@ function GuestBanner({ onSignUp }: { onSignUp?: () => void }) {
 }
 
 export function TrainingSession({
-    openings,
-    variations,
-    currentSession,
-    userStats,
-    isGuest = false,
-    board,
-    onSignUp,
-    onRequestHint,
-    onResetPosition,
-    onStepBack,
-    onStepForward,
-    onNextSession,
-    onRetrySession,
-    onSelectOpening,
-    onSelectVariation,
-    onSwitchMode,
-    onToggleRepertoireOnly,
-    onToggleWrongMoveMode,
-    onChangeSideFilter,
+    ...props
 }: TrainingSessionProps) {
+    const {
+        openings,
+        variations,
+        currentSession,
+        isGuest = false,
+        board,
+        onSignUp,
+        onRequestHint,
+        onResetPosition,
+        onStepBack,
+        onStepForward,
+        onNextSession,
+        onRetrySession,
+        onSelectOpening,
+        onSelectVariation,
+        onSwitchMode,
+        onToggleRepertoireOnly,
+        onToggleWrongMoveMode,
+        onChangeSideFilter,
+    } = props
     const currentOpening = openings.find(o => o.id === currentSession.openingId)
     const currentVariation = variations.find(v => v.id === currentSession.variationId)
     const isWhitePerspective = currentOpening?.side === 'white'
 
     const movesPlayed = Array(currentSession.movesPlayed).fill('')
+    const boardElement = (() => {
+        if (!board) return null
+        if (!isValidElement<any>(board)) return board
+        if (typeof board.type === 'string') return board
+        return cloneElement(board, { fitToViewport: true } as any)
+    })()
 
     return (
-        <div className="w-full max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+        <div className="w-full max-w-7xl mx-auto px-4 pt-0 pb-4 sm:px-6 lg:px-8 flex flex-col lg:h-[calc(100vh-80px)] lg:min-h-0">
             {isGuest && <GuestBanner onSignUp={onSignUp} />}
 
-            <div className="mb-6">
-                <div className="flex items-center gap-3 mb-2">
-                    <span className={`
-                        px-2.5 py-1 text-xs font-semibold rounded-full
-                        ${currentSession.mode === 'opening-training'
-                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                            : currentSession.mode === 'one-move-drill'
-                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                                : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
-                        }
-                    `}>
-                        {currentSession.mode === 'opening-training' ? 'Opening Training' :
-                            currentSession.mode === 'one-move-drill' ? 'One Move Drill' : 'Opening Drill'}
-                    </span>
-                    {currentVariation && (
-                        <span className={`
-                            px-2 py-0.5 text-xs font-medium rounded
-                            ${currentVariation.difficulty === 'beginner'
-                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                                : currentVariation.difficulty === 'intermediate'
-                                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-                            }
-                        `}>
-                            {currentVariation.difficulty}
-                        </span>
-                    )}
-                </div>
+            <div className="mb-1 flex-none">
                 <h1 className="text-2xl sm:text-3xl font-heading font-bold text-slate-900 dark:text-white">
                     {currentVariation?.name || 'Training Session'}
                 </h1>
@@ -190,9 +171,9 @@ export function TrainingSession({
                 </p>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-6">
-                <div className="flex-1 min-w-0">
-                    <div className="relative bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+            <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0 items-stretch">
+                <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+                    <div className="relative bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700 shadow-sm flex-1 min-h-0 flex flex-col">
                         {currentSession.isComplete && (
                             <CompletionBanner
                                 onNextSession={onNextSession}
@@ -201,27 +182,15 @@ export function TrainingSession({
                             />
                         )}
 
-                        <div className="mb-4 flex items-center justify-between">
-                            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                                {currentSession.isComplete
-                                    ? '✨ Line complete!'
-                                    : `Your turn — play ${isWhitePerspective ? 'White' : 'Black'}'s move`
-                                }
-                            </p>
-                            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                                <span>🔥 {userStats.currentStreak} day streak</span>
-                                <span>•</span>
-                                <span>⚡ {userStats.staminaRemaining}/{userStats.staminaMax}</span>
-                            </div>
-                        </div>
-
-                        {board ?? <ChessboardPlaceholder isWhitePerspective={isWhitePerspective ?? true} />}
-
-                        <div className="mt-6">
+                        <div className="flex-none mb-2">
                             <SessionProgress session={currentSession} />
                         </div>
 
-                        <div className="mt-6">
+                        <div className="flex-1 min-h-0 relative flex items-center justify-center">
+                            {boardElement ?? <ChessboardPlaceholder isWhitePerspective={isWhitePerspective ?? true} />}
+                        </div>
+
+                        <div className="flex-none pb-2 pt-2">
                             <BoardControls
                                 hintsUsed={currentSession.hintsUsed}
                                 isComplete={currentSession.isComplete}
@@ -234,7 +203,7 @@ export function TrainingSession({
                     </div>
                 </div>
 
-                <div className="w-full lg:w-80">
+                <div className="w-full lg:w-80 lg:h-full lg:overflow-hidden lg:min-h-0">
                     <SessionSidebar
                         openings={openings}
                         variations={variations}

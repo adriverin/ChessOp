@@ -35,6 +35,7 @@ export const Layout: React.FC = () => {
     const { user, logout } = useUser();
     const location = useLocation();
     const navigate = useNavigate();
+    const isTrainingRoute = location.pathname === '/' || location.pathname === '/train' || location.pathname === '/drill';
 
     const navigationItems: NavigationItem[] = [
         { label: 'Training Arena', href: '/', isActive: isActive(location.pathname, '/') },
@@ -59,10 +60,9 @@ export const Layout: React.FC = () => {
             }
             onLogout={() => void logout()}
         >
-            <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6">
+            <div className={`max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 ${isTrainingRoute ? 'pt-2 pb-4' : 'py-6'}`}>
                 <Outlet />
             </div>
         </AppShell>
     );
 };
-
