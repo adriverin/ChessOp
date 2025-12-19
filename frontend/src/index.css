@@ -39,77 +39,72 @@
 
     /* 2. Use Conic Gradient to draw 4 distinct quadrants (squares) */
     /* Top-Right & Bottom-Left: Dark (Primary) */
-    /* Top-Left & Bottom-Right: Light (Slate) */
-    background-image: conic-gradient(
-      theme('colors.primary.600') 0deg 90deg,    /* Top-Right: Dark */
-      theme('colors.slate.200') 90deg 180deg,    /* Bottom-Right: Light */
-      theme('colors.primary.600') 180deg 270deg, /* Bottom-Left: Dark */
-      theme('colors.slate.200') 270deg 360deg    /* Top-Left: Light */
-    );
+    /* Top-Left & Bottom-Right: Light (Secondary) */
+    background-image: conic-gradient(theme('colors.primary.600') 0deg 90deg,
+        /* Top-Right: Dark */
+        theme('colors.secondary.200') 90deg 180deg,
+        /* Bottom-Right: Light */
+        theme('colors.primary.600') 180deg 270deg,
+        /* Bottom-Left: Dark */
+        theme('colors.secondary.200') 270deg 360deg
+        /* Top-Left: Light */
+      );
 
     /* 3. Ensure no interference */
-    background-color: theme('colors.slate.200');
+    background-color: theme('colors.secondary.200');
     background-repeat: repeat !important;
   }
 
   /* Ensure the custom element variant matches `.cg-board` */
   .cg-wrap cg-board {
     background-size: 25% 25% !important;
-    background-image: conic-gradient(
-      theme('colors.primary.600') 0deg 90deg,
-      theme('colors.slate.200') 90deg 180deg,
-      theme('colors.primary.600') 180deg 270deg,
-      theme('colors.slate.200') 270deg 360deg
-    );
-    background-color: theme('colors.slate.200');
+    background-image: conic-gradient(theme('colors.primary.600') 0deg 90deg,
+        theme('colors.secondary.200') 90deg 180deg,
+        theme('colors.primary.600') 180deg 270deg,
+        theme('colors.secondary.200') 270deg 360deg);
+    background-color: theme('colors.secondary.200');
     background-repeat: repeat !important;
   }
 
   /* Chessground highlights (Design OS accent) */
   .cg-wrap cg-board square.last-move,
   .cg-wrap .cg-board .last-move {
-    background-color: theme('colors.indigo.200');
-    background-color: color-mix(in srgb, theme('colors.indigo.500') 28%, transparent);
+    background-color: theme('colors.primary.200');
+    background-color: color-mix(in srgb, theme('colors.primary.400') 28%, transparent);
   }
 
   .cg-wrap cg-board square.selected,
   .cg-wrap .cg-board .selected {
-    background-color: theme('colors.indigo.300');
-    background-color: color-mix(in srgb, theme('colors.indigo.500') 40%, transparent);
+    background-color: theme('colors.primary.300');
+    background-color: color-mix(in srgb, theme('colors.primary.400') 40%, transparent);
   }
 
   .cg-wrap cg-board square.check,
   .cg-wrap .cg-board .check {
-    background: radial-gradient(
-      ellipse at center,
-      theme('colors.indigo.500') 0%,
-      theme('colors.indigo.600') 25%,
-      transparent 89%,
-      transparent 100%
-    );
+    background: radial-gradient(ellipse at center,
+        theme('colors.indigo.500') 0%,
+        theme('colors.indigo.600') 25%,
+        transparent 89%,
+        transparent 100%);
   }
 
   /* Optional: destination hints tuned to the same accent */
   .cg-wrap cg-board square.move-dest,
   .cg-wrap .cg-board .move-dest {
     background: radial-gradient(theme('colors.indigo.300') 22%, theme('colors.indigo.500') 0, transparent 0);
-    background: radial-gradient(
-      color-mix(in srgb, theme('colors.indigo.500') 45%, transparent) 22%,
-      theme('colors.indigo.500') 0,
-      color-mix(in srgb, theme('colors.slate.950') 25%, transparent) 0,
-      transparent 0
-    );
+    background: radial-gradient(color-mix(in srgb, theme('colors.indigo.500') 45%, transparent) 22%,
+        theme('colors.indigo.500') 0,
+        color-mix(in srgb, theme('colors.slate.950') 25%, transparent) 0,
+        transparent 0);
   }
 
   .cg-wrap cg-board square.premove-dest,
   .cg-wrap .cg-board .premove-dest {
     background: radial-gradient(theme('colors.amber.300') 22%, theme('colors.amber.500') 0, transparent 0);
-    background: radial-gradient(
-      color-mix(in srgb, theme('colors.amber.500') 45%, transparent) 22%,
-      theme('colors.amber.500') 0,
-      color-mix(in srgb, theme('colors.slate.950') 25%, transparent) 0,
-      transparent 0
-    );
+    background: radial-gradient(color-mix(in srgb, theme('colors.amber.500') 45%, transparent) 22%,
+        theme('colors.amber.500') 0,
+        color-mix(in srgb, theme('colors.slate.950') 25%, transparent) 0,
+        transparent 0);
   }
 
   .cg-wrap cg-board square.oc.move-dest,
