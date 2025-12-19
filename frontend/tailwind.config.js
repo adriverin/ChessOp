@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+import colors from 'tailwindcss/colors'
+
 export default {
   darkMode: 'class',
   content: [
@@ -7,6 +9,11 @@ export default {
   ],
   theme: {
     extend: {
+      colors: {
+        primary: colors.emerald,
+        secondary: colors.amber,
+        neutral: colors.slate,
+      },
       fontFamily: {
         heading: ['"Space Grotesk"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
         body: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],

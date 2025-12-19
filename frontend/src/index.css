@@ -1,3 +1,4 @@
+@config "../tailwind.config.js";
 @import "tailwindcss";
 
 @layer base {
@@ -30,5 +31,133 @@
 
   ::selection {
     @apply bg-indigo-500/50 text-white;
+  }
+
+  .cg-wrap .cg-board {
+    /* 1. Define the 2x2 Repeating Unit (25% of board width = 2 squares) */
+    background-size: 25% 25% !important;
+
+    /* 2. Use Conic Gradient to draw 4 distinct quadrants (squares) */
+    /* Top-Right & Bottom-Left: Dark (Primary) */
+    /* Top-Left & Bottom-Right: Light (Slate) */
+    background-image: conic-gradient(
+      theme('colors.primary.600') 0deg 90deg,    /* Top-Right: Dark */
+      theme('colors.slate.200') 90deg 180deg,    /* Bottom-Right: Light */
+      theme('colors.primary.600') 180deg 270deg, /* Bottom-Left: Dark */
+      theme('colors.slate.200') 270deg 360deg    /* Top-Left: Light */
+    );
+
+    /* 3. Ensure no interference */
+    background-color: theme('colors.slate.200');
+    background-repeat: repeat !important;
+  }
+
+  /* Ensure the custom element variant matches `.cg-board` */
+  .cg-wrap cg-board {
+    background-size: 25% 25% !important;
+    background-image: conic-gradient(
+      theme('colors.primary.600') 0deg 90deg,
+      theme('colors.slate.200') 90deg 180deg,
+      theme('colors.primary.600') 180deg 270deg,
+      theme('colors.slate.200') 270deg 360deg
+    );
+    background-color: theme('colors.slate.200');
+    background-repeat: repeat !important;
+  }
+
+  /* Chessground highlights (Design OS accent) */
+  .cg-wrap cg-board square.last-move,
+  .cg-wrap .cg-board .last-move {
+    background-color: theme('colors.indigo.200');
+    background-color: color-mix(in srgb, theme('colors.indigo.500') 28%, transparent);
+  }
+
+  .cg-wrap cg-board square.selected,
+  .cg-wrap .cg-board .selected {
+    background-color: theme('colors.indigo.300');
+    background-color: color-mix(in srgb, theme('colors.indigo.500') 40%, transparent);
+  }
+
+  .cg-wrap cg-board square.check,
+  .cg-wrap .cg-board .check {
+    background: radial-gradient(
+      ellipse at center,
+      theme('colors.indigo.500') 0%,
+      theme('colors.indigo.600') 25%,
+      transparent 89%,
+      transparent 100%
+    );
+  }
+
+  /* Optional: destination hints tuned to the same accent */
+  .cg-wrap cg-board square.move-dest,
+  .cg-wrap .cg-board .move-dest {
+    background: radial-gradient(theme('colors.indigo.300') 22%, theme('colors.indigo.500') 0, transparent 0);
+    background: radial-gradient(
+      color-mix(in srgb, theme('colors.indigo.500') 45%, transparent) 22%,
+      theme('colors.indigo.500') 0,
+      color-mix(in srgb, theme('colors.slate.950') 25%, transparent) 0,
+      transparent 0
+    );
+  }
+
+  .cg-wrap cg-board square.premove-dest,
+  .cg-wrap .cg-board .premove-dest {
+    background: radial-gradient(theme('colors.amber.300') 22%, theme('colors.amber.500') 0, transparent 0);
+    background: radial-gradient(
+      color-mix(in srgb, theme('colors.amber.500') 45%, transparent) 22%,
+      theme('colors.amber.500') 0,
+      color-mix(in srgb, theme('colors.slate.950') 25%, transparent) 0,
+      transparent 0
+    );
+  }
+
+  .cg-wrap cg-board square.oc.move-dest,
+  .cg-wrap .cg-board .oc.move-dest {
+    background: radial-gradient(transparent 0%, transparent 80%, color-mix(in srgb, theme('colors.indigo.500') 30%, transparent) 80%);
+  }
+
+  .cg-wrap cg-board square.oc.premove-dest,
+  .cg-wrap .cg-board .oc.premove-dest {
+    background: radial-gradient(transparent 0%, transparent 80%, color-mix(in srgb, theme('colors.amber.500') 24%, transparent) 80%);
+  }
+
+  .cg-wrap cg-board square.move-dest:hover,
+  .cg-wrap .cg-board .move-dest:hover {
+    background-color: color-mix(in srgb, theme('colors.indigo.500') 22%, transparent);
+  }
+
+  .cg-wrap cg-board square.premove-dest:hover,
+  .cg-wrap .cg-board .premove-dest:hover {
+    background-color: color-mix(in srgb, theme('colors.amber.500') 18%, transparent);
+  }
+
+  .cg-wrap cg-board square.current-premove,
+  .cg-wrap .cg-board .current-premove {
+    background-color: theme('colors.amber.200');
+    background-color: color-mix(in srgb, theme('colors.amber.500') 40%, transparent);
+  }
+
+  /* Coordinate labels (only applies if coordinates are enabled in Chessground config) */
+  .cg-wrap coords {
+    text-shadow: 0 1px 1px color-mix(in srgb, theme('colors.slate.950') 25%, transparent);
+  }
+
+  .orientation-white .ranks :nth-child(odd),
+  .orientation-white .files :nth-child(even),
+  .orientation-black .ranks :nth-child(even),
+  .orientation-black .files :nth-child(odd),
+  coords.squares:nth-of-type(odd) :nth-child(even),
+  coords.squares:nth-of-type(even) :nth-child(odd) {
+    color: color-mix(in srgb, theme('colors.slate.900') 65%, transparent);
+  }
+
+  .orientation-white .ranks :nth-child(even),
+  .orientation-white .files :nth-child(odd),
+  .orientation-black .ranks :nth-child(odd),
+  .orientation-black .files :nth-child(even),
+  coords.squares:nth-of-type(odd) :nth-child(odd),
+  coords.squares:nth-of-type(even) :nth-child(even) {
+    color: color-mix(in srgb, theme('colors.slate.50') 85%, transparent);
   }
 }
