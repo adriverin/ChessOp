@@ -107,23 +107,20 @@ export interface CurriculumProgressionProps {
     openings: Opening[]
     openingProgress: OpeningProgress[]
     variations: Variation[]
-    userProgress: UserProgress[]
     goals: Goals
     ui: CurriculumUiState
-    isGuest?: boolean
     isPremium?: boolean
+    showGoals?: boolean
 
     onChangeFilter?: (filter: OpeningFilter) => void
-    onToggleExpandedOpening?: (openingId: string | null) => void
-
-    onUnlockOpening?: (openingId: string) => void
-    onStartReview?: (openingId: string) => void
+    onStartOpening?: (openingId: string) => void
+    onStartVariation?: (openingId: string, variationId: string) => void
 
     onSetDailyReviewTarget?: (target: number) => void
     onSetStaminaCap?: (cap: number) => void
     onSetPreferredSide?: (side: Side) => void
 
     onStartFreeTrial?: () => void
-    onSignUp?: () => void
+    onSetGoal: (openingId: string, goal: 'learn' | 'practice' | 'master') => void
+    onToggleRepertoire?: (openingId: string) => void
 }
-

@@ -26,7 +26,7 @@ export function ModeCard({
     return (
         <div className="relative group">
             <div className={`
-                h-full p-6 rounded-2xl border transition-all duration-300
+                h-full min-h-[260px] p-6 rounded-2xl border transition-all duration-300 flex flex-col
                 ${isLocked
                     ? 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 opacity-75'
                     : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-xl hover:shadow-emerald-100/50 dark:hover:shadow-emerald-900/20'
@@ -62,9 +62,12 @@ export function ModeCard({
                     </div>
                 </div>
 
-                {/* Stats */}
+                {/* Spacer to push stats and button to bottom */}
+                <div className="flex-1" />
+
+                {/* Stats - positioned at bottom, just above button */}
                 {stats && (
-                    <div className="flex flex-wrap gap-2 mb-6">
+                    <div className="flex flex-wrap gap-2 mb-4">
                         {stats}
                     </div>
                 )}

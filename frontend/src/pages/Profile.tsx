@@ -5,6 +5,7 @@ import { PlayerProfile } from '../components/PlayerProfile/components'
 import type {
   Opening as BackendOpening,
   OpeningsResponse,
+  RepertoireResponse,
   Variation as BackendVariation,
 } from '../types'
 import type {
@@ -78,7 +79,10 @@ function writeStoredPreferences(prefs: PlayerPreferences) {
   }
 }
 
-function mapOpeningsToProfile(openingsResponse: OpeningsResponse) {
+function mapOpeningsToProfile(
+  openingsResponse: OpeningsResponse,
+  repertoire: RepertoireResponse | null
+) {
   const openings: Opening[] = []
   const variations: Variation[] = []
   const openingProgress: OpeningProgress[] = []
@@ -130,10 +134,15 @@ function mapOpeningsToProfile(openingsResponse: OpeningsResponse) {
         })
       })
 
+      const whiteIds = repertoire?.white.map((o) => o.opening_id) ?? []
+      const blackIds = repertoire?.black.map((o) => o.opening_id) ?? []
+      const inRepertoire = whiteIds.includes(openingId) || blackIds.includes(openingId)
+
       const progress = opening.progress
       if (!progress) return
 
-      if (progress.percentage <= 0 && progress.completed <= 0) return
+      // if (progress.percentage <= 0 && progress.completed <= 0) return
+      if (progress.percentage <= 0 && progress.completed <= 0 && !inRepertoire) return
 
       const status: OpeningProgress['status'] =
         progress.total > 0 && progress.completed >= progress.total ? 'mastered' : 'inProgress'
@@ -146,6 +155,7 @@ function mapOpeningsToProfile(openingsResponse: OpeningsResponse) {
         totalVariations: progress.total,
         lastTrainedAt: null,
         nextReviewDate: null,
+        isInRepertoire: inRepertoire,
       })
     })
   })
@@ -181,6 +191,7 @@ export function Profile() {
 
   const [openingsResponse, setOpeningsResponse] = useState<OpeningsResponse | null>(null)
   const [mistakesResponse, setMistakesResponse] = useState<MistakesResponse | null>(null)
+  const [repertoireResponse, setRepertoireResponse] = useState<RepertoireResponse | null>(null)
   const [dataLoading, setDataLoading] = useState(true)
   const [dataError, setDataError] = useState<string | null>(null)
 
@@ -198,11 +209,12 @@ export function Profile() {
     if (userLoading) return
     if (!user?.is_authenticated) return
 
-    Promise.all([api.getOpenings(), api.getMistakes()])
-      .then(([openings, mistakes]) => {
+    Promise.all([api.getOpenings(), api.getMistakes(), api.getRepertoire()])
+      .then(([openings, mistakes, repertoire]) => {
         setDataError(null)
         setOpeningsResponse(openings)
         setMistakesResponse(mistakes)
+        setRepertoireResponse(repertoire)
       })
       .catch((e: unknown) => {
         const message = e instanceof Error ? e.message : 'Failed to load profile data'
@@ -213,13 +225,28 @@ export function Profile() {
 
   const { openings, variations, openingProgress } = useMemo(() => {
     if (!openingsResponse) return { openings: [], variations: [], openingProgress: [] }
-    return mapOpeningsToProfile(openingsResponse)
-  }, [openingsResponse])
+    return mapOpeningsToProfile(openingsResponse, repertoireResponse)
+  }, [openingsResponse, repertoireResponse])
 
   const userMistakes = useMemo(() => {
     if (!mistakesResponse) return []
     return mapMistakesToProfile(mistakesResponse)
   }, [mistakesResponse])
+
+  const handleClearAllMistakes = () => {
+    if (!mistakesResponse || mistakesResponse.mistakes.length === 0) return
+    const previous = mistakesResponse
+    setMistakesResponse((prev) => (prev ? { ...prev, mistakes: [] } : prev))
+    api.clearAllMistakes()
+      .then(() => {
+        // Force refresh to sync with backend
+        return api.getMistakes().then(data => setMistakesResponse(data));
+      })
+      .catch((err) => {
+        setMistakesResponse(previous)
+        console.error('Failed to clear mistakes', err)
+      })
+  }
 
   const isPremium = Boolean(
     user?.effective_premium ?? user?.is_premium ?? user?.is_staff ?? user?.is_superuser
@@ -293,11 +320,27 @@ export function Profile() {
         next.set('t', String(Date.now()))
         navigate(`/train?${next.toString()}`)
       }}
+      onDismissMistake={(mistakeId) => {
+        // Optimistic update
+        setMistakesResponse((prev) => {
+          if (!prev) return null
+          return {
+            ...prev,
+            mistakes: prev.mistakes.filter((m) => String(m.id) !== mistakeId),
+          }
+        })
+        api.dismissMistake(mistakeId).catch(() => {
+          // Revert on failure (could refetch, but silent fail is often acceptable for dismiss actions)
+          // For now, we'll just log
+          console.error('Failed to dismiss mistake')
+        })
+      }}
       onUpdatePreferences={(next) => {
         setPreferences(next)
         writeStoredPreferences(next)
         setThemePreference(next.theme)
       }}
+      onClearAllMistakes={handleClearAllMistakes}
     />
   )
 }

@@ -149,7 +149,6 @@ export function QuickStartPanel({
 
     const selectedVariation = filteredVariations.find(v => v.id === variationId) ?? null
 
-    const staminaBlocked = userStats.staminaRemaining === 0 && !isPremium
     const premiumBlocked = selectedVariation && selectedVariation.isPremium && !isPremium
     const progressionBlocked = selectedMode === 'opening-drill' && !!selectedVariation && selectedVariation.isLocked
 
@@ -168,8 +167,6 @@ export function QuickStartPanel({
                         </p>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                        <span>⚡ {userStats.staminaRemaining}/{userStats.staminaMax}</span>
-                        <span>•</span>
                         <span>🔥 {userStats.currentStreak}d</span>
                     </div>
                 </div>
@@ -345,8 +342,8 @@ export function QuickStartPanel({
                     </div>
                 </div>
 
-                {/* Lock / stamina messaging */}
-                {(staminaBlocked || premiumBlocked || progressionBlocked || isGuest) && (
+                {/* Lock messaging */}
+                {(premiumBlocked || progressionBlocked || isGuest) && (
                     <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 p-4">
                         {isGuest && (
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -363,15 +360,6 @@ export function QuickStartPanel({
                                 >
                                     Sign up
                                 </button>
-                            </div>
-                        )}
-
-                        {staminaBlocked && (
-                            <div className="mt-3">
-                                <p className="text-sm font-medium text-slate-900 dark:text-white">⚡ Out of stamina</p>
-                                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                    Come back tomorrow, or go Premium for unlimited training.
-                                </p>
                             </div>
                         )}
 
@@ -393,7 +381,7 @@ export function QuickStartPanel({
                             </div>
                         )}
 
-                        {!isPremium && (staminaBlocked || premiumBlocked) && (
+                        {!isPremium && premiumBlocked && (
                             <button
                                 onClick={onStartFreeTrial}
                                 className="mt-3 inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm ring-1 ring-inset ring-emerald-500/60 transition-colors"
@@ -411,10 +399,10 @@ export function QuickStartPanel({
                     </div>
                     <button
                         onClick={() => onStartSession?.(selectedMode, openingId || undefined, variationId || undefined)}
-                        disabled={!openingId || staminaBlocked || premiumBlocked || progressionBlocked}
+                        disabled={!openingId || premiumBlocked || progressionBlocked}
                         className={[
                             'inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ring-1 ring-inset shadow-sm',
-                            !openingId || staminaBlocked || premiumBlocked || progressionBlocked
+                            !openingId || premiumBlocked || progressionBlocked
                                 ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 ring-slate-200 dark:ring-slate-700 cursor-not-allowed'
                                 : 'bg-emerald-600 hover:bg-emerald-700 text-white ring-emerald-500/60',
                         ].join(' ')}
@@ -427,4 +415,3 @@ export function QuickStartPanel({
         </section>
     )
 }
-

@@ -2,11 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import type { OpeningsResponse, OpeningDrillResponse, RecallSessionResponse, RecallSessionVariation } from '../types';
-import type { MistakeListItem } from '../api/client';
+import type { MistakeListItem, RecallFilters } from '../api/client';
 import { GameArea, type GameAreaHandle } from '../components/GameArea';
 import { useUser } from '../context/UserContext';
 import { Chess } from 'chess.js';
 import { TrainingArena } from '../components/TrainingArena/components';
+import { SuccessOverlay } from '../components/TrainingArena/components/SuccessOverlay';
 import type {
     CurrentSession as ArenaCurrentSession,
     Difficulty as ArenaDifficulty,
@@ -20,6 +21,9 @@ type OneMovePuzzleSession = Omit<RecallSessionVariation, 'type'> & {
     correct_move: string
     variation_name: string
 }
+
+const FREE_OPENING_IDS = ['italian_game', 'ruy_lopez'];
+const FREE_OPENING_SET = new Set(FREE_OPENING_IDS);
 
 export const Train: React.FC = () => {
     const { user, refreshUser } = useUser();
@@ -48,7 +52,6 @@ export const Train: React.FC = () => {
     const [openingsResponse, setOpeningsResponse] = useState<OpeningsResponse | null>(null);
     const [mistakes, setMistakes] = useState<MistakeListItem[]>([]);
     const [repertoireOpeningIds, setRepertoireOpeningIds] = useState<Set<string>>(() => new Set());
-    const [staminaExhausted, setStaminaExhausted] = useState(false);
     const [openings, setOpenings] = useState<{ slug: string; name: string; variations: { id: string; name: string; label: string; locked?: boolean }[] }[]>([]);
     const [selectedOpening, setSelectedOpening] = useState<string | null>(null);
     const [selectedVariation, setSelectedVariation] = useState<string | null>(searchParams.get('id'));
@@ -59,7 +62,29 @@ export const Train: React.FC = () => {
     });
     const [arenaHintsUsed, setArenaHintsUsed] = useState(0);
     const [arenaStartedAt, setArenaStartedAt] = useState(() => new Date().toISOString());
+    const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+    const [pendingMistakeHintUsed, setPendingMistakeHintUsed] = useState(false);
     const gameAreaRef = useRef<GameAreaHandle | null>(null);
+
+    useEffect(() => {
+        if (location.pathname === '/training-arena') {
+            setShowEntry(true);
+        }
+    }, [location.pathname]);
+
+    // Detect URL changes that indicate we should start a session (not show entry)
+    useEffect(() => {
+        const hasSessionParams =
+            searchParams.has('mistake_id') ||
+            searchParams.has('mode') ||
+            searchParams.has('opening_id') ||
+            searchParams.has('id') ||
+            searchParams.has('t'); // timestamp indicates a new session start
+
+        if (hasSessionParams && showEntry) {
+            setShowEntry(false);
+        }
+    }, [searchParams, showEntry]);
 
     const ONE_MOVE_REPERTOIRE_ONLY_KEY = 'one_move_repertoire_only';
     const PREMIUM_LOCK_MESSAGE_KEY = 'premium_line_locked';
@@ -95,7 +120,10 @@ export const Train: React.FC = () => {
 
     const [hasRepertoire, setHasRepertoire] = useState(false);
     const sideParam = searchParams.get('side') as 'white' | 'black' | null;
-    const openingFilter = searchParams.get('opening_id') || undefined;
+    const openingFilterParam = searchParams.get('opening_id') || undefined;
+    const openingFilterAllowed = !openingFilterParam || isPremiumUser || FREE_OPENING_SET.has(openingFilterParam);
+    const openingFilter = openingFilterAllowed ? openingFilterParam : undefined;
+    const openingFilterDenied = Boolean(openingFilterParam && !openingFilterAllowed);
     const isOneMoveMode = searchParams.get('mode') === 'one_move';
     const isOpeningDrillMode = searchParams.get('mode') === 'opening_drill';
 
@@ -104,11 +132,12 @@ export const Train: React.FC = () => {
         api.getOpenings()
             .then(data => {
                 setOpeningsResponse(data);
-                const isPremium = Boolean(user?.effective_premium || user?.is_premium || user?.is_superuser || user?.is_staff);
+                const allowAllOpenings = isPremiumUser;
                 const flattened: { slug: string; name: string; variations: { id: string; name: string; label: string; locked?: boolean }[] }[] = [];
                 Object.values(data).forEach(openingList => {
                     openingList.forEach(o => {
-                        const vars = (isPremium ? o.variations : o.variations.filter(v => !v.locked)).map((v, idx) => ({
+                        if (!allowAllOpenings && !FREE_OPENING_SET.has(o.id)) return;
+                        const vars = o.variations.map((v, idx) => ({
                             id: v.id,
                             name: v.name,
                             label: v.name || `Line #${idx + 1}`,
@@ -145,7 +174,7 @@ export const Train: React.FC = () => {
                 }
             })
             .catch(console.error);
-    }, [user]);
+    }, [user, isPremiumUser]);
 
     // Load repertoire to drive the optional recall filter
     useEffect(() => {
@@ -217,9 +246,11 @@ export const Train: React.FC = () => {
             imageUrl: string;
             variationCount: number;
             isPremium: boolean;
+            drill_mode_unlocked: boolean;
         }> = [];
         Object.values(openingsResponse).forEach((openingList) => {
             openingList.forEach((o) => {
+                if (!isPremiumUser && !FREE_OPENING_SET.has(o.id)) return;
                 result.push({
                     id: o.id,
                     name: o.name,
@@ -229,11 +260,12 @@ export const Train: React.FC = () => {
                     imageUrl: '',
                     variationCount: o.variations.length,
                     isPremium: false,
+                    drill_mode_unlocked: Boolean(o.drill_mode_unlocked),
                 });
             });
         });
         return result;
-    }, [openingsResponse]);
+    }, [openingsResponse, isPremiumUser]);
 
     const arenaVariations = useMemo(() => {
         if (!openingsResponse) return [];
@@ -251,6 +283,7 @@ export const Train: React.FC = () => {
         }> = [];
         Object.values(openingsResponse).forEach((openingList) => {
             openingList.forEach((opening) => {
+                if (!isPremiumUser && !FREE_OPENING_SET.has(opening.id)) return;
                 const isInRepertoire = repertoireOpeningIds.has(opening.id);
                 const isLocked = !Boolean(opening.drill_mode_unlocked);
                 opening.variations.forEach((v) => {
@@ -263,7 +296,7 @@ export const Train: React.FC = () => {
                         moves: moveSans,
                         moveCount: (v.moves ?? []).length,
                         difficulty: mapArenaDifficulty(v.difficulty),
-                        isPremium: Boolean(v.locked),
+                        isPremium: isPremiumUser ? Boolean(v.locked) : false,
                         isLocked,
                         isInRepertoire,
                     });
@@ -271,7 +304,7 @@ export const Train: React.FC = () => {
             });
         });
         return result;
-    }, [openingsResponse, repertoireOpeningIds]);
+    }, [openingsResponse, repertoireOpeningIds, isPremiumUser]);
 
     const variationsLearned = useMemo(() => {
         if (!openingsResponse) return 0;
@@ -302,8 +335,7 @@ export const Train: React.FC = () => {
 
     const arenaUserStats = useMemo(() => {
         const staminaMax = user?.daily_moves_max ?? 20;
-        const staminaRemainingRaw = user?.daily_moves_remaining ?? staminaMax;
-        const staminaRemaining = staminaExhausted && !isPremiumUser ? 0 : staminaRemainingRaw;
+        const staminaRemaining = user?.daily_moves_remaining ?? staminaMax;
 
         return {
             totalXp: user?.xp ?? 0,
@@ -317,7 +349,7 @@ export const Train: React.FC = () => {
             totalMistakes: mistakes.length,
             mistakesFixed: 0,
         };
-    }, [user, isGuestUser, isPremiumUser, staminaExhausted, variationsLearned, mistakes.length]);
+    }, [user, isGuestUser, variationsLearned, mistakes.length]);
 
     const currentOpening = openings.find(o => o.slug === (openingFilter || selectedOpening)) || openings.find(o => o.slug === selectedOpening);
 
@@ -339,12 +371,13 @@ export const Train: React.FC = () => {
         }
     }, [openingFilter, searchParams]);
 
-    const fetchOneMoveSession = useCallback(async () => {
-        // Generic One Move Drill: do NOT send opening_id or variation id.
+    const fetchOneMoveSession = useCallback(async (openingId?: string) => {
+        // Generic One Move Drill: optionally limit to a single opening.
         const filters = {
             use_repertoire_only: useRepertoireOnly && hasRepertoire,
             side: sideParam || undefined,
             mode: 'one_move' as const,
+            opening_id: openingId,
             t: Date.now(),
         };
         return await api.getRecallSession(undefined, filters);
@@ -370,6 +403,17 @@ export const Train: React.FC = () => {
         return await api.getRecallSession(variationId, filters);
     }, [searchParams, useRepertoireOnly, hasRepertoire, sideParam, isOneMoveMode]);
 
+    const pickFreeOpeningId = useCallback(() => {
+        if (isPremiumUser) return undefined;
+        const candidates = openings
+            .map((opening) => opening.slug)
+            .filter((id) => FREE_OPENING_SET.has(id));
+        const pool = candidates.length > 0 ? candidates : FREE_OPENING_IDS;
+        if (pool.length === 0) return undefined;
+        const index = Math.floor(Math.random() * pool.length);
+        return pool[index];
+    }, [isPremiumUser, openings]);
+
     const fetchSession = useCallback(async () => {
         setLoading(true);
         setArenaProgress({ movesPlayed: 0, totalMoves: 0 });
@@ -378,8 +422,13 @@ export const Train: React.FC = () => {
         setCompleted(false);
         setMessage(null);
         try {
-            setStaminaExhausted(false);
             setOpeningDrillSession(null);
+            setShowSuccessOverlay(false); // Reset modal on new session fetch
+            if (openingFilterDenied) {
+                setMessage("This opening is available with Premium.");
+                setSession(null);
+                return;
+            }
 
             if (isOpeningDrillMode) {
                 const openingId = openingFilter || selectedOpening || undefined;
@@ -397,14 +446,15 @@ export const Train: React.FC = () => {
 
             const mistakeId = searchParams.get('mistake_id') || undefined;
             if (mistakeId) {
-                const data = await api.getRecallSession(undefined, { t: Date.now() }, undefined, mistakeId);
+                const data = await api.getRecallSession(undefined, { t: Date.now(), mode: 'mistake' }, undefined, mistakeId);
                 setSession(data);
                 return;
             }
 
             // One Move Drill: randomize across openings unless explicitly in a specific-opening flow.
             if (isOneMoveMode && !openingFilter) {
-                const data = await fetchOneMoveSession();
+                const freeOpeningId = pickFreeOpeningId();
+                const data = await fetchOneMoveSession(freeOpeningId);
                 setSession(data);
                 return;
             }
@@ -427,15 +477,26 @@ export const Train: React.FC = () => {
                 return;
             }
 
-            const filters = (difficulties || training_goals || themes || (useRepertoireOnly && hasRepertoire) || sideParam || isOneMoveMode) ? {
+            const filters: RecallFilters = {
                 difficulties,
                 training_goals,
                 themes,
-                use_repertoire_only: useRepertoireOnly && hasRepertoire,
+                use_repertoire_only: useRepertoireOnly && hasRepertoire ? true : undefined,
                 side: sideParam || undefined,
-                mode: isOneMoveMode ? 'one_move' : undefined,
-                t: Date.now() // Cache buster
-            } : { t: Date.now() };
+                // If we have a specific mistake_id, explicitly set mode to 'mistake' so the backend knows
+                // we are targeting a specific blunder, not just "next up".
+                mode: (isOneMoveMode ? 'one_move' : (mistakeId ? 'mistake' : undefined)),
+                t: Date.now(),
+            };
+
+            if (!isPremiumUser && !isOneMoveMode) {
+                const freeOpeningId = selectedOpening && FREE_OPENING_SET.has(selectedOpening)
+                    ? selectedOpening
+                    : pickFreeOpeningId();
+                if (freeOpeningId) {
+                    filters.opening_id = freeOpeningId;
+                }
+            }
 
             const data = await api.getRecallSession(variationId, filters);
             setSession(data);
@@ -464,10 +525,7 @@ export const Train: React.FC = () => {
             })();
 
             if (status === 403) {
-                if (msg && (msg.includes("stamina") || msg.includes("limit"))) {
-                    setMessage("You are out of stamina for today! Come back tomorrow.");
-                    setStaminaExhausted(true);
-                } else if (msg && (msg.includes("locked") || msg.includes("premium"))) {
+                if (msg && (msg.includes("locked") || msg.includes("premium"))) {
                     setMessage(PREMIUM_LOCK_MESSAGE_KEY);
                 } else {
                     setMessage("Access denied. Please check your account status.");
@@ -492,89 +550,116 @@ export const Train: React.FC = () => {
         selectedOpening,
         fetchOneMoveSession,
         fetchSpecificOpeningSession,
+        pickFreeOpeningId,
+        openingFilterDenied,
+        isPremiumUser,
     ]);
 
     useEffect(() => {
         if (showEntry) return;
+        if (showSuccessOverlay) return;
         fetchSession();
-    }, [fetchSession, showEntry]);
+    }, [fetchSession, showEntry, showSuccessOverlay]);
+
+    // Reset session when URL/mode changes to avoid stale state
+    useEffect(() => {
+        if (searchParams.toString()) {
+            // Check if we are actually switching contexts? 
+            // The existing useEffects handle fetching, but we want to clear the OLD data instantly.
+            setSession(null);
+            setLoading(true);
+        }
+    }, [searchParams]);
 
     const handleComplete = async (success: boolean, hintUsed: boolean) => {
         const isGuest = !user || !user.is_authenticated;
 
-        if (isOpeningDrillMode) {
-            if (!openingDrillSession) return;
+        // Unified Success Logic: If successful, show modal and stop.
+        if (success) {
+            const mode = searchParams.get('mode');
+            const isArcadeOneMove = mode === 'one_move' || (session as unknown as { type?: string } | null)?.type === 'one_move';
+
+            // One Move Drill: fast-paced arcade flow (no success modal)
+            if (isArcadeOneMove) {
+                try {
+                    await api.submitResult({
+                        type: 'one_move_complete',
+                        success: success && !hintUsed,
+                        mode: 'one_move'
+                    });
+                    if (!isGuest) refreshUser();
+                } catch (err) {
+                    console.error(err);
+                }
+
+                setCompleted(true); // trigger visuals (confetti/sound)
+                setTimeout(() => {
+                    fetchSession();
+                    setCompleted(false);
+                }, 1500);
+                return;
+            }
+
+            // 1. Submit results first
+            if (isOpeningDrillMode && openingDrillSession) {
+                // Opening Drill Logic
+                try {
+                    await api.submitResult({
+                        type: 'variation_complete',
+                        id: openingDrillSession.variation.id,
+                        hint_used: hintUsed,
+                        mode: 'opening_drill',
+                    });
+                    if (!isGuest) refreshUser();
+                } catch (err) { console.error(err); }
+            } else if (session?.type === 'mistake') {
+                // Blunder Basket Logic
+                // MOVED: Mistake fixed submission happens in "Next Blunder" action to prevent loop
+            } else if (session) {
+                // Standard Training Logic
+                try {
+                    await api.submitResult({
+                        type: 'variation_complete',
+                        id: session.id,
+                        hint_used: hintUsed
+                    });
+                    if (!isGuest) refreshUser();
+                } catch (err) { console.error(err); }
+            }
+
             setCompleted(true);
-            try {
-                await api.submitResult({
-                    type: 'variation_complete',
-                    id: openingDrillSession.variation.id,
-                    hint_used: hintUsed,
-                    mode: 'opening_drill',
-                });
-                if (!isGuest) refreshUser();
-                setMessage(hintUsed ? 'Line completed (with hint).' : 'Line completed!');
-            } catch (err) {
-                console.error(err);
-            }
+            setPendingMistakeHintUsed(hintUsed);
+            setShowSuccessOverlay(true);
             return;
         }
 
-        if (!session) return;
+        // If NOT success (failure/give up), logic remains strictly for handling the "next" or "retry" flow if valid, 
+        // OR just simple state updates.
+        // The original code didn't have a "failure" submit for standard variations, only for mistakes/blunders via handleMistake.
+        // But handleComplete(false) might be called? 
+        // Looking at GameArea, handleComplete is usually called with success=true when finished. 
+        // If failed, it might be via handleMistake or just not calling handleComplete.
 
-        // One Move Drill: Immediate next session
-        if (isOneMoveMode) {
-            try {
-                // For guests, we still call submit to trigger "next" logic if needed, 
-                // but backend won't save. Frontend can just fetch next.
-                await api.submitResult({
-                    type: 'one_move_complete',
-                    success: success && !hintUsed,
-                    mode: 'one_move'
-                });
-                if (!isGuest) refreshUser();
-                // Fetch next session immediately
-                fetchSession();
-            } catch (err) {
-                console.error(err);
-            }
-            return;
-        }
+        // However, One Move Drill had fail logic in handleComplete? No, handleMistake handled "blunder_made" and then fetched next?
+        // Let's look at original handleComplete: 
+        // "if (session?.type === 'mistake' && success) ... return;"
+        // "if (isOneMoveMode) ... await api.submitResult(...) ... fetchSession(); return;"
 
-        setCompleted(true);
+        // Wait, One Move Drill submits success/fail via submitResult type 'one_move_complete'. 
+        // If success=false, it means they failed the puzzle? 
+        // Usually One Move Drill is "make move" -> if wrong -> handleMistake -> "submitResult(success:false)" -> fetchSession.
+        // handleMistake for OneMoveMode calls fetchSession.
 
-        try {
-            if (session.type === 'mistake') {
-                await api.submitResult({
-                    type: 'mistake_fixed',
-                    mistake_id: session.id,
-                    hint_used: hintUsed
-                });
-                if (hintUsed) {
-                    setMessage("Mistake corrected (with hint).");
-                } else if (isGuest) {
-                    setMessage("Mistake corrected!");
-                } else {
-                    setMessage("Mistake corrected! +10 XP");
-                }
-            } else {
-                await api.submitResult({
-                    type: 'variation_complete',
-                    id: session.id,
-                    hint_used: hintUsed
-                });
-                if (hintUsed) {
-                    setMessage("Line completed (with hint).");
-                } else if (isGuest) {
-                    setMessage("Variation completed! (Log in to save progress)");
-                } else {
-                    setMessage("Variation mastered! +20 XP");
-                }
-            }
-            if (!isGuest) refreshUser(); // Update global stats
-        } catch (err) {
-            console.error(err);
-        }
+        // So handleComplete with success=false is unlikely for One Move Drill unless called distinctly? 
+        // Actually handleComplete is usually called when the line is *finished*. 
+        // For One Move Drill, finishing = making the move.
+        // If they made the move, it's correct? 
+        // If wrong, handleMistake is called.
+
+        // So we can assume `success` is generally true here for "Completion".
+        // But let's be safe.
+
+        if (!success) return; // Should not happen for "Complete" event usually, unless "Give Up"?
     };
 
     const handleMistake = async (fen: string, wrongMove: string, correctMove: string) => {
@@ -641,7 +726,8 @@ export const Train: React.FC = () => {
                 id: session.id,
                 fen,
                 wrong_move: wrongMove,
-                correct_move: correctMove
+                correct_move: correctMove,
+                mode: 'opening',
             });
             if (!isGuest) {
                 void refreshMistakes();
@@ -701,7 +787,7 @@ export const Train: React.FC = () => {
     const activeSession: RecallSessionResponse | OneMovePuzzleSession | null = isOneMoveMode && oneMoveSession ? oneMoveSession : session;
 
     const handleArenaSignUp = () => {
-        navigate('/signup', { state: { backgroundLocation: location } });
+        navigate('/signup', { state: { from: location } });
     };
 
     const setParam = (key: string, value: string | null) => {
@@ -709,6 +795,11 @@ export const Train: React.FC = () => {
         if (value === null || value === '') next.delete(key);
         else next.set(key, value);
         setSearchParams(next);
+    };
+
+    const navigateToSession = (next: URLSearchParams) => {
+        const query = next.toString();
+        navigate(query ? `/train?${query}` : '/train');
     };
 
     const handleArenaRequestHint = () => {
@@ -754,7 +845,7 @@ export const Train: React.FC = () => {
         }
 
         next.set('t', String(Date.now()));
-        setSearchParams(next);
+        navigateToSession(next);
         setShowEntry(false);
     };
 
@@ -764,7 +855,7 @@ export const Train: React.FC = () => {
         next.set('opening_id', openingId);
         next.delete('id');
         next.set('t', String(Date.now()));
-        setSearchParams(next);
+        navigateToSession(next);
         setShowEntry(false);
     };
 
@@ -777,7 +868,7 @@ export const Train: React.FC = () => {
         next.delete('mistake_id');
         next.set('id', variationId);
         next.set('t', String(Date.now()));
-        setSearchParams(next);
+        navigateToSession(next);
         setShowEntry(false);
     };
 
@@ -803,7 +894,7 @@ export const Train: React.FC = () => {
         else next.delete('id');
 
         next.set('t', String(Date.now()));
-        setSearchParams(next);
+        navigateToSession(next);
         setShowEntry(false);
     };
 
@@ -818,7 +909,7 @@ export const Train: React.FC = () => {
         next.delete('mode');
         next.set('mistake_id', mistakeId);
         next.set('t', String(Date.now()));
-        setSearchParams(next);
+        navigateToSession(next);
         setShowEntry(false);
     };
 
@@ -906,6 +997,7 @@ export const Train: React.FC = () => {
                     imageUrl: '',
                     variationCount: 0,
                     isPremium: false,
+                    drill_mode_unlocked: false,
                 });
             }
             openingId = syntheticOpeningId;
@@ -945,7 +1037,8 @@ export const Train: React.FC = () => {
                             next.delete('id');
                             next.delete('t');
                             next.delete('mode');
-                            setSearchParams(next);
+                            const query = next.toString();
+                            navigate(query ? `/training-arena?${query}` : '/training-arena');
                             setShowEntry(true);
                         }}
                         className="bg-emerald-600 text-white px-6 py-2 rounded-full hover:bg-emerald-700 transition shadow-sm"
@@ -979,7 +1072,7 @@ export const Train: React.FC = () => {
         movesPlayed: arenaProgress.movesPlayed,
         totalMoves: fallbackTotalMoves,
         hintsUsed: arenaHintsUsed,
-        isComplete: !isOneMoveMode && completed,
+        isComplete: !isOneMoveMode && completed && !showSuccessOverlay,
         startedAt: arenaStartedAt,
         filters: {
             repertoireOnly: useRepertoireOnly,
@@ -1026,48 +1119,174 @@ export const Train: React.FC = () => {
     );
 
     return (
-        <TrainingArena
-            openings={openingsForArena}
-            variations={variationsForArena}
-            userProgress={[]}
-            userMistakes={arenaUserMistakes}
-            currentSession={arenaCurrentSession}
-            userStats={arenaUserStats}
-            isGuest={isGuestUser}
-            isPremium={isPremiumUser}
-            sessionBoard={sessionBoard}
-            onRequestHint={handleArenaRequestHint}
-            onResetPosition={handleArenaResetPosition}
-            onStepBack={handleArenaStepBack}
-            onStepForward={handleArenaStepForward}
-            onNextSession={() => {
-                setCompleted(false);
-                fetchSession();
-            }}
-            onRetrySession={() => {
-                setCompleted(false);
-                setArenaHintsUsed(0);
-                gameAreaRef.current?.resetPosition();
-            }}
-            onSelectOpening={handleArenaSelectOpening}
-            onSelectVariation={handleArenaSelectVariation}
-            onSwitchMode={handleArenaSwitchMode}
-            onToggleRepertoireOnly={(enabled) => {
-                didInitRepertoireOnlyRef.current = true;
-                setUseRepertoireOnly(enabled);
-                setParam('repertoire_only', enabled ? 'true' : null);
-            }}
-            onToggleWrongMoveMode={(enabled) => {
-                try {
-                    localStorage.setItem('wrongMoveMode', enabled ? 'stay' : 'snap');
-                    localStorage.setItem('trainingArena.wrongMoveMode', enabled ? 'true' : 'false');
-                } catch {
-                    // ignore
-                }
-            }}
-            onChangeSideFilter={(side) => setParam('side', side)}
-            onStartFreeTrial={() => navigate('/pricing')}
-            onSignUp={handleArenaSignUp}
-        />
+        <>
+            <TrainingArena
+                openings={openingsForArena}
+                variations={variationsForArena}
+                userProgress={[]}
+                userMistakes={arenaUserMistakes}
+                currentSession={arenaCurrentSession}
+                userStats={arenaUserStats}
+                isGuest={isGuestUser}
+                isPremium={isPremiumUser}
+                sessionBoard={sessionBoard}
+                onRequestHint={handleArenaRequestHint}
+                onResetPosition={handleArenaResetPosition}
+                onStepBack={handleArenaStepBack}
+                onStepForward={handleArenaStepForward}
+                onNextSession={() => {
+                    setCompleted(false);
+                    fetchSession();
+                }}
+                onRetrySession={() => {
+                    setCompleted(false);
+                    setArenaHintsUsed(0);
+                    gameAreaRef.current?.resetPosition();
+                }}
+                onSelectOpening={handleArenaSelectOpening}
+                onSelectVariation={handleArenaSelectVariation}
+                onSwitchMode={handleArenaSwitchMode}
+                onToggleRepertoireOnly={(enabled) => {
+                    didInitRepertoireOnlyRef.current = true;
+                    setUseRepertoireOnly(enabled);
+                    setParam('repertoire_only', enabled ? 'true' : null);
+                }}
+                onToggleWrongMoveMode={(enabled) => {
+                    try {
+                        localStorage.setItem('wrongMoveMode', enabled ? 'stay' : 'snap');
+                        localStorage.setItem('trainingArena.wrongMoveMode', enabled ? 'true' : 'false');
+                    } catch {
+                        // ignore
+                    }
+                }}
+                onChangeSideFilter={(side) => setParam('side', side)}
+                onStartFreeTrial={() => navigate('/pricing')}
+                onSignUp={handleArenaSignUp}
+                successOverlay={showSuccessOverlay ? (
+                    <SuccessOverlay
+                        title={
+                            (session?.type === 'mistake' || isOneMoveMode) ? "Mistake Repaired!" : "Line Completed!"
+                        }
+                        description={
+                            (session?.type === 'mistake' || isOneMoveMode)
+                                ? (pendingMistakeHintUsed
+                                    ? "You fixed the mistake (used hint). +5 XP"
+                                    : "You fixed the mistake! +10 XP")
+                                : "You have successfully drilled this line."
+                        }
+                        primaryAction={(() => {
+                            // 1. Blunder Mode (Mistake Repair)
+                            if (session?.type === 'mistake' && !isOneMoveMode) {
+                                return {
+                                    label: "Train Variation",
+                                    onClick: () => {
+                                        setSession(null);
+                                        setCompleted(false);
+                                        setShowSuccessOverlay(false);
+                                        const mistake = mistakes.find(m => m.id === String(session.id));
+                                        if (mistake?.variation_id && mistake?.opening_id) {
+                                            // Switch context to full variation training with explicit opening context
+                                            window.location.assign(`/train?mode=opening&opening_id=${mistake.opening_id}&id=${mistake.variation_id}`);
+                                        } else if (mistake?.variation_id) {
+                                            window.location.assign(`/train?id=${mistake.variation_id}`);
+                                        } else {
+                                            // Fallback if generic
+                                            fetchSession();
+                                        }
+                                    }
+                                };
+                            }
+                            // 2. Opening Training Mode (Standard / Drill)
+                            if (!isOneMoveMode) {
+                                return {
+                                    label: "Train Another Opening",
+                                    onClick: () => {
+                                        navigate('/curriculum');
+                                    }
+                                };
+                            }
+                            // 3. One Move Mode (Default/Legacy behavior)
+                            return {
+                                label: "Next Puzzle",
+                                onClick: () => {
+                                    setShowSuccessOverlay(false);
+                                    fetchSession();
+                                }
+                            };
+                        })()}
+                        secondaryAction={(() => {
+                            // 1. Blunder Mode (Mistake Repair)
+                            if (session?.type === 'mistake' && !isOneMoveMode) {
+                                return {
+                                    label: "Next Blunder",
+                                    onClick: async () => {
+                                        // 1. Submit fixed result
+                                        try {
+                                            await api.submitResult({
+                                                type: 'mistake_fixed',
+                                                mistake_id: session.id,
+                                                hint_used: pendingMistakeHintUsed
+                                            });
+                                            if (!isGuestUser) refreshUser();
+                                        } catch (err) { console.error(err); }
+
+                                        // 2. Find Next Mistake
+                                        // We look at the 'mistakes' array to find where we are.
+                                        const currentId = String(session.id);
+                                        const currentIndex = mistakes.findIndex(m => String(m.id) === currentId);
+
+                                        let nextMistakeId: string | null = null;
+
+                                        if (mistakes.length === 0) {
+                                            // Should not happen if we are here, but just in case
+                                            navigate('/training-arena');
+                                            return;
+                                        }
+
+                                        if (currentIndex === -1) {
+                                            // Current not found (maybe stale), start from 0
+                                            nextMistakeId = mistakes[0].id;
+                                        } else {
+                                            // Get next, wrap around
+                                            const nextIndex = (currentIndex + 1) % mistakes.length;
+                                            nextMistakeId = mistakes[nextIndex].id;
+                                        }
+
+                                        // 3. Navigate & Reset
+                                        setSession(null);
+                                        setCompleted(false);
+                                        setShowSuccessOverlay(false);
+
+                                        // Explicitly navigate to the next ID
+                                        if (nextMistakeId) {
+                                            setSearchParams({
+                                                mistake_id: nextMistakeId,
+                                                t: Date.now().toString()
+                                            });
+                                        } else {
+                                            // Fallback
+                                            setSearchParams({ mode: 'mistake', t: Date.now().toString() });
+                                        }
+                                    }
+                                };
+                            }
+                            // 2. Opening Training Mode (Standard / Drill)
+                            if (!isOneMoveMode) {
+                                return {
+                                    label: "Repeat Line",
+                                    onClick: () => {
+                                        handleArenaResetPosition();
+                                        setShowSuccessOverlay(false);
+                                        // Do NOT fetch new session, allow replay
+                                    }
+                                };
+                            }
+                            // 3. One Move Mode (Default/Legacy behavior)
+                            return undefined;
+                        })()}
+                    />
+                ) : undefined}
+            />
+        </>
     );
 };

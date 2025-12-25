@@ -133,19 +133,19 @@ export const api = {
     getRecallSession: async (id?: string, filters?: RecallFilters, openingId?: string, mistakeId?: string) => {
         let url = '/recall/session/';
         const params = new URLSearchParams();
-        
+
         if (id) {
             params.append('id', id);
         }
         if (mistakeId) {
-            params.append('mistake_id', mistakeId);
+            params.append('mistake_id', String(mistakeId));
         }
 
         const effectiveFilters = {
             ...filters,
             opening_id: filters?.opening_id || openingId
         };
-        
+
         if (effectiveFilters) {
             if (effectiveFilters.difficulties && effectiveFilters.difficulties.length > 0) {
                 params.append('difficulties', effectiveFilters.difficulties.join(','));
@@ -172,17 +172,25 @@ export const api = {
                 params.append('t', String(effectiveFilters.t));
             }
         }
-        
+
         const queryString = params.toString();
         if (queryString) {
             url += `?${queryString}`;
         }
-        
+
         const { data } = await client.get<RecallSessionResponse>(url);
         return data;
     },
     getMistakes: async () => {
         const { data } = await client.get<MistakesResponse>('/mistakes/');
+        return data;
+    },
+    dismissMistake: async (id: string) => {
+        const { data } = await client.delete(`/mistakes/${id}/`);
+        return data;
+    },
+    clearAllMistakes: async () => {
+        const { data } = await client.delete('/mistakes/clear/');
         return data;
     },
     getRepertoire: async () => {
@@ -226,7 +234,7 @@ export const api = {
         const { data } = await client.get<OpeningDrillStatsResponse>("/opening-drill/stats/", { params: { opening_id: openingId } });
         return data;
     },
-    
+
     // Auth
     signup: async (payload: any) => {
         const { data } = await client.post('/auth/signup/', payload);
@@ -246,7 +254,7 @@ export const api = {
     },
 
     // Billing
-    createCheckoutSession: async (plan: 'monthly' | 'yearly') => {
+    createCheckoutSession: async (plan: 'monthly' | 'quarterly' | 'yearly') => {
         const { data } = await client.post<{ url: string }>('/billing/create-checkout-session/', { plan });
         return data;
     },

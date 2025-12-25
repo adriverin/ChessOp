@@ -5,10 +5,9 @@ import { GuestModeBanner } from '../components/GuestModeBanner';
 import { CurriculumProgression } from '../components/CurriculumProgression';
 import { useUser } from '../context/UserContext';
 import type { DashboardResponse, OpeningsResponse, Opening as ApiOpening, RepertoireResponse, Variation as ApiVariation } from '../types';
-import type { Goals, CurriculumUiState, Opening, OpeningProgress, Variation, Difficulty } from '../components/CurriculumProgression/types';
+import type { Goals, CurriculumUiState, Opening, OpeningProgress, Variation, Difficulty, Side } from '../components/CurriculumProgression/types';
 import clsx from 'clsx';
 import { AlertTriangle } from 'lucide-react';
-import type { Side } from '../components/CurriculumProgression/types';
 
 function getStringProp(record: Record<string, unknown>, key: string) {
     const value = record[key];
@@ -26,24 +25,6 @@ function clampInt(value: number, min: number, max: number) {
 function parseDifficulty(value: string | undefined): Difficulty {
     if (value === 'beginner' || value === 'intermediate' || value === 'advanced') return value;
     return 'intermediate';
-}
-
-function readJson<T>(key: string): T | null {
-    try {
-        const raw = localStorage.getItem(key);
-        if (!raw) return null;
-        return JSON.parse(raw) as T;
-    } catch {
-        return null;
-    }
-}
-
-function writeJson(key: string, value: unknown) {
-    try {
-        localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-        // ignore storage errors (private mode, etc.)
-    }
 }
 
 function makeDesignUser(user: DashboardResponse | null, isPremiumUser: boolean) {
@@ -130,7 +111,7 @@ function makeDesignOpeningProgress(
 
     return {
         openingId: opening.id,
-        state: mastered ? 'mastered' : (inRepertoire || isPremiumUser) ? 'unlocked' : 'locked',
+        state: mastered ? 'mastered' : inRepertoire ? 'unlocked' : 'locked',
         masteryPercent: progressPercent,
         xpEarned: 0,
         isInRepertoire: inRepertoire,
@@ -144,12 +125,8 @@ function makeDesignOpeningProgress(
     };
 }
 
-const GOALS_STORAGE_KEY = 'curriculumProgression.goals';
-const UI_STORAGE_KEY = 'curriculumProgression.ui';
-
-export const Curriculum: React.FC = () => {
+export const OpeningDrillSelection: React.FC = () => {
     const navigate = useNavigate();
-    // User comes from global provider (me + dashboard merged)
     const { user, loading: userLoading } = useUser();
 
     const isPremiumUser = Boolean(user?.effective_premium || user?.is_premium || user?.is_superuser || user?.is_staff);
@@ -159,32 +136,17 @@ export const Curriculum: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    const [goals, setGoals] = useState<Goals>(() => {
-        const stored = readJson<Goals>(GOALS_STORAGE_KEY);
-        return (
-            stored ?? {
-                dailyReviewTarget: 12,
-                staminaCap: 10,
-                preferredSide: 'white',
-            }
-        );
-    });
+    const [goals] = useState<Goals>(() => ({
+        dailyReviewTarget: 12,
+        staminaCap: 10,
+        preferredSide: 'white',
+    }));
 
-    const [ui, setUi] = useState<CurriculumUiState>(() => {
-        const stored = readJson<CurriculumUiState>(UI_STORAGE_KEY);
-        if (!stored) return { activeFilter: 'all', expandedOpeningId: null };
-        const allowedFilters = new Set(['all', 'mastered', 'white', 'black']);
-        const nextFilter = allowedFilters.has(stored.activeFilter) ? stored.activeFilter : 'all';
-        return { ...stored, activeFilter: nextFilter };
-    });
-
-    useEffect(() => {
-        writeJson(GOALS_STORAGE_KEY, goals);
-    }, [goals]);
-
-    useEffect(() => {
-        writeJson(UI_STORAGE_KEY, ui);
-    }, [ui]);
+    // Fixed to 'mastered' filter - this page only shows mastered openings
+    const [ui, setUi] = useState<CurriculumUiState>(() => ({
+        activeFilter: 'mastered',
+        expandedOpeningId: null,
+    }));
 
     useEffect(() => {
         setLoading(true);
@@ -196,12 +158,17 @@ export const Curriculum: React.FC = () => {
             })
             .catch((err) => {
                 console.error(err);
-                setError('Failed to load curriculum.');
+                setError('Failed to load openings.');
             })
             .finally(() => setLoading(false));
     }, []);
 
     const flattened = useMemo(() => flattenOpenings(openingsData), [openingsData]);
+
+    // Filter to only mastered openings (drill_mode_unlocked === true)
+    const masteredOpenings = useMemo(() => {
+        return flattened.filter((opening) => opening.drill_mode_unlocked === true);
+    }, [flattened]);
 
     const designUser = useMemo(() => makeDesignUser(user ?? null, isPremiumUser), [user, isPremiumUser]);
 
@@ -210,7 +177,7 @@ export const Curriculum: React.FC = () => {
         const openingProgress: OpeningProgress[] = [];
         const variations: Variation[] = [];
 
-        for (const opening of flattened) {
+        for (const opening of masteredOpenings) {
             const inRepertoire = isOpeningInRepertoire(opening, repertoire);
             openings.push(makeDesignOpening(opening));
             openingProgress.push(makeDesignOpeningProgress(opening, inRepertoire, isPremiumUser));
@@ -218,19 +185,19 @@ export const Curriculum: React.FC = () => {
         }
 
         return { openings, openingProgress, variations };
-    }, [flattened, repertoire, isPremiumUser]);
+    }, [masteredOpenings, repertoire, isPremiumUser]);
 
     const startFreeTrial = () => {
         navigate('/pricing');
     };
 
-    const startTrainingForOpening = (openingId: string) => {
-        navigate(`/train?mode=opening&opening_id=${encodeURIComponent(openingId)}`);
+    const startDrillForOpening = (openingId: string) => {
+        navigate(`/train?mode=opening_drill&opening_id=${encodeURIComponent(openingId)}`);
     };
 
-    const startTrainingForVariation = (openingId: string, variationId: string) => {
+    const startDrillForVariation = (openingId: string, variationId: string) => {
         navigate(
-            `/train?mode=opening&opening_id=${encodeURIComponent(openingId)}&variation_id=${encodeURIComponent(variationId)}`
+            `/train?mode=opening_drill&opening_id=${encodeURIComponent(openingId)}&variation_id=${encodeURIComponent(variationId)}`
         );
     };
 
@@ -243,8 +210,30 @@ export const Curriculum: React.FC = () => {
             <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-900 flex items-start gap-3">
                 <AlertTriangle className="h-5 w-5 mt-0.5" />
                 <div className="space-y-1">
-                    <div className="font-semibold">Couldn’t load curriculum</div>
+                    <div className="font-semibold">Couldn't load openings</div>
                     <div className="text-sm text-rose-800">{error}</div>
+                </div>
+            </div>
+        );
+    }
+
+    if (openings.length === 0) {
+        return (
+            <div className="space-y-4">
+                <GuestModeBanner isAuthenticated={Boolean(user?.is_authenticated)} isLoading={userLoading} />
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-6 text-center">
+                    <h2 className="text-xl font-heading font-bold text-amber-900 dark:text-amber-100 mb-2">
+                        No Mastered Openings Yet
+                    </h2>
+                    <p className="text-amber-800 dark:text-amber-200 mb-4">
+                        Complete opening training in the Curriculum to unlock Opening Drill mode.
+                    </p>
+                    <button
+                        onClick={() => navigate('/curriculum')}
+                        className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-colors"
+                    >
+                        Go to Curriculum
+                    </button>
                 </div>
             </div>
         );
@@ -253,6 +242,16 @@ export const Curriculum: React.FC = () => {
     return (
         <div className="space-y-4">
             <GuestModeBanner isAuthenticated={Boolean(user?.is_authenticated)} isLoading={userLoading} />
+
+            {/* Header */}
+            <div className="text-center mb-6">
+                <h1 className="text-2xl sm:text-3xl font-heading font-bold text-slate-900 dark:text-white mb-2">
+                    Opening Drill
+                </h1>
+                <p className="text-slate-600 dark:text-slate-400">
+                    Select a mastered opening to practice with targeted spaced repetition.
+                </p>
+            </div>
 
             <div className={clsx('rounded-2xl overflow-hidden', 'ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800')}>
                 <CurriculumProgression
@@ -265,32 +264,12 @@ export const Curriculum: React.FC = () => {
                     isPremium={isPremiumUser}
                     showGoals={false}
                     onChangeFilter={(filter) => setUi((prev) => ({ ...prev, activeFilter: filter }))}
-                    onStartOpening={(openingId) => startTrainingForOpening(openingId)}
-                    onStartVariation={(openingId, variationId) => startTrainingForVariation(openingId, variationId)}
-                    onSetDailyReviewTarget={(target) =>
-                        setGoals((prev) => ({ ...prev, dailyReviewTarget: clampInt(target, 1, 50) }))
-                    }
-                    onSetStaminaCap={(cap) => setGoals((prev) => ({ ...prev, staminaCap: clampInt(cap, 1, 20) }))}
-                    onSetPreferredSide={(side) => setGoals((prev) => ({ ...prev, preferredSide: side }))}
+                    onStartOpening={(openingId) => startDrillForOpening(openingId)}
+                    onStartVariation={(openingId, variationId) => startDrillForVariation(openingId, variationId)}
+                    onSetDailyReviewTarget={() => { }}
+                    onSetStaminaCap={() => { }}
+                    onSetPreferredSide={() => { }}
                     onStartFreeTrial={startFreeTrial}
-                    onSetGoal={() => { }}
-                    onToggleRepertoire={(openingId) => {
-                        setRepertoire((prev) => {
-                            if (!prev) return null;
-                            const opening = openingsData ? flattenOpenings(openingsData).find((o) => o.id === openingId) : null;
-                            if (!opening) return prev;
-                            const side = inferSideFromTags(opening.tags);
-                            const isActive = (prev[side] || []).some((item) => item.opening_id === openingId);
-
-                            api.toggleRepertoire(openingId, !isActive).catch(console.error);
-
-                            const nextSide = isActive
-                                ? prev[side].filter((item) => item.opening_id !== openingId)
-                                : [...prev[side], { opening_id: openingId, name: opening.name, side }];
-
-                            return { ...prev, [side]: nextSide };
-                        });
-                    }}
                 />
             </div>
         </div>

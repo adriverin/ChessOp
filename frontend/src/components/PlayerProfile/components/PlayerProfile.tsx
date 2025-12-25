@@ -1,26 +1,24 @@
 import { useMemo, type ReactNode } from 'react'
 import {
     ArrowUpRight,
-    BadgeCheck,
-    BookOpenCheck,
     CheckCircle2,
     ChevronRight,
     Flame,
     GraduationCap,
-    Palette,
-    Repeat2,
-    Settings2,
-    Volume2,
+    Settings,
 } from 'lucide-react'
 import type {
     Opening,
     OpeningProgress,
-    PlayerPreferences,
     PlayerProfileProps,
     PlayerProfileTab,
-    UserMistake,
-    Variation,
 } from '../types'
+import { BlunderBasket } from '../../TrainingArena/components/BlunderBasket'
+import { SettingsPanel } from './SettingsPanel'
+
+export interface ExtendedPlayerProfileProps extends PlayerProfileProps {
+    onClearAllMistakes?: () => void
+}
 
 function cx(...classes: Array<string | false | null | undefined>) {
     return classes.filter(Boolean).join(' ')
@@ -84,11 +82,11 @@ function ToneChip({
             className={cx(
                 'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset',
                 tone === 'emerald' &&
-                    'bg-emerald-50 text-emerald-700 ring-emerald-200/70 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-900/60',
+                'bg-emerald-50 text-emerald-700 ring-emerald-200/70 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-900/60',
                 tone === 'amber' &&
-                    'bg-amber-50 text-amber-800 ring-amber-200/70 dark:bg-amber-950/40 dark:text-amber-200 dark:ring-amber-900/60',
+                'bg-amber-50 text-amber-800 ring-amber-200/70 dark:bg-amber-950/40 dark:text-amber-200 dark:ring-amber-900/60',
                 tone === 'slate' &&
-                    'bg-slate-100 text-slate-700 ring-slate-200/70 dark:bg-slate-900/50 dark:text-slate-200 dark:ring-slate-700/60'
+                'bg-slate-100 text-slate-700 ring-slate-200/70 dark:bg-slate-900/50 dark:text-slate-200 dark:ring-slate-700/60'
             )}
         >
             {children}
@@ -232,151 +230,35 @@ function OpeningCard({
     )
 }
 
-function MistakeRow({
-    mistake,
-    opening,
-    variation,
-    selected,
-    onClick,
-}: {
-    mistake: UserMistake
-    opening: Opening | null
-    variation: Variation | null
-    selected: boolean
-    onClick?: () => void
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={cx(
-                'w-full text-left rounded-xl px-3 py-3 ring-1 ring-inset transition-colors',
-                selected
-                    ? 'bg-emerald-50/70 ring-emerald-200/70 dark:bg-emerald-950/30 dark:ring-emerald-900/60'
-                    : 'bg-white/70 ring-slate-200/80 hover:ring-slate-300/80 dark:bg-slate-950/40 dark:ring-slate-800 dark:hover:ring-slate-700'
-            )}
-        >
-            <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                        {opening?.name ?? 'Unknown opening'}
-                        <span className="text-slate-400 dark:text-slate-500"> · </span>
-                        {variation?.name ?? 'Unknown line'}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-600 dark:text-slate-300 truncate">
-                        <span className="font-medium text-amber-700 dark:text-amber-200">{mistake.wrongMove}</span>
-                        <span className="px-1 text-slate-400 dark:text-slate-500">→</span>
-                        <span className="font-medium text-emerald-700 dark:text-emerald-200">{mistake.correctMove}</span>
-                    </p>
-                </div>
-                <span className="shrink-0 text-xs text-slate-500 dark:text-slate-400">
-                    {formatDateShort(mistake.occurredAt)}
-                </span>
-            </div>
 
-            <div className="mt-2 flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-300">
-                <span className="inline-flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1">
-                        <Repeat2 className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
-                        <span className="font-medium">{mistake.reviewedCount}</span>
-                    </span>
-                    <span className="text-slate-400 dark:text-slate-500">•</span>
-                    <span>
-                        Last review: <span className="font-medium">{formatDateShort(mistake.lastReviewedAt)}</span>
-                    </span>
-                </span>
-                <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-            </div>
-        </button>
-    )
-}
-
-function SettingsToggle({
-    icon,
-    label,
-    description,
-    checked,
-    onChange,
-}: {
-    icon: ReactNode
-    label: string
-    description: string
-    checked: boolean
-    onChange?: (next: boolean) => void
-}) {
-    return (
-        <div className="rounded-2xl bg-white/70 dark:bg-slate-950/40 ring-1 ring-inset ring-slate-200/80 dark:ring-slate-800 p-4 sm:p-5">
-            <div className="flex items-start justify-between gap-4">
-                <div className="flex items-start gap-3 min-w-0">
-                    <div className="mt-0.5 inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200/70 dark:bg-slate-900/50 dark:text-slate-200 dark:ring-slate-700/60">
-                        {icon}
-                    </div>
-                    <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                            {label}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                            {description}
-                        </p>
-                    </div>
-                </div>
-                <button
-                    type="button"
-                    role="switch"
-                    aria-checked={checked}
-                    onClick={() => onChange?.(!checked)}
-                    className={cx(
-                        'relative inline-flex h-8 w-14 items-center rounded-full ring-1 ring-inset transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400/40 dark:focus:ring-emerald-500/40',
-                        checked
-                            ? 'bg-emerald-600 ring-emerald-500/60'
-                            : 'bg-slate-200 ring-slate-300/80 dark:bg-slate-800 dark:ring-slate-700/60'
-                    )}
-                >
-                    <span
-                        className={cx(
-                            'inline-block h-6 w-6 transform rounded-full bg-white shadow-sm transition-transform',
-                            checked ? 'translate-x-7' : 'translate-x-1'
-                        )}
-                    />
-                </button>
-            </div>
-        </div>
-    )
-}
-
-function updatePreferences<T extends keyof PlayerPreferences>(
-    prefs: PlayerPreferences,
-    key: T,
-    value: PlayerPreferences[T]
-) {
-    return {
-        ...prefs,
-        [key]: value,
-    }
-}
 
 export function PlayerProfile({
     user,
     openings,
     variations,
-    userProgress,
     openingProgress,
     userMistakes,
-    preferences,
     ui,
+    preferences,
     isGuest = false,
     isPremium = false,
     onSelectTab,
     onTrainOpening,
-    onViewMistake,
     onRetryMistake,
+    onDismissMistake,
     onUpdatePreferences,
-}: PlayerProfileProps) {
+    onClearAllMistakes,
+}: ExtendedPlayerProfileProps) {
     const openingsById = useMemo(() => new Map(openings.map(o => [o.id, o])), [openings])
-    const variationsById = useMemo(() => new Map(variations.map(v => [v.id, v])), [variations])
+
 
     const sortedOpeningProgress = useMemo(
         () => sortOpeningProgress(openingProgress),
+        [openingProgress]
+    )
+
+    const favorites = useMemo(
+        () => openingProgress.filter(p => p.isInRepertoire),
         [openingProgress]
     )
 
@@ -389,26 +271,21 @@ export function PlayerProfile({
         [openingProgress]
     )
 
-    const totalOpenings = openingProgress.length
+
     const primaryFocus = useMemo(() => {
         if (inProgress.length > 0) return 'In progress'
         if (mastered.length > 0) return 'Mastered'
         return 'Getting started'
     }, [inProgress.length, mastered.length])
 
-    const selectedMistake = ui.selectedMistakeId
-        ? userMistakes.find(m => m.id === ui.selectedMistakeId) ?? null
-        : null
 
     const tabs: Array<{ id: PlayerProfileTab; label: string; icon: ReactNode }> = [
         { id: 'overview', label: 'Overview', icon: <GraduationCap className="h-4 w-4" /> },
-        { id: 'openings', label: 'Openings', icon: <BookOpenCheck className="h-4 w-4" /> },
-        { id: 'blunderBasket', label: 'Blunder Basket', icon: <BadgeCheck className="h-4 w-4" /> },
-        { id: 'settings', label: 'Settings', icon: <Settings2 className="h-4 w-4" /> },
+        { id: 'settings', label: 'Settings', icon: <Settings className="h-4 w-4" /> },
     ]
 
     const setTab = (tab: PlayerProfileTab) => onSelectTab?.(tab)
-    const setPrefs = (next: PlayerPreferences) => onUpdatePreferences?.(next)
+
 
     return (
         <div className="w-full">
@@ -456,7 +333,6 @@ export function PlayerProfile({
                                 {isPremium ? 'Premium' : 'Free'}
                             </ToneChip>
                             {isGuest && <ToneChip tone="amber">Guest</ToneChip>}
-                            <ToneChip tone="slate">{formatNumber(userProgress.length)} lines tracked</ToneChip>
                         </div>
                     </div>
 
@@ -492,35 +368,38 @@ export function PlayerProfile({
                     {ui.activeTab === 'overview' && (
                         <div className="grid gap-6 lg:grid-cols-12">
                             <div className="lg:col-span-7">
-                                <div className="rounded-2xl bg-white/70 dark:bg-slate-950/40 ring-1 ring-inset ring-slate-200/80 dark:ring-slate-800 p-5 sm:p-6 shadow-sm">
+                                <div className="h-[500px] rounded-2xl bg-white/70 dark:bg-slate-950/40 ring-1 ring-inset ring-slate-200/80 dark:ring-slate-800 p-5 sm:p-6 shadow-sm">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="min-w-0">
                                             <p className="text-xs font-medium tracking-wider uppercase text-slate-500 dark:text-slate-400">
-                                                Repertoire Snapshot
+                                                My Repertoire
                                             </p>
                                             <h2 className="mt-2 text-xl font-heading font-bold text-slate-900 dark:text-white">
-                                                Mastered vs In Progress
+                                                Your Favorites
                                             </h2>
                                             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                                                Your main scoreboard. Everything else supports this.
+                                                Openings you have starred for quick access.
                                             </p>
                                         </div>
                                         <ToneChip tone="emerald">
                                             <GraduationCap className="h-3.5 w-3.5" />
-                                            {mastered.length}/{totalOpenings} mastered
+                                            {favorites.filter(p => p.status === 'mastered').length}/{favorites.length} mastered
                                         </ToneChip>
                                     </div>
 
-                                    <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                                        <div className="rounded-2xl bg-slate-50/70 dark:bg-slate-950/30 ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800 p-4">
-                                            <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                                Mastered
-                                            </p>
-                                            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                                Confident lines. Quick review keeps them automatic.
-                                            </p>
-                                            <div className="mt-3 space-y-2">
-                                                {mastered.slice(0, 3).map(p => {
+                                    <div className="mt-5">
+                                        {openingProgress.filter(p => p.isInRepertoire).length === 0 ? (
+                                            <div className="rounded-xl bg-slate-50 dark:bg-slate-950/30 ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800 px-4 py-8 text-center">
+                                                <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                                                    No favorites yet
+                                                </p>
+                                                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                                                    Go to the Curriculum to star your favorite openings.
+                                                </p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+                                                {openingProgress.filter(p => p.isInRepertoire).map(p => {
                                                     const opening = openingsById.get(p.openingId)
                                                     if (!opening) return null
                                                     return (
@@ -532,56 +411,17 @@ export function PlayerProfile({
                                                         >
                                                             <div className="flex items-center justify-between gap-3">
                                                                 <div className="min-w-0">
-                                                                    <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                                                                        {opening.name}
-                                                                    </p>
-                                                                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 truncate">
-                                                                        {p.masteryPercent}% · next {formatDateShort(p.nextReviewDate)}
-                                                                    </p>
-                                                                </div>
-                                                                <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500" />
-                                                            </div>
-                                                        </button>
-                                                    )
-                                                })}
-                                                {mastered.length === 0 && (
-                                                    <div className="rounded-xl bg-white/70 dark:bg-slate-950/30 ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800 px-3 py-3">
-                                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                                            No mastered openings yet
-                                                        </p>
-                                                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                                            Your first mastered opening will show up here.
-                                                        </p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                                                                            {opening.name}
+                                                                        </p>
+                                                                        <ToneChip tone={statusTone(p.status)}>
+                                                                            {statusLabel(p.status)}
+                                                                        </ToneChip>
+                                                                    </div>
 
-                                        <div className="rounded-2xl bg-slate-50/70 dark:bg-slate-950/30 ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800 p-4">
-                                            <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                                In progress
-                                            </p>
-                                            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                                Where your next gains live. Small daily reps compound fast.
-                                            </p>
-                                            <div className="mt-3 space-y-2">
-                                                {inProgress.slice(0, 3).map(p => {
-                                                    const opening = openingsById.get(p.openingId)
-                                                    if (!opening) return null
-                                                    return (
-                                                        <button
-                                                            key={p.openingId}
-                                                            type="button"
-                                                            onClick={() => onTrainOpening?.(opening.id)}
-                                                            className="w-full rounded-xl bg-white/80 dark:bg-slate-950/40 ring-1 ring-inset ring-slate-200/80 dark:ring-slate-800 px-3 py-2 text-left hover:ring-slate-300/80 dark:hover:ring-slate-700 transition-colors"
-                                                        >
-                                                            <div className="flex items-center justify-between gap-3">
-                                                                <div className="min-w-0">
-                                                                    <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                                                                        {opening.name}
-                                                                    </p>
                                                                     <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 truncate">
-                                                                        {p.masteryPercent}% · next {formatDateShort(p.nextReviewDate)}
+                                                                        {p.masteryPercent}% · {p.masteredVariations}/{p.totalVariations} vars
                                                                     </p>
                                                                 </div>
                                                                 <ChevronRight className="h-4 w-4 text-slate-400 dark:text-slate-500" />
@@ -589,82 +429,21 @@ export function PlayerProfile({
                                                         </button>
                                                     )
                                                 })}
-                                                {inProgress.length === 0 && (
-                                                    <div className="rounded-xl bg-white/70 dark:bg-slate-950/30 ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800 px-3 py-3">
-                                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                                            Nothing in progress
-                                                        </p>
-                                                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                                            Start training an opening to see it here.
-                                                        </p>
-                                                    </div>
-                                                )}
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
 
                             <div className="lg:col-span-5 space-y-4">
-                                <div className="rounded-2xl bg-white/70 dark:bg-slate-950/40 ring-1 ring-inset ring-slate-200/80 dark:ring-slate-800 p-5 sm:p-6 shadow-sm">
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-medium tracking-wider uppercase text-slate-500 dark:text-slate-400">
-                                                Blunder Basket
-                                            </p>
-                                            <h3 className="mt-2 text-xl font-heading font-bold text-slate-900 dark:text-white">
-                                                Fix your mistakes
-                                            </h3>
-                                            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                                                Tap into details, then hit “Retry now” to replay the position in the Training Arena.
-                                            </p>
-                                        </div>
-                                        <ToneChip tone={userMistakes.length ? 'amber' : 'slate'}>
-                                            {userMistakes.length} items
-                                        </ToneChip>
-                                    </div>
-
-                                    <div className="mt-4">
-                                        <button
-                                            type="button"
-                                            onClick={() => setTab('blunderBasket')}
-                                            className="inline-flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold bg-white text-slate-900 hover:bg-slate-50 ring-1 ring-inset ring-slate-200/80 shadow-sm transition-colors dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900/60 dark:ring-slate-800"
-                                        >
-                                            <span>Open blunder basket</span>
-                                            <ChevronRight className="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="rounded-2xl bg-white/70 dark:bg-slate-950/40 ring-1 ring-inset ring-slate-200/80 dark:ring-slate-800 p-5 sm:p-6 shadow-sm">
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div className="min-w-0">
-                                            <p className="text-xs font-medium tracking-wider uppercase text-slate-500 dark:text-slate-400">
-                                                Preferences
-                                            </p>
-                                            <h3 className="mt-2 text-xl font-heading font-bold text-slate-900 dark:text-white">
-                                                Tune your training
-                                            </h3>
-                                            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                                                Theme, sound, and hints — small toggles that remove friction.
-                                            </p>
-                                        </div>
-                                        <ToneChip tone="slate">
-                                            <Palette className="h-3.5 w-3.5" />
-                                            {preferences.theme}
-                                        </ToneChip>
-                                    </div>
-
-                                    <div className="mt-4">
-                                        <button
-                                            type="button"
-                                            onClick={() => setTab('settings')}
-                                            className="inline-flex w-full items-center justify-between rounded-xl px-3 py-2 text-sm font-semibold bg-white text-slate-900 hover:bg-slate-50 ring-1 ring-inset ring-slate-200/80 shadow-sm transition-colors dark:bg-slate-950 dark:text-white dark:hover:bg-slate-900/60 dark:ring-slate-800"
-                                        >
-                                            <span>Open settings</span>
-                                            <ChevronRight className="h-4 w-4" />
-                                        </button>
-                                    </div>
+                                <div className="h-[500px]">
+                                    <BlunderBasket
+                                        userMistakes={userMistakes}
+                                        variations={variations}
+                                        onReviewMistake={onRetryMistake}
+                                        onDismissMistake={onDismissMistake}
+                                        onClearAll={onClearAllMistakes}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -717,261 +496,12 @@ export function PlayerProfile({
                         </div>
                     )}
 
-                    {ui.activeTab === 'blunderBasket' && (
-                        <div className="grid gap-6 lg:grid-cols-12">
-                            <div className="lg:col-span-5">
-                                <div className="rounded-2xl bg-white/70 dark:bg-slate-950/40 ring-1 ring-inset ring-slate-200/80 dark:ring-slate-800 p-5 sm:p-6 shadow-sm">
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div>
-                                            <p className="text-xs font-medium tracking-wider uppercase text-slate-500 dark:text-slate-400">
-                                                Blunder Basket
-                                            </p>
-                                            <h2 className="mt-2 text-2xl font-heading font-bold text-slate-900 dark:text-white">
-                                                Mistake list
-                                            </h2>
-                                            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                                                Tap a mistake to see the details, then “Retry now” to replay it.
-                                            </p>
-                                        </div>
-                                        <ToneChip tone={userMistakes.length ? 'amber' : 'slate'}>
-                                            {userMistakes.length} items
-                                        </ToneChip>
-                                    </div>
-
-                                    <div className="mt-5 space-y-2">
-                                        {userMistakes.length === 0 && (
-                                            <div className="rounded-2xl bg-slate-50/70 dark:bg-slate-950/30 ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800 p-4">
-                                                <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                                    Nothing to fix right now
-                                                </p>
-                                                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                                    When you miss a move in training, it’ll land here for targeted review.
-                                                </p>
-                                            </div>
-                                        )}
-
-                                        {userMistakes.map(m => {
-                                            const variation = variationsById.get(m.variationId) ?? null
-                                            const opening = variation ? openingsById.get(variation.openingId) ?? null : null
-                                            const isSelected = ui.selectedMistakeId === m.id
-                                            return (
-                                                <MistakeRow
-                                                    key={m.id}
-                                                    mistake={m}
-                                                    opening={opening}
-                                                    variation={variation}
-                                                    selected={isSelected}
-                                                    onClick={() => onViewMistake?.(m.id)}
-                                                />
-                                            )
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="lg:col-span-7">
-                                <div className="rounded-2xl bg-white/70 dark:bg-slate-950/40 ring-1 ring-inset ring-slate-200/80 dark:ring-slate-800 p-5 sm:p-6 shadow-sm">
-                                    {!selectedMistake && (
-                                        <div className="text-center py-12">
-                                            <p className="text-2xl font-heading font-bold text-slate-900 dark:text-white">
-                                                Select a mistake
-                                            </p>
-                                            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                                                Pick one from the list to view details and replay it.
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {selectedMistake &&
-                                        (() => {
-                                            const variation = variationsById.get(selectedMistake.variationId) ?? null
-                                            const opening = variation
-                                                ? openingsById.get(variation.openingId) ?? null
-                                                : null
-                                            return (
-                                                <div>
-                                                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                                                        <div className="min-w-0">
-                                                            <p className="text-xs font-medium tracking-wider uppercase text-slate-500 dark:text-slate-400">
-                                                                Mistake Detail
-                                                            </p>
-                                                            <h3 className="mt-2 text-2xl font-heading font-bold text-slate-900 dark:text-white">
-                                                                {opening?.name ?? 'Unknown opening'}
-                                                            </h3>
-                                                            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                                                {variation?.name ?? 'Unknown line'} · Occurred {formatDateShort(selectedMistake.occurredAt)}
-                                                            </p>
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => onRetryMistake?.(selectedMistake.id)}
-                                                            className="inline-flex items-center justify-center rounded-xl px-3.5 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 ring-1 ring-inset ring-emerald-500/60 shadow-sm transition-colors"
-                                                        >
-                                                            Retry now
-                                                            <ArrowUpRight className="ml-2 h-4 w-4" />
-                                                        </button>
-                                                    </div>
-
-                                                    <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                                                        <div className="rounded-2xl bg-slate-50/70 dark:bg-slate-950/30 ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800 p-4">
-                                                            <p className="text-xs font-medium tracking-wider uppercase text-slate-500 dark:text-slate-400">
-                                                                You played
-                                                            </p>
-                                                            <p className="mt-2 text-lg font-heading font-bold text-amber-800 dark:text-amber-200">
-                                                                {selectedMistake.wrongMove}
-                                                            </p>
-                                                            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                                                                Saved for review · {selectedMistake.reviewedCount} retries so far
-                                                            </p>
-                                                        </div>
-
-                                                        <div className="rounded-2xl bg-slate-50/70 dark:bg-slate-950/30 ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800 p-4">
-                                                            <p className="text-xs font-medium tracking-wider uppercase text-slate-500 dark:text-slate-400">
-                                                                Best move
-                                                            </p>
-                                                            <p className="mt-2 text-lg font-heading font-bold text-emerald-700 dark:text-emerald-200">
-                                                                {selectedMistake.correctMove}
-                                                            </p>
-                                                            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                                                                Last reviewed {formatDateShort(selectedMistake.lastReviewedAt)}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="mt-5 rounded-2xl bg-slate-50/70 dark:bg-slate-950/30 ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800 p-4">
-                                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                                            Explanation
-                                                        </p>
-                                                        <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">
-                                                            {selectedMistake.explanation}
-                                                        </p>
-                                                    </div>
-
-                                                    {(selectedMistake.tags.length > 0 || selectedMistake.note) && (
-                                                        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                                                            <div className="rounded-2xl bg-white/60 dark:bg-slate-950/20 ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800 p-4">
-                                                                <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                                                    Tags
-                                                                </p>
-                                                                <div className="mt-2 flex flex-wrap gap-2">
-                                                                    {selectedMistake.tags.length === 0 && (
-                                                                        <ToneChip tone="slate">none</ToneChip>
-                                                                    )}
-                                                                    {selectedMistake.tags.map(t => (
-                                                                        <ToneChip key={t} tone="slate">
-                                                                            {t}
-                                                                        </ToneChip>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="rounded-2xl bg-white/60 dark:bg-slate-950/20 ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800 p-4">
-                                                                <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                                                    Note
-                                                                </p>
-                                                                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300 whitespace-pre-wrap">
-                                                                    {selectedMistake.note ?? '—'}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )
-                                        })()}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
                     {ui.activeTab === 'settings' && (
-                        <div className="grid gap-6 lg:grid-cols-12">
-                            <div className="lg:col-span-4">
-                                <div className="rounded-2xl bg-white/70 dark:bg-slate-950/40 ring-1 ring-inset ring-slate-200/80 dark:ring-slate-800 p-5 sm:p-6 shadow-sm">
-                                    <p className="text-xs font-medium tracking-wider uppercase text-slate-500 dark:text-slate-400">
-                                        Settings
-                                    </p>
-                                    <h2 className="mt-2 text-2xl font-heading font-bold text-slate-900 dark:text-white">
-                                        Preferences
-                                    </h2>
-                                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                                        Minimal knobs that change training feel immediately.
-                                    </p>
-
-                                    <div className="mt-4 rounded-2xl bg-slate-50/70 dark:bg-slate-950/30 ring-1 ring-inset ring-slate-200/70 dark:ring-slate-800 p-4">
-                                        <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                            Theme
-                                        </p>
-                                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                            Choose how the app renders light/dark.
-                                        </p>
-                                        <div className="mt-3 inline-flex items-center rounded-xl bg-slate-100/80 dark:bg-slate-900/40 ring-1 ring-inset ring-slate-200/80 dark:ring-slate-700/60 p-1">
-                                            {(['system', 'light', 'dark'] as const).map(t => {
-                                                const active = preferences.theme === t
-                                                return (
-                                                    <button
-                                                        key={t}
-                                                        type="button"
-                                                        onClick={() => setPrefs(updatePreferences(preferences, 'theme', t))}
-                                                        className={cx(
-                                                            'inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors',
-                                                            active
-                                                                ? 'bg-white text-slate-900 shadow-sm ring-1 ring-inset ring-slate-200 dark:bg-slate-950 dark:text-white dark:ring-slate-700'
-                                                                : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
-                                                        )}
-                                                    >
-                                                        {t}
-                                                    </button>
-                                                )
-                                            })}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="lg:col-span-8 space-y-4">
-                                <SettingsToggle
-                                    icon={<Volume2 className="h-4 w-4" />}
-                                    label="Sound"
-                                    description="Enable move sounds and feedback cues."
-                                    checked={preferences.soundEnabled}
-                                    onChange={(next) => setPrefs(updatePreferences(preferences, 'soundEnabled', next))}
-                                />
-
-                                <SettingsToggle
-                                    icon={<BadgeCheck className="h-4 w-4" />}
-                                    label="Move hints"
-                                    description="Show hints during training to keep momentum when you’re stuck."
-                                    checked={preferences.moveHints === 'on'}
-                                    onChange={(next) => setPrefs(updatePreferences(preferences, 'moveHints', next ? 'on' : 'off'))}
-                                />
-
-                                <SettingsToggle
-                                    icon={<GraduationCap className="h-4 w-4" />}
-                                    label="Auto-promotion of lines"
-                                    description="Automatically promote a line when you hit mastery thresholds."
-                                    checked={preferences.autoPromoteLines}
-                                    onChange={(next) => setPrefs(updatePreferences(preferences, 'autoPromoteLines', next))}
-                                />
-
-                                <div className="rounded-2xl bg-white/70 dark:bg-slate-950/40 ring-1 ring-inset ring-slate-200/80 dark:ring-slate-800 p-4 sm:p-5">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-slate-900 dark:text-white">
-                                                Callback wiring
-                                            </p>
-                                            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                                                Preferences changes trigger the single callback: <span className="font-mono text-xs">onUpdatePreferences</span>.
-                                            </p>
-                                        </div>
-                                        <ToneChip tone="slate">
-                                            <Settings2 className="h-3.5 w-3.5" />
-                                            Props
-                                        </ToneChip>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <SettingsPanel preferences={preferences} onUpdate={onUpdatePreferences || (() => { })} />
                     )}
+
+
+
                 </div>
             </div>
         </div>

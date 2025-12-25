@@ -17,6 +17,7 @@ export interface Opening {
     imageUrl: string
     variationCount: number
     isPremium: boolean
+    drill_mode_unlocked?: boolean
 }
 
 export interface Variation {
@@ -126,4 +127,5 @@ export interface TrainingArenaProps {
     onSignUp?: () => void
 
     sessionBoard?: import('react').ReactNode
+    successOverlay?: import('react').ReactNode
 }

@@ -182,7 +182,7 @@ export interface SubmitBlunderPayload {
     fen: string;
     wrong_move: string;
     correct_move: string;
-    mode?: 'opening_drill' | 'one_move';
+    mode?: 'opening' | 'opening_drill' | 'one_move';
 }
 
 export interface SubmitOneMoveCompletePayload {

@@ -1,4 +1,6 @@
-import type { TrainingMode, UserStats, UserProgress, Variation } from '../types'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import type { Opening, TrainingMode, UserStats, UserProgress, Variation } from '../types'
 import { ModeCard } from './ModeCard'
 import { StatChip } from './StatChip'
 
@@ -9,6 +11,8 @@ export interface ModePickerProps {
     userProgress: UserProgress[]
     /** Available variations */
     variations: Variation[]
+    /** Available openings */
+    openings: Opening[]
     /** Whether the user is a guest */
     isGuest?: boolean
     /** Whether user has premium access */
@@ -47,19 +51,6 @@ const FlameIcon = () => (
     </svg>
 )
 
-const ClockIcon = () => (
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-)
-
-const BatteryIcon = () => (
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4a2 2 0 012-2zM22 11v2" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12h4" />
-    </svg>
-)
-
 const ChartIcon = () => (
     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -69,19 +60,23 @@ const ChartIcon = () => (
 export function ModePicker({
     userStats,
     userProgress,
-    variations,
+    variations: _variations,
+    openings,
     isGuest = false,
     isPremium = false,
-    onSelectMode,
+    onSelectMode: _onSelectMode,
     onStartFreeTrial,
     onSignUp,
 }: ModePickerProps) {
+    const navigate = useNavigate()
+    const [isOpeningDrillModalOpen, setIsOpeningDrillModalOpen] = useState(false)
+
     // Calculate derived stats
     const averageMastery = userProgress.length > 0
         ? Math.round(userProgress.reduce((sum, p) => sum + p.masteryPercent, 0) / userProgress.length)
         : 0
 
-    const repertoireVariations = variations.filter(v => v.isInRepertoire)
+    const unlockedOpenings = openings.filter(opening => opening.drill_mode_unlocked).sort((a, b) => a.name.localeCompare(b.name))
 
     return (
         <div className="w-full max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
@@ -107,12 +102,6 @@ export function ModePicker({
                         label="Average Mastery"
                         value={`${averageMastery}%`}
                         variant={averageMastery >= 70 ? 'success' : averageMastery >= 40 ? 'warning' : 'default'}
-                    />
-                    <StatChip
-                        icon={<BatteryIcon />}
-                        label="Stamina"
-                        value={`${userStats.staminaRemaining}/${userStats.staminaMax}`}
-                        variant={userStats.staminaRemaining <= 2 ? 'warning' : 'default'}
                     />
                 </div>
             </div>
@@ -147,15 +136,9 @@ export function ModePicker({
                     title="Opening Training"
                     description="Learn new lines and review due variations with spaced repetition. Includes blunder injection to test weak spots."
                     icon={<BookOpenIcon />}
-                    onSelect={() => onSelectMode?.('opening-training')}
+                    onSelect={() => navigate('/curriculum')}
                     stats={
                         <>
-                            <StatChip
-                                icon={<ClockIcon />}
-                                label="Due Reviews"
-                                value={userStats.dueReviews}
-                                variant={userStats.dueReviews > 0 ? 'warning' : 'success'}
-                            />
                             <StatChip
                                 icon={<ChartIcon />}
                                 label="Variations Learned"
@@ -172,7 +155,7 @@ export function ModePicker({
                     title="One Move Drill"
                     description="Fast-paced streak practice. See a position, play the right move. Build streaks and earn XP."
                     icon={<ZapIcon />}
-                    onSelect={() => onSelectMode?.('one-move-drill')}
+                    onSelect={() => navigate('/train?mode=one_move')}
                     stats={
                         <>
                             <StatChip
@@ -180,12 +163,6 @@ export function ModePicker({
                                 label="Best Streak"
                                 value={userStats.longestStreak}
                                 variant="success"
-                            />
-                            <StatChip
-                                icon={<BatteryIcon />}
-                                label="Stamina"
-                                value={`${userStats.staminaRemaining}/${userStats.staminaMax}`}
-                                variant={userStats.staminaRemaining <= 2 ? 'warning' : 'default'}
                             />
                         </>
                     }
@@ -199,41 +176,66 @@ export function ModePicker({
                     icon={<TargetIcon />}
                     isPremium={true}
                     isLocked={!isPremium}
-                    onSelect={() => onSelectMode?.('opening-drill')}
+                    onSelect={() => navigate('/opening-drill')}
                     onUnlock={onStartFreeTrial}
-                    stats={
-                        <>
-                            <StatChip
-                                icon={<ChartIcon />}
-                                label="Repertoire"
-                                value={`${repertoireVariations.length} lines`}
-                                variant="default"
-                            />
-                        </>
-                    }
                 />
             </div>
 
-            {/* Stamina Warning */}
-            {userStats.staminaRemaining === 0 && (
-                <div className="mt-8 p-4 rounded-xl bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-center">
-                    <p className="text-slate-700 dark:text-slate-300 font-medium">
-                        ⚡ You're out of stamina for today
-                    </p>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                        Come back tomorrow, or upgrade to Premium for unlimited training.
-                    </p>
-                    {!isPremium && (
-                        <button
-                            onClick={onStartFreeTrial}
-                            className="mt-3 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-lg transition-colors"
-                        >
-                            Start Free Trial
-                        </button>
-                    )}
+            {isOpeningDrillModalOpen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm p-4"
+                    onClick={() => setIsOpeningDrillModalOpen(false)}
+                    role="dialog"
+                    aria-modal="true"
+                >
+                    <div
+                        className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 shadow-xl ring-1 ring-slate-200 dark:ring-slate-800"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="flex items-start justify-between gap-4 border-b border-slate-200 dark:border-slate-800 px-5 py-4">
+                            <div>
+                                <h2 className="text-lg font-heading font-semibold text-slate-900 dark:text-white">
+                                    Choose an opening
+                                </h2>
+                                <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                                    Select an unlocked opening to start a drill session.
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsOpeningDrillModalOpen(false)}
+                                className="inline-flex items-center rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition-colors"
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <div className="p-4">
+                            {unlockedOpenings.length === 0 ? (
+                                <p className="text-sm text-slate-600 dark:text-slate-300">
+                                    No openings are unlocked for drills yet.
+                                </p>
+                            ) : (
+                                <ul className="space-y-2">
+                                    {unlockedOpenings.map((opening) => (
+                                        <li key={opening.id}>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setIsOpeningDrillModalOpen(false)
+                                                    navigate(`/train?mode=opening_drill&opening_id=${encodeURIComponent(opening.id)}`)
+                                                }}
+                                                className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/40 px-4 py-3 text-left text-sm font-medium text-slate-900 dark:text-white hover:border-emerald-300 dark:hover:border-emerald-600 hover:bg-emerald-50/60 dark:hover:bg-emerald-900/20 transition-colors"
+                                            >
+                                                {opening.name}
+                                            </button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
     )
 }
-

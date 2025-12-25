@@ -1,88 +1,105 @@
-import React, { useState } from 'react';
-import { useUser } from '../context/UserContext';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useUser } from '../context/UserContext'
+import { Button } from '../components/ui/Button'
+import { Input } from '../components/ui/Input'
 
 export const LoginPage = () => {
-    const { login } = useUser();
-    const navigate = useNavigate();
-    const location = useLocation();
+    const { login } = useUser()
+    const navigate = useNavigate()
+    const location = useLocation()
 
     // Fallback to home if no state
-    const fromState = location.state?.from;
+    const fromState = location.state?.from
     const from =
-        (fromState?.pathname || '/') +
-        (fromState?.search || '') +
-        (fromState?.hash || '');
+        (fromState?.pathname || '/') + (fromState?.search || '') + (fromState?.hash || '')
 
-    const [identifier, setIdentifier] = useState('');
-    const [password, setPassword] = useState('');
-    const [error, setError] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+    const [identifier, setIdentifier] = useState('')
+    const [password, setPassword] = useState('')
+    const [error, setError] = useState('')
+    const [isLoading, setIsLoading] = useState(false)
 
     const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setError('');
-        setIsLoading(true);
+        e.preventDefault()
+        setError('')
+        setIsLoading(true)
         try {
-            await login({ identifier, password });
+            await login({ identifier, password })
 
             if (location.state?.from) {
-                navigate(from, { replace: true });
+                navigate(from, { replace: true })
             } else {
                 if (window.history.length > 1) {
-                    navigate(-1);
+                    navigate(-1)
                 } else {
-                    navigate('/');
+                    navigate('/')
                 }
             }
         } catch (err: any) {
             if (err.response?.status === 429) {
-                setError("Too many attempts, try again later.");
+                setError('Too many attempts, try again later.')
             } else {
-                setError(err.response?.data?.error || "Invalid username/email or password.");
+                setError(err.response?.data?.error || 'Invalid username/email or password.')
             }
         } finally {
-            setIsLoading(false);
+            setIsLoading(false)
         }
-    };
+    }
 
     return (
-        <div className="bg-slate-900/80 p-8 rounded-2xl border border-slate-800 shadow-2xl shadow-black/40 text-slate-100">
-            <h2 className="text-2xl font-semibold mb-6 text-center text-indigo-200">Log In</h2>
-            {error && <div className="mb-4 p-3 bg-rose-500/20 text-rose-100 rounded border border-rose-400/30">{error}</div>}
+        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-xl p-8 shadow-xl">
+            <h1 className="text-2xl font-bold text-white mb-2 font-heading">Welcome back</h1>
+            <p className="text-slate-400 text-sm mb-6 font-body">Log in to continue your training.</p>
+
+            {error && (
+                <div className="mb-4 p-3 bg-rose-500/15 text-rose-100 rounded-lg border border-rose-400/30 text-sm">
+                    {error}
+                </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="block text-sm font-medium mb-1 text-slate-200">Email or Username</label>
-                    <input
+                <div className="space-y-1">
+                    <label className="block text-sm font-medium text-slate-200 font-body">Email or username</label>
+                    <Input
                         type="text"
-                        className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 focus:border-indigo-500 focus:outline-none text-white placeholder:text-slate-500"
                         value={identifier}
                         onChange={(e) => setIdentifier(e.target.value)}
                         required
                         autoFocus
+                        className="bg-slate-950 border-slate-700"
+                        placeholder="you@example.com"
                     />
                 </div>
-                <div>
-                    <label className="block text-sm font-medium mb-1 text-slate-200">Password</label>
-                    <input
+                <div className="space-y-1">
+                    <label className="block text-sm font-medium text-slate-200 font-body">Password</label>
+                    <Input
                         type="password"
-                        className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 focus:border-indigo-500 focus:outline-none text-white placeholder:text-slate-500"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
+                        className="bg-slate-950 border-slate-700"
+                        placeholder="••••••••••"
                     />
                 </div>
-                <button
+                <Button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full bg-indigo-500 hover:bg-indigo-400 text-white font-semibold py-2 px-4 rounded-full transition-colors disabled:opacity-50 shadow-lg shadow-indigo-900/40"
+                    className="w-full bg-emerald-600 hover:bg-emerald-500"
                 >
                     {isLoading ? 'Logging in...' : 'Log In'}
-                </button>
+                </Button>
             </form>
-            <div className="mt-4 text-center text-sm text-slate-400">
-                Don't have an account? <Link to="/signup" className="text-indigo-200 hover:underline" state={location.state}>Signup</Link>
+
+            <div className="mt-6 text-center text-sm text-slate-400 font-body">
+                Don&apos;t have an account?{' '}
+                <Link
+                    to="/signup"
+                    className="text-emerald-500 hover:text-emerald-400 font-medium"
+                    state={location.state}
+                >
+                    Sign up
+                </Link>
             </div>
         </div>
-    );
-};
+    )
+}

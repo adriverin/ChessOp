@@ -151,6 +151,25 @@ def api_get_mistakes(request):
         })
     return JsonResponse({'mistakes': payload})
 
+@login_required
+@require_http_methods(["DELETE"])
+def api_clear_mistakes(request):
+    """
+    Bulk delete for "Clear All" in the Blunder Basket.
+    Only clears unresolved mistakes (the ones shown in the UI).
+    """
+    profile = request.user.profile
+    UserMistake.objects.filter(profile=profile, resolved=False).delete()
+    return JsonResponse({'success': True})
+
+@login_required
+@require_http_methods(["DELETE"])
+def api_delete_mistake(request, mistake_id):
+    profile = request.user.profile
+    mistake = get_object_or_404(UserMistake, id=mistake_id, profile=profile)
+    mistake.delete()
+    return JsonResponse({'success': True})
+
 def opening_drill_unlocked(user, opening):
     """
     Helper: Checks if user has successfully trained all variations of an opening
@@ -1229,15 +1248,43 @@ def api_submit_result(request):
     elif result_type == 'blunder_made':
         # Frontend reports a mistake
         variation_slug = data.get('id')
+        if not variation_slug:
+            return JsonResponse({'error': 'id is required'}, status=400)
+
+        # mode comes from the payload; we only persist blunders for non-one-move modes.
+        # (Opening Training uses mode='opening' to be explicit.)
+        mode = data.get('mode')
+
         var = Variation.objects.filter(slug=variation_slug).first()
-        
-        UserMistake.objects.create(
-            profile=profile,
-            variation=var,
-            fen=data.get('fen'),
-            wrong_move=data.get('wrong_move'),
-            correct_move=data.get('correct_move')
-        )
+        if mode != 'one_move' and var is None:
+            return JsonResponse({'error': 'Variation not found'}, status=404)
+
+        fen = data.get('fen')
+        if not fen:
+            return JsonResponse({'error': 'fen is required'}, status=400)
+
+        if mode != 'one_move':
+            mistake, created = UserMistake.objects.get_or_create(
+                profile=profile,
+                variation=var,
+                fen=fen,
+                defaults={
+                    'wrong_move': data.get('wrong_move') or '',
+                    'correct_move': data.get('correct_move') or '',
+                },
+            )
+
+            if not created:
+                # Deduplicate: keep a single record per (user, variation, position).
+                # We don't overwrite wrong/correct move; just refresh recency so it surfaces in the UI.
+                updates = {'resolved': False}
+                # If a last_practiced-style field exists in the future, prefer it.
+                if hasattr(mistake, 'last_practiced'):
+                    updates['last_practiced'] = timezone.now()
+                else:
+                    # No last_practiced field in this project; treat created_at as "last seen" for ordering.
+                    updates['created_at'] = timezone.now()
+                UserMistake.objects.filter(id=mistake.id).update(**updates)
         
         # SRS Penalty
         if var:

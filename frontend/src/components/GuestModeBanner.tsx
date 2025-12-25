@@ -59,7 +59,7 @@ export const GuestModeBanner: React.FC<GuestModeBannerProps> = ({
                         onClick={() =>
                             navigate('/signup', {
                                 replace: false,
-                                state: { backgroundLocation: location, from: location },
+                                state: { from: location },
                             })
                         }
                         className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-semibold text-white bg-indigo-600 rounded-full shadow-sm hover:bg-indigo-500 transition-colors"

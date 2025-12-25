@@ -71,6 +71,7 @@ export interface OpeningProgress {
     totalVariations: number
     lastTrainedAt: string | null
     nextReviewDate: string | null
+    isInRepertoire: boolean
 }
 
 export interface UserMistake {
@@ -141,6 +142,8 @@ export interface PlayerProfileProps {
     onViewMistake?: (mistakeId: string) => void
     /** Called when the user clicks “Retry now” on a mistake */
     onRetryMistake?: (mistakeId: string) => void
+    /** Called when the user dismisses a mistake */
+    onDismissMistake?: (mistakeId: string) => void
 
     // === Settings Actions ===
     /** Called when the user updates preferences */

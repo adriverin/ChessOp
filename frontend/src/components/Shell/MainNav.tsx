@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Menu, X } from 'lucide-react';
 import { UserMenu } from './UserMenu';
 import type { UserMenuProps } from './UserMenu';
+import { Button } from '../ui/Button';
 
 export interface NavigationItem {
     label: string;
@@ -25,6 +26,8 @@ export function MainNav({ items, user, onNavigate, onSignIn, onLogout }: MainNav
         onNavigate?.(href);
         setIsMobileMenuOpen(false);
     };
+
+    const isFreeUser = Boolean(user && !user.is_premium && !user.is_superuser);
 
     return (
         <nav className="sticky top-0 z-40 w-full bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
@@ -75,7 +78,17 @@ export function MainNav({ items, user, onNavigate, onSignIn, onLogout }: MainNav
 
                     {/* User Menu & Mobile Toggle */}
                     <div className="flex items-center gap-2">
-                        <div className="hidden md:block border-l border-slate-200 dark:border-slate-800 pl-4 ml-2">
+                        <div className="hidden md:flex items-center gap-4 border-l border-slate-200 dark:border-slate-800 pl-4 ml-2">
+                            {isFreeUser && (
+                                <Button
+                                    size="sm"
+                                    className="rounded-full px-4 font-heading"
+                                    onClick={() => handleNavigate('/pricing')}
+                                    type="button"
+                                >
+                                    Upgrade
+                                </Button>
+                            )}
                             <UserMenu user={user} onLogout={onLogout} onSignIn={onSignIn} />
                         </div>
 
@@ -128,6 +141,16 @@ export function MainNav({ items, user, onNavigate, onSignIn, onLogout }: MainNav
                                         </div>
                                     </div>
                                 </div>
+                                {isFreeUser && (
+                                    <Button
+                                        size="sm"
+                                        className="w-full rounded-full mb-2 font-heading"
+                                        onClick={() => handleNavigate('/pricing')}
+                                        type="button"
+                                    >
+                                        Upgrade
+                                    </Button>
+                                )}
                                 <button
                                     onClick={onLogout}
                                     className="w-full flex items-center gap-2 px-3 py-2 text-base font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors font-body"

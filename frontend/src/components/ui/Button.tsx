@@ -24,7 +24,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
           size === 'md' && 'h-10 px-4 text-sm',
           size === 'lg' && 'h-11 px-5 text-base',
           variant === 'primary' &&
-            'bg-emerald-600 text-white hover:bg-emerald-700 ring-emerald-600/30 dark:bg-emerald-600 dark:hover:bg-emerald-500',
+            'bg-emerald-600 text-white hover:bg-emerald-500 ring-emerald-600/30 dark:bg-emerald-600 dark:hover:bg-emerald-500',
           variant === 'secondary' &&
             'bg-amber-100 text-amber-900 hover:bg-amber-200 ring-amber-200/70 dark:bg-amber-900/30 dark:text-amber-100 dark:hover:bg-amber-900/40 dark:ring-amber-700/40',
           variant === 'ghost' &&

@@ -18,7 +18,7 @@ export function useUpgradeNavigation() {
         }
 
         // Safe fallback if called while logged out.
-        navigate('/login', { state: { backgroundLocation: location, from: location } });
+        navigate('/login', { state: { from: location } });
     }, [isAuthenticated, loading, navigate, location]);
 
     return { goToPricing, isAuthenticated, loading };

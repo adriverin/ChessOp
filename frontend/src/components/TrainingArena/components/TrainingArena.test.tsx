@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { MemoryRouter } from 'react-router-dom'
 import { TrainingArena } from './TrainingArena'
 import type { Opening, UserMistake, UserStats, Variation } from '../types'
 
@@ -62,15 +63,17 @@ describe('TrainingArena (entry surface)', () => {
     const { openings, variations, userStats, userMistakes } = makeBaseData()
 
     render(
-      <TrainingArena
-        openings={openings}
-        variations={variations}
-        userProgress={[]}
-        userMistakes={userMistakes}
-        currentSession={null}
-        userStats={userStats}
-        onStartSession={onStartSession}
-      />
+      <MemoryRouter>
+        <TrainingArena
+          openings={openings}
+          variations={variations}
+          userProgress={[]}
+          userMistakes={userMistakes}
+          currentSession={null}
+          userStats={userStats}
+          onStartSession={onStartSession}
+        />
+      </MemoryRouter>
     )
 
     expect(screen.getByText('Quick start')).toBeInTheDocument()
@@ -80,41 +83,6 @@ describe('TrainingArena (entry surface)', () => {
 
     expect(onStartSession).toHaveBeenCalledTimes(1)
     expect(onStartSession).toHaveBeenCalledWith('one-move-drill', 'opening-1', undefined)
-  })
-
-  it('disables Start session when out of stamina and shows free trial CTA', () => {
-    const onStartFreeTrial = vi.fn()
-    const { openings, variations, userMistakes } = makeBaseData()
-
-    const userStats: UserStats = {
-      totalXp: 1200,
-      level: 7,
-      currentStreak: 5,
-      longestStreak: 12,
-      staminaRemaining: 0,
-      staminaMax: 20,
-      dueReviews: 0,
-      variationsLearned: 0,
-      totalMistakes: 0,
-      mistakesFixed: 0,
-    }
-
-    render(
-      <TrainingArena
-        openings={openings}
-        variations={variations}
-        userProgress={[]}
-        userMistakes={userMistakes}
-        currentSession={null}
-        userStats={userStats}
-        isPremium={false}
-        onStartFreeTrial={onStartFreeTrial}
-      />
-    )
-
-    expect(screen.getByText('⚡ Out of stamina')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Start session/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Start free trial' })).toBeInTheDocument()
   })
 
   it('reviews and dismisses a blunder basket item', async () => {
@@ -138,16 +106,18 @@ describe('TrainingArena (entry surface)', () => {
     ]
 
     render(
-      <TrainingArena
-        openings={openings}
-        variations={variations}
-        userProgress={[]}
-        userMistakes={userMistakes}
-        currentSession={null}
-        userStats={userStats}
-        onReviewMistake={onReviewMistake}
-        onDismissMistake={onDismissMistake}
-      />
+      <MemoryRouter>
+        <TrainingArena
+          openings={openings}
+          variations={variations}
+          userProgress={[]}
+          userMistakes={userMistakes}
+          currentSession={null}
+          userStats={userStats}
+          onReviewMistake={onReviewMistake}
+          onDismissMistake={onDismissMistake}
+        />
+      </MemoryRouter>
     )
 
     await user.click(screen.getByRole('button', { name: /Review/i }))

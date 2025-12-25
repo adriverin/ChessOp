@@ -39,6 +39,9 @@ export interface TrainingSessionProps {
     onToggleRepertoireOnly?: (enabled: boolean) => void
     onToggleWrongMoveMode?: (enabled: boolean) => void
     onChangeSideFilter?: (side: Side | null) => void
+
+    /** Overlay to show on success (e.g. SuccessOverlay) */
+    successOverlay?: ReactNode
 }
 
 function ChessboardPlaceholder({ isWhitePerspective }: { isWhitePerspective: boolean }) {
@@ -145,6 +148,7 @@ export function TrainingSession({
         onToggleRepertoireOnly,
         onToggleWrongMoveMode,
         onChangeSideFilter,
+        successOverlay,
     } = props
     const currentOpening = openings.find(o => o.id === currentSession.openingId)
     const currentVariation = variations.find(v => v.id === currentSession.variationId)
@@ -172,7 +176,7 @@ export function TrainingSession({
             </div>
 
             <div className="flex flex-col lg:flex-row gap-6 flex-1 min-h-0 items-stretch">
-                <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+                <div className={`flex-1 min-w-0 min-h-0 flex flex-col ${currentSession.mode === 'one-move-drill' ? 'col-span-full' : ''}`}>
                     <div className="relative bg-white dark:bg-slate-800 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700 shadow-sm flex-1 min-h-0 flex flex-col">
                         {currentSession.isComplete && (
                             <CompletionBanner
@@ -188,38 +192,43 @@ export function TrainingSession({
 
                         <div className="flex-1 min-h-0 relative flex items-center justify-center">
                             {boardElement ?? <ChessboardPlaceholder isWhitePerspective={isWhitePerspective ?? true} />}
+                            {successOverlay}
                         </div>
 
-                        <div className="flex-none pb-2 pt-2">
-                            <BoardControls
-                                hintsUsed={currentSession.hintsUsed}
-                                isComplete={currentSession.isComplete}
-                                onRequestHint={onRequestHint}
-                                onResetPosition={onResetPosition}
-                                onStepBack={onStepBack}
-                                onStepForward={onStepForward}
-                            />
-                        </div>
+                        {currentSession.mode !== 'one-move-drill' && (
+                            <div className="flex-none pb-2 pt-2">
+                                <BoardControls
+                                    hintsUsed={currentSession.hintsUsed}
+                                    isComplete={currentSession.isComplete}
+                                    onRequestHint={onRequestHint}
+                                    onResetPosition={onResetPosition}
+                                    onStepBack={onStepBack}
+                                    onStepForward={onStepForward}
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                <div className="w-full lg:w-80 lg:h-full lg:overflow-hidden lg:min-h-0">
-                    <SessionSidebar
-                        openings={openings}
-                        variations={variations}
-                        currentOpeningId={currentSession.openingId}
-                        currentVariationId={currentSession.variationId}
-                        mode={currentSession.mode}
-                        filters={currentSession.filters}
-                        movesPlayed={movesPlayed}
-                        onSelectOpening={onSelectOpening}
-                        onSelectVariation={onSelectVariation}
-                        onSwitchMode={onSwitchMode}
-                        onToggleRepertoireOnly={onToggleRepertoireOnly}
-                        onToggleWrongMoveMode={onToggleWrongMoveMode}
-                        onChangeSideFilter={onChangeSideFilter}
-                    />
-                </div>
+                {currentSession.mode !== 'one-move-drill' && (
+                    <div className="w-full lg:w-80 lg:h-full lg:overflow-hidden lg:min-h-0">
+                        <SessionSidebar
+                            openings={openings}
+                            variations={variations}
+                            currentOpeningId={currentSession.openingId}
+                            currentVariationId={currentSession.variationId}
+                            mode={currentSession.mode}
+                            filters={currentSession.filters}
+                            movesPlayed={movesPlayed}
+                            onSelectOpening={onSelectOpening}
+                            onSelectVariation={onSelectVariation}
+                            onSwitchMode={onSwitchMode}
+                            onToggleRepertoireOnly={onToggleRepertoireOnly}
+                            onToggleWrongMoveMode={onToggleWrongMoveMode}
+                            onChangeSideFilter={onChangeSideFilter}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     )

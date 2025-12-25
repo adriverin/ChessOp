@@ -75,15 +75,12 @@ function renderHarness(
   partialProps: Partial<CurriculumProgressionProps> & Pick<CurriculumProgressionProps, 'openings' | 'openingProgress' | 'variations'>
 ) {
   const onChangeFilter = vi.fn()
-  const onToggleExpandedOpening = vi.fn()
 
   const props = {
     user: makeUser(),
-    userProgress: [],
     goals: { dailyReviewTarget: 10, staminaCap: 10, preferredSide: 'white' },
     ui: { activeFilter: 'all', expandedOpeningId: null },
     onChangeFilter,
-    onToggleExpandedOpening,
     ...partialProps,
   } satisfies CurriculumProgressionProps
 
@@ -97,15 +94,11 @@ function renderHarness(
           onChangeFilter(filter)
           setUi((prev) => ({ ...prev, activeFilter: filter }))
         }}
-        onToggleExpandedOpening={(openingId) => {
-          onToggleExpandedOpening(openingId)
-          setUi((prev) => ({ ...prev, expandedOpeningId: openingId }))
-        }}
       />
     )
   }
 
-  return { ...render(<Harness />), onChangeFilter, onToggleExpandedOpening }
+  return { ...render(<Harness />), onChangeFilter }
 }
 
 describe('CurriculumProgression', () => {
@@ -132,11 +125,6 @@ describe('CurriculumProgression', () => {
     const filterTabs = screen.getByRole('button', { name: 'All' }).parentElement
     expect(filterTabs).not.toBeNull()
 
-    await user.click(within(filterTabs as HTMLElement).getByRole('button', { name: 'Unlocked' }))
-    expect(onChangeFilter).toHaveBeenCalledWith('unlocked')
-    expect(screen.getByText('Sicilian Defense')).toBeInTheDocument()
-    expect(screen.queryByText('London System')).not.toBeInTheDocument()
-
     await user.click(within(filterTabs as HTMLElement).getByRole('button', { name: 'Mastered' }))
     expect(onChangeFilter).toHaveBeenCalledWith('mastered')
     expect(screen.getByText("Queen's Gambit")).toBeInTheDocument()
@@ -147,77 +135,54 @@ describe('CurriculumProgression', () => {
     expect(screen.getByText("Queen's Gambit")).toBeInTheDocument()
     expect(screen.getByText('London System')).toBeInTheDocument()
     expect(screen.queryByText('Sicilian Defense')).not.toBeInTheDocument()
+
+    await user.click(within(filterTabs as HTMLElement).getByRole('button', { name: 'Black' }))
+    expect(onChangeFilter).toHaveBeenCalledWith('black')
+    expect(screen.getByText('Sicilian Defense')).toBeInTheDocument()
+    expect(screen.queryByText('London System')).not.toBeInTheDocument()
   })
 
-  it('expands an opening and unlocks (signed in, eligible)', async () => {
+  it('navigates on card click', async () => {
     const user = userEvent.setup()
     const openings = [makeOpening('opening-1', 'white', { name: "Queen's Gambit" })]
-    const openingProgress = [makeProgress('opening-1', { state: 'locked', premiumLocked: false, lockReason: null })]
+    const openingProgress = [makeProgress('opening-1', { state: 'unlocked' })]
     const variations = [makeVariation('opening-1', 'var-1')]
 
-    const onUnlockOpening = vi.fn()
+    const onStartOpening = vi.fn()
 
-    const { onToggleExpandedOpening } = renderHarness({
-      openings,
-      openingProgress,
-      variations,
-      onUnlockOpening,
-      isGuest: false,
-      isPremium: true,
-      user: makeUser({ level: 10 }),
-    })
-
-    await user.click(screen.getByRole('button', { name: /Queen's Gambit/i }))
-    expect(onToggleExpandedOpening).toHaveBeenCalledWith('opening-1')
-
-    expect(screen.getByText('ACTIONS')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Unlock opening' }))
-    expect(onUnlockOpening).toHaveBeenCalledWith('opening-1')
-  })
-
-  it('shows guest unlock CTA and calls onSignUp', async () => {
-    const user = userEvent.setup()
-    const openings = [makeOpening('opening-1', 'white', { name: "Queen's Gambit" })]
-    const openingProgress = [makeProgress('opening-1', { state: 'locked' })]
-    const variations = [makeVariation('opening-1', 'var-1')]
-
-    const onSignUp = vi.fn()
-
-    renderHarness({ openings, openingProgress, variations, isGuest: true, onSignUp })
-
-    await user.click(screen.getByRole('button', { name: /Queen's Gambit/i }))
-    await user.click(screen.getByRole('button', { name: 'Sign up to unlock' }))
-    expect(onSignUp).toHaveBeenCalledTimes(1)
-  })
-
-  it('shows premium lock CTA and calls onStartFreeTrial', async () => {
-    const user = userEvent.setup()
-    const openings = [makeOpening('opening-1', 'black', { name: 'King’s Indian Defense' })]
-    const openingProgress = [
-      makeProgress('opening-1', {
-        state: 'locked',
-        premiumLocked: true,
-        lockReason: { type: 'premium', message: 'Premium required.' },
-      }),
-    ]
-    const variations = [makeVariation('opening-1', 'var-1')]
-
-    const onStartFreeTrial = vi.fn()
     renderHarness({
       openings,
       openingProgress,
       variations,
-      isGuest: false,
-      isPremium: false,
-      onStartFreeTrial,
+      onStartOpening,
     })
 
-    await user.click(screen.getByRole('button', { name: /King’s Indian Defense/i }))
-    expect(screen.getByText('Premium required')).toBeInTheDocument()
-    const actionsPanel = screen.getByText('ACTIONS').parentElement
-    expect(actionsPanel).not.toBeNull()
-    await user.click(within(actionsPanel as HTMLElement).getByRole('button', { name: 'Start free trial' }))
-    expect(onStartFreeTrial).toHaveBeenCalledTimes(1)
+    await user.click(screen.getByRole('button', { name: /Queen's Gambit/i }))
+    expect(onStartOpening).toHaveBeenCalledWith('opening-1')
+  })
+
+  it('opens variations menu without triggering card navigation', async () => {
+    const user = userEvent.setup()
+    const openings = [makeOpening('opening-1', 'white', { name: "Queen's Gambit" })]
+    const openingProgress = [makeProgress('opening-1', { state: 'unlocked' })]
+    const variations = [makeVariation('opening-1', 'var-1', { name: 'Main Line' })]
+
+    const onStartOpening = vi.fn()
+    const onStartVariation = vi.fn()
+
+    renderHarness({
+      openings,
+      openingProgress,
+      variations,
+      onStartOpening,
+      onStartVariation,
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Variations' }))
+    expect(onStartOpening).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('menuitem', { name: 'Main Line' }))
+    expect(onStartVariation).toHaveBeenCalledWith('opening-1', 'var-1')
   })
 
   it('shows empty state per filter and resets to All', async () => {

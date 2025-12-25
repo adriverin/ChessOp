@@ -188,7 +188,7 @@ export const OpeningDrill: React.FC = () => {
                 <h2 className="text-3xl font-semibold text-slate-900 dark:text-white mb-4">Training Locked</h2>
                 <p className="text-slate-600 dark:text-slate-400 mb-6">Please log in to access training modes.</p>
                 <button
-                    onClick={() => navigate('/login', { state: { backgroundLocation: location } })}
+                    onClick={() => navigate('/login', { state: { from: location } })}
                     className="bg-indigo-500 text-white px-6 py-2 rounded-full hover:bg-indigo-400 transition shadow-lg shadow-indigo-900/40"
                 >
                     Log In

@@ -5,6 +5,8 @@ export interface UserMenuProps {
     user?: {
         name: string;
         avatarUrl?: string;
+        is_premium?: boolean;
+        is_superuser?: boolean;
     };
     onLogout?: () => void;
     onSignIn?: () => void;
