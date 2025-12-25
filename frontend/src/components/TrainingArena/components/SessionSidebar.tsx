@@ -13,10 +13,11 @@ interface SessionSidebarProps {
         side: Side | null
     }
     movesPlayed: string[]
+    soundEnabled?: boolean
+    setSoundEnabled?: (enabled: boolean) => void
     onSelectOpening?: (openingId: string) => void
     onSelectVariation?: (variationId: string) => void
     onSwitchMode?: (mode: TrainingMode) => void
-    onToggleRepertoireOnly?: (enabled: boolean) => void
     onToggleWrongMoveMode?: (enabled: boolean) => void
     onChangeSideFilter?: (side: Side | null) => void
 }
@@ -41,9 +42,10 @@ export function SessionSidebar({
     currentVariationId,
     filters,
     movesPlayed,
+    soundEnabled,
+    setSoundEnabled,
     onSelectOpening,
     onSelectVariation,
-    onToggleRepertoireOnly,
     onToggleWrongMoveMode,
 }: SessionSidebarProps) {
     const currentOpening = openings.find(o => o.id === currentOpeningId)
@@ -51,6 +53,7 @@ export function SessionSidebar({
     const availableVariations = variations.filter(v => v.openingId === currentOpeningId)
 
     const [revealAll, setRevealAll] = useState(false)
+    const effectiveSoundEnabled = soundEnabled ?? true
 
     // Parse moves for display
     const parsedMoves = useMemo(() => currentVariation?.moves.split(' ') ?? [], [currentVariation?.moves])
@@ -77,7 +80,7 @@ export function SessionSidebar({
                         >
                             {openings.map(opening => (
                                 <option key={opening.id} value={opening.id}>
-                                    {opening.name}{opening.isPremium ? ' 🔒' : ''}
+                                    {opening.name}
                                 </option>
                             ))}
                         </select>
@@ -109,7 +112,7 @@ export function SessionSidebar({
                         >
                             {availableVariations.map(variation => (
                                 <option key={variation.id} value={variation.id}>
-                                    {variation.name}{variation.isPremium ? ' 🔒' : ''}{variation.isLocked ? ' ⛔' : ''}
+                                    {variation.name}
                                 </option>
                             ))}
                         </select>
@@ -166,44 +169,16 @@ export function SessionSidebar({
                     Filters
                 </label>
 
-                {/* Repertoire Only */}
-                <label className="flex items-center justify-between cursor-pointer group">
-                    <span className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                        Repertoire Only
-                    </span>
-                    <button
-                        onClick={() => onToggleRepertoireOnly?.(!filters.repertoireOnly)}
-                        role="switch"
-                        aria-checked={filters.repertoireOnly}
-                        aria-label="Repertoire Only"
-                        className={`
-                            relative w-11 h-6 rounded-full transition-colors duration-200
-                            ${filters.repertoireOnly
-                                ? 'bg-emerald-500'
-                                : 'bg-slate-300 dark:bg-slate-600'
-                            }
-                        `}
-                        type="button"
-                    >
-                        <div
-                            className={`
-                                absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200
-                                ${filters.repertoireOnly ? 'translate-x-6' : 'translate-x-1'}
-                            `}
-                        />
-                    </button>
-                </label>
-
                 {/* Wrong Move Mode */}
                 <label className="flex items-center justify-between cursor-pointer group">
                     <span className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                        Wrong Move Mode
+                        Manually undo wrong move
                     </span>
                     <button
                         onClick={() => onToggleWrongMoveMode?.(!filters.wrongMoveMode)}
                         role="switch"
                         aria-checked={filters.wrongMoveMode}
-                        aria-label="Wrong Move Mode"
+                        aria-label="Manually undo wrong move"
                         className={`
                             relative w-11 h-6 rounded-full transition-colors duration-200
                             ${filters.wrongMoveMode
@@ -217,6 +192,42 @@ export function SessionSidebar({
                             className={`
                                 absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200
                                 ${filters.wrongMoveMode ? 'translate-x-6' : 'translate-x-1'}
+                            `}
+                        />
+                    </button>
+                </label>
+
+                {/* Sound Effects */}
+                <label className="flex items-center justify-between cursor-pointer group">
+                    <span className="text-sm text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
+                        Sound Effects
+                    </span>
+                    <button
+                        onClick={() => {
+                            const next = !effectiveSoundEnabled
+                            setSoundEnabled?.(next)
+                            try {
+                                localStorage.setItem('sound', JSON.stringify(next))
+                            } catch {
+                                // ignore
+                            }
+                        }}
+                        role="switch"
+                        aria-checked={effectiveSoundEnabled}
+                        aria-label="Sound Effects"
+                        className={`
+                            relative w-11 h-6 rounded-full transition-colors duration-200
+                            ${effectiveSoundEnabled
+                                ? 'bg-emerald-500'
+                                : 'bg-slate-300 dark:bg-slate-600'
+                            }
+                        `}
+                        type="button"
+                    >
+                        <div
+                            className={`
+                                absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200
+                                ${effectiveSoundEnabled ? 'translate-x-6' : 'translate-x-1'}
                             `}
                         />
                     </button>

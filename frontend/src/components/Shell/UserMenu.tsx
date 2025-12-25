@@ -7,6 +7,7 @@ export interface UserMenuProps {
         avatarUrl?: string;
         is_premium?: boolean;
         is_superuser?: boolean;
+        one_move_current_streak?: number;
     };
     onLogout?: () => void;
     onSignIn?: () => void;

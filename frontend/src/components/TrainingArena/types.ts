@@ -102,6 +102,8 @@ export interface TrainingArenaProps {
     userStats: UserStats
     isGuest?: boolean
     isPremium?: boolean
+    soundEnabled?: boolean
+    setSoundEnabled?: (enabled: boolean) => void
 
     onStartSession?: (mode: TrainingMode, openingId?: string, variationId?: string) => void
     onPlayMove?: (move: string) => void

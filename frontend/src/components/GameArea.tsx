@@ -28,6 +28,9 @@ interface GameAreaProps {
     onMistake: (fen: string, wrongMove: string, correctMove: string) => void;
     mode: 'mistake' | 'sequence';
     locked?: boolean;
+    /** When true, wrong moves "stay" until the user reverts. When false, they snap back. */
+    wrongMoveMode?: boolean;
+    soundEnabled?: boolean;
     sessionTitle?: string;
     sessionType?: string;
     opening?: { slug: string; name: string };
@@ -62,6 +65,8 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
     onMistake,
     mode,
     locked = false,
+    wrongMoveMode: wrongMoveModeProp,
+    soundEnabled = true,
     sessionTitle,
     opening,
     openingOptions,
@@ -96,13 +101,20 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
     const [wrongMoveView, setWrongMoveView] = useState<{ fen: string; lastMove?: [string, string] } | null>(null);
     const [maxPlayedIndex, setMaxPlayedIndex] = useState(0);
     const [isMovesExpanded, setIsMovesExpanded] = useState(false);
-    const [wrongMoveMode, setWrongMoveMode] = useState<'snap' | 'stay'>(() => {
+    const [wrongMoveModeSetting, setWrongMoveModeSetting] = useState<'snap' | 'stay'>(() => {
+        if (typeof wrongMoveModeProp === 'boolean') return wrongMoveModeProp ? 'stay' : 'snap';
         const saved = typeof window !== 'undefined' ? localStorage.getItem('wrongMoveMode') : null;
-        return saved === 'stay' ? 'stay' : 'snap';
+        // Default: stay
+        return saved === 'snap' ? 'snap' : 'stay';
     });
     const [logRevealed, setLogRevealed] = useState(false);
     const [openingPickerOpen, setOpeningPickerOpen] = useState(false);
     const [linePickerOpen, setLinePickerOpen] = useState(false);
+
+    useEffect(() => {
+        if (typeof wrongMoveModeProp !== 'boolean') return;
+        setWrongMoveModeSetting(wrongMoveModeProp ? 'stay' : 'snap');
+    }, [wrongMoveModeProp]);
 
     // Audio sounds
     // NOTE: move.mp3, success.mp3, error.mp3, and capture.mp3
@@ -115,7 +127,7 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
     const playSound = (audio: HTMLAudioElement) => {
         try {
             audio.currentTime = 0;
-            audio.play().catch(e => console.warn("Audio play failed", e));
+            if (soundEnabled) audio.play().catch(e => console.warn("Audio play failed", e));
         } catch (e) {
             console.warn("Audio error", e);
         }
@@ -189,7 +201,7 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
         if (!containerRef.current) return;
 
         const isLocked = locked;
-        const isWrongMoveStay = wrongMoveView && wrongMoveMode === 'stay';
+        const isWrongMoveStay = wrongMoveView && wrongMoveModeSetting === 'stay';
 
         const config: Config = {
             fen: wrongMoveView ? wrongMoveView.fen : game.fen(),
@@ -258,7 +270,7 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
             groundRef.current.set(config);
         }
 
-    }, [game, orientation, locked, wrongMoveView, fitToViewport, isEmbedded]);
+    }, [game, orientation, locked, wrongMoveView, wrongMoveModeSetting, fitToViewport, isEmbedded]);
 
     useEffect(() => {
         if (moveIndex > maxPlayedIndex) {
@@ -349,7 +361,7 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
                     return;
                 }
 
-                if (wrongMoveMode === 'stay') {
+                if (wrongMoveModeSetting === 'stay') {
                     // Show wrong position and wait for user to revert
                     setWrongMoveView({
                         fen: gameCopy.fen(),
@@ -883,7 +895,7 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
                     >
                         <div ref={containerRef} className="w-full h-full block" />
 
-                        {wrongMoveView && wrongMoveMode === 'stay' && wrongMoveView.lastMove && (() => {
+                        {wrongMoveView && wrongMoveModeSetting === 'stay' && wrongMoveView.lastMove && (() => {
                             const targetSquare = wrongMoveView.lastMove[1];
                             const { x, y } = getSquareCoords(targetSquare, orientation);
                             return (
@@ -918,7 +930,7 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
             >
                 <div ref={containerRef} className="w-full h-full block" />
 
-                {wrongMoveView && wrongMoveMode === 'stay' && wrongMoveView.lastMove && (() => {
+                {wrongMoveView && wrongMoveModeSetting === 'stay' && wrongMoveView.lastMove && (() => {
                     const targetSquare = wrongMoveView.lastMove[1];
                     const { x, y } = getSquareCoords(targetSquare, orientation);
                     return (
@@ -988,7 +1000,7 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
                             />
 
                             {/* Wrong Move Indicator Overlay */}
-                            {wrongMoveView && wrongMoveMode === 'stay' && wrongMoveView.lastMove && (() => {
+                            {wrongMoveView && wrongMoveModeSetting === 'stay' && wrongMoveView.lastMove && (() => {
                                 const targetSquare = wrongMoveView.lastMove[1];
                                 const { x, y } = getSquareCoords(targetSquare, orientation);
                                 return (
@@ -1025,7 +1037,7 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
                             className="w-full h-full block"
                         />
                         {/* Wrong Move Indicator Overlay */}
-                        {wrongMoveView && wrongMoveMode === 'stay' && wrongMoveView.lastMove && (() => {
+                        {wrongMoveView && wrongMoveModeSetting === 'stay' && wrongMoveView.lastMove && (() => {
                             const targetSquare = wrongMoveView.lastMove[1];
                             const { x, y } = getSquareCoords(targetSquare, orientation);
                             return (
@@ -1058,7 +1070,7 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
                         {feedback === 'correct' && <span className="text-emerald-600 font-bold flex items-center gap-1.5 text-sm dark:text-emerald-300"><CheckCircle size={18} /> Correct!</span>}
                         {feedback === 'wrong' && <span className="text-rose-500 font-bold flex items-center gap-1.5 text-sm dark:text-rose-300"><XCircle size={18} /> Incorrect</span>}
                         {!feedback && <span className="text-slate-500 italic text-sm font-medium dark:text-slate-400">Make your move...</span>}
-                        {wrongMoveView && wrongMoveMode === 'stay' && (
+                        {wrongMoveView && wrongMoveModeSetting === 'stay' && (
                             <span className="px-2 py-0.5 bg-rose-100 text-rose-700 text-xs rounded font-semibold border border-rose-200 dark:bg-rose-500/20 dark:text-rose-200 dark:border-rose-400/30">Wrong move</span>
                         )}
                     </div>
@@ -1225,14 +1237,15 @@ export const GameArea = forwardRef<GameAreaHandle, GameAreaProps>(({
                         <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
                             <span className="font-semibold">Practice Mode</span>
                             <select
-                                value={wrongMoveMode}
+                                value={wrongMoveModeSetting}
                                 onChange={(e) => {
                                     const val = e.target.value === 'stay' ? 'stay' : 'snap';
-                                    setWrongMoveMode(val);
+                                    setWrongMoveModeSetting(val);
                                     if (typeof window !== 'undefined') {
                                         localStorage.setItem('wrongMoveMode', val);
                                     }
                                 }}
+                                disabled={typeof wrongMoveModeProp === 'boolean'}
                                 className="bg-white border border-slate-300 rounded px-2 py-1 text-xs cursor-pointer hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 text-slate-800 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
                             >
                                 <option value="snap">Snap back</option>

@@ -15,6 +15,8 @@ export function TrainingArena({
     userStats,
     isGuest = false,
     isPremium = false,
+    soundEnabled,
+    setSoundEnabled,
     sessionBoard,
     onPlayMove,
     onRequestHint,
@@ -93,6 +95,8 @@ export function TrainingArena({
                         isGuest={isGuest}
                         onSignUp={onSignUp}
                         board={sessionBoard}
+                        soundEnabled={soundEnabled}
+                        setSoundEnabled={setSoundEnabled}
                         onPlayMove={onPlayMove}
                         onRequestHint={onRequestHint}
                         onResetPosition={onResetPosition}

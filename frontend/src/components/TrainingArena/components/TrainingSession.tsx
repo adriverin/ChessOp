@@ -20,6 +20,8 @@ export interface TrainingSessionProps {
     board?: ReactNode
     /** For guest banner call-to-action. */
     onSignUp?: () => void
+    soundEnabled?: boolean
+    setSoundEnabled?: (enabled: boolean) => void
 
     // === Session Actions ===
     onPlayMove?: (move: string) => void
@@ -136,6 +138,8 @@ export function TrainingSession({
         isGuest = false,
         board,
         onSignUp,
+        soundEnabled,
+        setSoundEnabled,
         onRequestHint,
         onResetPosition,
         onStepBack,
@@ -145,7 +149,6 @@ export function TrainingSession({
         onSelectOpening,
         onSelectVariation,
         onSwitchMode,
-        onToggleRepertoireOnly,
         onToggleWrongMoveMode,
         onChangeSideFilter,
         successOverlay,
@@ -159,7 +162,7 @@ export function TrainingSession({
         if (!board) return null
         if (!isValidElement<any>(board)) return board
         if (typeof board.type === 'string') return board
-        return cloneElement(board, { fitToViewport: true } as any)
+        return cloneElement(board, { fitToViewport: true, wrongMoveMode: currentSession.filters.wrongMoveMode } as any)
     })()
 
     return (
@@ -220,10 +223,11 @@ export function TrainingSession({
                             mode={currentSession.mode}
                             filters={currentSession.filters}
                             movesPlayed={movesPlayed}
+                            soundEnabled={soundEnabled}
+                            setSoundEnabled={setSoundEnabled}
                             onSelectOpening={onSelectOpening}
                             onSelectVariation={onSelectVariation}
                             onSwitchMode={onSwitchMode}
-                            onToggleRepertoireOnly={onToggleRepertoireOnly}
                             onToggleWrongMoveMode={onToggleWrongMoveMode}
                             onChangeSideFilter={onChangeSideFilter}
                         />

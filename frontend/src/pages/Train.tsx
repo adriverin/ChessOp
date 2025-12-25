@@ -66,6 +66,8 @@ export const Train: React.FC = () => {
     const [pendingMistakeHintUsed, setPendingMistakeHintUsed] = useState(false);
     const gameAreaRef = useRef<GameAreaHandle | null>(null);
 
+    const [soundEnabled, setSoundEnabled] = useState(() => JSON.parse(localStorage.getItem('sound') || 'true'));
+
     useEffect(() => {
         if (location.pathname === '/training-arena') {
             setShowEntry(true);
@@ -89,6 +91,27 @@ export const Train: React.FC = () => {
     const ONE_MOVE_REPERTOIRE_ONLY_KEY = 'one_move_repertoire_only';
     const PREMIUM_LOCK_MESSAGE_KEY = 'premium_line_locked';
     const didInitRepertoireOnlyRef = useRef(false);
+
+    // Wrong-move mode (user-controlled; persisted). Default: true.
+    const [wrongMoveMode, setWrongMoveMode] = useState<boolean>(() => {
+        try {
+            const stored = localStorage.getItem('trainingArena.wrongMoveMode');
+            if (stored !== null) return stored === 'true';
+        } catch {
+            // ignore localStorage errors
+        }
+        return true;
+    });
+
+    useEffect(() => {
+        try {
+            localStorage.setItem('trainingArena.wrongMoveMode', String(wrongMoveMode));
+            // Legacy key used by GameArea for snap/stay semantics.
+            localStorage.setItem('wrongMoveMode', wrongMoveMode ? 'stay' : 'snap');
+        } catch {
+            // ignore
+        }
+    }, [wrongMoveMode]);
 
     // Repertoire-only checkbox (user-controlled; persisted)
     const [useRepertoireOnly, setUseRepertoireOnly] = useState<boolean>(() => {
@@ -939,6 +962,7 @@ export const Train: React.FC = () => {
                     setParam('repertoire_only', enabled ? 'true' : null);
                 }}
                 onToggleWrongMoveMode={(enabled) => {
+                    setWrongMoveMode(enabled);
                     try {
                         localStorage.setItem('wrongMoveMode', enabled ? 'stay' : 'snap');
                         localStorage.setItem('trainingArena.wrongMoveMode', enabled ? 'true' : 'false');
@@ -958,14 +982,6 @@ export const Train: React.FC = () => {
         : isOneMoveMode
             ? 'one-move-drill'
             : 'opening-training';
-
-    const wrongMoveModeEnabled = (() => {
-        try {
-            return localStorage.getItem('trainingArena.wrongMoveMode') === 'true';
-        } catch {
-            return false;
-        }
-    })();
 
     const openingsForArena = arenaOpenings.slice();
     const variationsForArena = arenaVariations.slice();
@@ -1076,7 +1092,7 @@ export const Train: React.FC = () => {
         startedAt: arenaStartedAt,
         filters: {
             repertoireOnly: useRepertoireOnly,
-            wrongMoveMode: wrongMoveModeEnabled,
+            wrongMoveMode,
             side: sideParam,
         },
     };
@@ -1090,6 +1106,7 @@ export const Train: React.FC = () => {
         <GameArea
             key={boardKey}
             ref={gameAreaRef}
+            soundEnabled={soundEnabled}
             mode={isOpeningDrillMode ? 'sequence' : (activeSession?.type === 'mistake' ? 'mistake' : 'sequence')}
             sessionTitle={
                 isOpeningDrillMode
@@ -1112,6 +1129,7 @@ export const Train: React.FC = () => {
             showInlineProgress={false}
             hideLog={true}
             isOneMoveMode={isOneMoveMode}
+            wrongMoveMode={wrongMoveMode}
             layout="embedded"
             fitToViewport={false}
             onRemainingMovesChange={handleRemainingMovesChange}
@@ -1130,6 +1148,8 @@ export const Train: React.FC = () => {
                 isGuest={isGuestUser}
                 isPremium={isPremiumUser}
                 sessionBoard={sessionBoard}
+                soundEnabled={soundEnabled}
+                setSoundEnabled={setSoundEnabled}
                 onRequestHint={handleArenaRequestHint}
                 onResetPosition={handleArenaResetPosition}
                 onStepBack={handleArenaStepBack}
@@ -1152,6 +1172,7 @@ export const Train: React.FC = () => {
                     setParam('repertoire_only', enabled ? 'true' : null);
                 }}
                 onToggleWrongMoveMode={(enabled) => {
+                    setWrongMoveMode(enabled);
                     try {
                         localStorage.setItem('wrongMoveMode', enabled ? 'stay' : 'snap');
                         localStorage.setItem('trainingArena.wrongMoveMode', enabled ? 'true' : 'false');

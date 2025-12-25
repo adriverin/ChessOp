@@ -225,6 +225,7 @@ function OpeningCard({
     onToggleRepertoire?: (openingId: string) => void
 }) {
     const [menuOpen, setMenuOpen] = useState(false)
+    const isLocked = progress.state === 'locked'
     const tone = stateTone(progress.state)
     const mastery = safePercent(progress.masteryPercent)
     const imageUrl = opening.imageUrl?.trim()
@@ -235,18 +236,24 @@ function OpeningCard({
             role="button"
             tabIndex={0}
             aria-label={opening.name}
+            aria-disabled={isLocked}
             onClick={() => {
                 setMenuOpen(false)
+                if (isLocked) return
                 onStartOpening?.(opening.id)
             }}
             onKeyDown={(event) => {
                 if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault()
                     setMenuOpen(false)
+                    if (isLocked) return
                     onStartOpening?.(opening.id)
                 }
             }}
-            className="group w-full rounded-2xl bg-white/70 dark:bg-slate-950/40 ring-1 ring-inset ring-slate-200/80 hover:ring-slate-300/80 dark:ring-slate-800 dark:hover:ring-slate-700 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400/40 dark:focus:ring-emerald-500/40 cursor-pointer"
+            className={cx(
+                "group w-full rounded-2xl bg-white/70 dark:bg-slate-950/40 ring-1 ring-inset ring-slate-200/80 hover:ring-slate-300/80 dark:ring-slate-800 dark:hover:ring-slate-700 shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-400/40 dark:focus:ring-emerald-500/40",
+                isLocked ? "opacity-60 grayscale cursor-not-allowed" : "cursor-pointer"
+            )}
         >
             <div className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
@@ -301,13 +308,18 @@ function OpeningCard({
                         <div className="relative">
                             <button
                                 type="button"
+                                disabled={isLocked}
                                 onClick={(event) => {
                                     event.stopPropagation()
+                                    if (isLocked) return
                                     setMenuOpen((prev) => !prev)
                                 }}
                                 aria-haspopup="menu"
                                 aria-expanded={menuOpen}
-                                className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100/70 hover:bg-slate-200/80 dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900 ring-1 ring-inset ring-slate-200/70 dark:ring-slate-700/60 transition-colors"
+                                className={cx(
+                                    "inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100/70 hover:bg-slate-200/80 dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-900 ring-1 ring-inset ring-slate-200/70 dark:ring-slate-700/60 transition-colors",
+                                    isLocked && "opacity-60 cursor-not-allowed hover:bg-slate-100/70 hover:text-slate-600 dark:hover:bg-slate-900/50"
+                                )}
                             >
                                 Variations
                                 <ChevronDown
@@ -317,7 +329,7 @@ function OpeningCard({
                                     )}
                                 />
                             </button>
-                            {menuOpen && (
+                            {menuOpen && !isLocked && (
                                 <div
                                     role="menu"
                                     onClick={(event) => event.stopPropagation()}
@@ -336,6 +348,7 @@ function OpeningCard({
                                                     role="menuitem"
                                                     onClick={(event) => {
                                                         event.stopPropagation()
+                                                        if (isLocked) return
                                                         onStartVariation?.(opening.id, variation.id)
                                                         setMenuOpen(false)
                                                     }}
